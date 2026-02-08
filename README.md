@@ -8,7 +8,7 @@ Savannah L. Ferretti<sup>1</sup>, Tom Beucler<sup>2,3</sup>,  Sara Shamekh<sup>4
 <sup>3</sup>Expertise Center for Climate Extremes, University of Lausanne, Lausanne, VD, CH  
 <sup>4</sup>Courant Institute for Mathematical Science, New York University, New York, NY, USA  
 <sup>5</sup>NVIDIA Corporation, Santa Clara, CA, USA  
-<sup>6/sup>Lamont-Doherty Earth Observatory, Palisades, NY, USA  
+<sup>6</sup>Lamont-Doherty Earth Observatory, Palisades, NY, USA  
 
 **Status:** This manuscript is currently in preparation. We welcome any comments, questions, or suggestions. Please email your feedback to Savannah Ferretti (savannah.ferretti@uci.edu).
 
