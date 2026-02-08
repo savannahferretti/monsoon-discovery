@@ -1,29 +1,25 @@
 #!/usr/bin/env python
 
-import json
 import numpy as np
 
 class PODModel:
-    
-    def __init__(self,mode,alphapooled=None,blcritpooled=None,alphaland=None,blcritland=None,alphaocean=None,blcritocean=None):
+
+    def __init__(self,mode,landthresh=0.5,alphapooled=None,blcritpooled=None,alphaland=None,blcritland=None,alphaocean=None,blcritocean=None):
         '''
-        Purpose: Initialize a ramp-based POD model for precipitation prediction using Eq. 8 from Ahmed F., Adames Á.F., & 
+        Purpose: Initialize a ramp-based POD model for precipitation prediction using Eq. 8 from Ahmed F., Adames A.F., &
         Neelin J.D. (2020), J. Atmos. Sci.
-        Args: 
+        Args:
         - mode (str): 'pooled' (single ramp) | 'regional' (separate land/ocean ramps)
+        - landthresh (float): threshold for land/ocean classification (defaults to 0.5)
         - alphapooled (float): slope for pooled mode (optional)
         - blcritpooled (float): critical BL for pooled mode (optional)
         - alphaland (float): slope for land in regional mode (optional)
         - blcritland (float): critical BL for land in regional mode (optional)
         - alphaocean (float): slope for ocean in regional mode (optional)
         - blcritocean (float): critical BL for ocean in regional mode (optional)
-        Returns:
-        - None
         '''
-        with open('configs.json','r',encoding='utf8') as f:
-            configs = json.load(f)
         self.mode         = str(mode)
-        self.landthresh   = float(configs['dataparams']['landthresh'])
+        self.landthresh   = float(landthresh)
         self.alphapooled  = alphapooled
         self.blcritpooled = blcritpooled
         self.alphaland    = alphaland
@@ -34,7 +30,7 @@ class PODModel:
 
     def forward(self,x,lf=None):
         '''
-        Purpose: Forward pass through the POD ramp. 
+        Purpose: Forward pass through the POD ramp.
         Args:
         - x (xr.DataArray): input 3D BL DataArray
         - lf (xr.DataArray): land fraction for routing in 'regional' mode (same shape as 'x')

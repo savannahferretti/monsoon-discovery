@@ -51,13 +51,12 @@ class Trainer:
             logger.info('   Compiling model with torch.compile...')
             self.model = torch.compile(self.model)
 
-    def save_checkpoint(self,name,state,kind):
+    def save_checkpoint(self,name,state):
         '''
         Purpose: Save best model checkpoint and verify by reopening.
         Args:
         - name (str): model name
         - state (dict): model state_dict to save
-        - kind (str): baseline, nonparametric, or parametric
         Returns:
         - bool: True if save successful, False otherwise
         '''
@@ -74,34 +73,40 @@ class Trainer:
             logger.exception('         Failed to save or verify')
             return False
 
-    def train_epoch(self,uselocal,haskernel):
+    def _forward(self,batch,haskernel):
+        '''
+        Purpose: Run a forward pass on a batch, dispatching to baseline or kernel model interface.
+        Args:
+        - batch (dict): batch dictionary with keys 'fields', 'lf', 'target', and optionally 'dlev'
+        - haskernel (bool): whether model has integration kernel
+        Returns:
+        - tuple[torch.Tensor, torch.Tensor]: (predictions, targets)
+        '''
+        fields = batch['fields'].to(self.device,non_blocking=True)
+        lf     = batch['lf'].to(self.device,non_blocking=True)
+        target = batch['target'].to(self.device,non_blocking=True)
+        if haskernel:
+            dlev   = batch['dlev'].to(self.device,non_blocking=True)
+            output = self.model(fields,dlev,lf)
+        else:
+            output = self.model(fields,lf)
+        return output,target
+
+    def train_epoch(self,haskernel):
         '''
         Purpose: Execute one training epoch with gradient accumulation and mixed precision.
         Args:
-        - uselocal (bool): whether to use local inputs
         - haskernel (bool): whether model has integration kernel
         Returns:
         - float: average training loss for the epoch
         '''
         self.model.train()
         self.optimizer.zero_grad()
-        totalloss  = 0.0
+        totalloss = 0.0
         for idx,batch in enumerate(self.trainloader):
-            computestart = time.time()
-            fieldpatch   = batch['fieldpatch'].to(self.device,non_blocking=True)
-            localvalues  = batch['localvalues'].to(self.device,non_blocking=True) if uselocal else None
-            targetvalues = batch['targetvalues'].to(self.device,non_blocking=True)
-            if haskernel:
-                dareapatch = batch['dareapatch'].to(self.device,non_blocking=True)
-                dlevpatch  = batch['dlevpatch'].to(self.device,non_blocking=True)
-                dtimepatch = batch['dtimepatch'].to(self.device,non_blocking=True)
-                dlevfull   = batch['dlevfull'].to(self.device,non_blocking=True)
             if self.useamp:
                 with autocast('cuda',enabled=self.useamp):
-                    if haskernel:
-                        outputvalues = self.model(fieldpatch,dareapatch,dlevpatch,dtimepatch,dlevfull,localvalues)
-                    else:
-                        outputvalues = self.model(fieldpatch,localvalues)
+                    outputvalues,targetvalues = self._forward(batch,haskernel)
                     loss = self.criterion(outputvalues,targetvalues)
                     loss = loss/self.accumsteps
                 self.scaler.scale(loss).backward()
@@ -110,10 +115,7 @@ class Trainer:
                     self.scaler.update()
                     self.optimizer.zero_grad()
             else:
-                if haskernel:
-                    outputvalues = self.model(fieldpatch,dareapatch,dlevpatch,dtimepatch,dlevfull,localvalues)
-                else:
-                    outputvalues = self.model(fieldpatch,localvalues)
+                outputvalues,targetvalues = self._forward(batch,haskernel)
                 loss = self.criterion(outputvalues,targetvalues)
                 loss = loss/self.accumsteps
                 loss.backward()
@@ -124,11 +126,10 @@ class Trainer:
         avgloss = (totalloss/len(self.trainloader.dataset)).item()
         return avgloss
 
-    def validate_epoch(self,uselocal,haskernel):
+    def validate_epoch(self,haskernel):
         '''
         Purpose: Execute one validation epoch.
         Args:
-        - uselocal (bool): whether to use local inputs
         - haskernel (bool): whether model has integration kernel
         Returns:
         - float: average validation loss for the epoch
@@ -137,37 +138,21 @@ class Trainer:
         self.model.eval()
         with torch.no_grad():
             for batch in self.validloader:
-                fieldpatch   = batch['fieldpatch'].to(self.device,non_blocking=True)
-                localvalues  = batch['localvalues'].to(self.device,non_blocking=True) if uselocal else None
-                targetvalues = batch['targetvalues'].to(self.device,non_blocking=True)
-                if haskernel:
-                    dareapatch = batch['dareapatch'].to(self.device,non_blocking=True)
-                    dlevpatch  = batch['dlevpatch'].to(self.device,non_blocking=True)
-                    dtimepatch = batch['dtimepatch'].to(self.device,non_blocking=True)
-                    dlevfull   = batch['dlevfull'].to(self.device,non_blocking=True)
                 if self.useamp:
                     with autocast('cuda',enabled=self.useamp):
-                        if haskernel:
-                            outputvalues = self.model(fieldpatch,dareapatch,dlevpatch,dtimepatch,dlevfull,localvalues)
-                        else:
-                            outputvalues = self.model(fieldpatch,localvalues)
+                        outputvalues,targetvalues = self._forward(batch,haskernel)
                         loss = self.criterion(outputvalues,targetvalues)
                 else:
-                    if haskernel:
-                        outputvalues = self.model(fieldpatch,dareapatch,dlevpatch,dtimepatch,dlevfull,localvalues)
-                    else:
-                        outputvalues = self.model(fieldpatch,localvalues)
+                    outputvalues,targetvalues = self._forward(batch,haskernel)
                     loss = self.criterion(outputvalues,targetvalues)
                 totalloss += loss.detach()*targetvalues.numel()
         return (totalloss/len(self.validloader.dataset)).item()
 
-    def fit(self,name,kind,uselocal):
+    def fit(self,name):
         '''
         Purpose: Train model with early stopping and learning rate scheduling.
         Args:
         - name (str): model name
-        - kind (str): baseline, nonparametric, or parametric
-        - uselocal (bool): whether to use local inputs
         '''
         haskernel = hasattr(self.model,'kernel')
         wandb.init(
@@ -191,8 +176,8 @@ class Trainer:
         noimprove = 0
         starttime = time.time()
         for epoch in range(1,self.epochs+1):
-            trainloss  = self.train_epoch(uselocal,haskernel)
-            validloss  = self.validate_epoch(uselocal,haskernel)
+            trainloss = self.train_epoch(haskernel)
+            validloss = self.validate_epoch(haskernel)
             self.scheduler.step(validloss)
             if validloss<bestloss:
                 beststate = {key:value.detach().cpu().clone() for key,value in self.model.state_dict().items()}
@@ -213,5 +198,5 @@ class Trainer:
         wandb.run.summary.update({'Best validation loss':bestloss})
         logger.info(f'   Training completed in {duration/60:.1f} minutes!')
         if beststate is not None:
-            self.save_checkpoint(name,beststate,kind)
+            self.save_checkpoint(name,beststate)
         wandb.finish()

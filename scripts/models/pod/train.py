@@ -1,76 +1,55 @@
 #!/usr/bin/env python
 
 import os
-import json
 import logging
 import warnings
 import numpy as np
 import xarray as xr
-from model import PODModel
+from scripts.utils import Config
+from scripts.models.pod.model import PODModel
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
-with open('configs.json','r',encoding='utf8') as f:
-    CONFIGS  = json.load(f)
-FILEDIR       = CONFIGS['paths']['filedir']
-MODELDIR      = CONFIGS['paths']['modeldir']
-INPUTVAR      = CONFIGS['dataparams']['inputvar']
-TARGETVAR     = CONFIGS['dataparams']['targetvar']
-LANDVAR       = CONFIGS['dataparams']['landvar']
-LANDTHRESH    = CONFIGS['dataparams']['landthresh']
-BINMIN        = CONFIGS['fitparams']['binmin']
-BINMAX        = CONFIGS['fitparams']['binmax']
-BINWIDTH      = CONFIGS['fitparams']['binwidth']
-SAMPLETHRESH  = CONFIGS['fitparams']['samplethresh']
-PRMIN         = CONFIGS['fitparams']['prmin']
-PRMAX         = CONFIGS['fitparams']['prmax']
-RUNCONFIGS    = CONFIGS['runs']
-
-def load(inputvar=INPUTVAR,targetvar=TARGETVAR,landvar=LANDVAR,filedir=FILEDIR):
+def load(splitsdir):
     '''
-    Purpose: Load in training and validation data splits, which we combine for training.
+    Purpose: Load regular (non-normalized) training and validation data splits combined for POD fitting.
     Args:
-    - inputvar (str): input variable name (defaults to INPUTVAR)
-    - targetvar (str): target variable name (defaults to TARGETVAR)
-    - landvar (str): land fraction variable name (defaults to LANDVAR)
-    - filedir (str): directory containing split files (defaults to FILEDIR)
+    - splitsdir (str): directory containing split files
     Returns:
-    - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: 3D BL/precipitation/land fraction DataArrays for training
+    - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: BL/precipitation/land fraction DataArrays
     '''
     dslist = []
     for splitname in ('train','valid'):
-        filename = f'{splitname}.h5'
-        filepath = os.path.join(filedir,filename)
-        ds = xr.open_dataset(filepath,engine='h5netcdf')[[inputvar,targetvar,landvar]]
+        filepath = os.path.join(splitsdir,f'{splitname}.h5')
+        ds = xr.open_dataset(filepath,engine='h5netcdf')[['bl','pr','lf']]
         dslist.append(ds)
     trainds = xr.concat(dslist,dim='time')
-    x  = trainds[inputvar].load()
-    y  = trainds[targetvar].load()
-    lf = trainds[landvar].load()
-    return x,y,lf
+    bl = trainds['bl'].load()
+    pr = trainds['pr'].load()
+    lf = trainds['lf'].load()
+    return bl,pr,lf
 
-def fit(mode,x,y,lf,landthresh=LANDTHRESH,binmin=BINMIN,binmax=BINMAX,binwidth=BINWIDTH,samplethresh=SAMPLETHRESH,prmin=PRMIN,prmax=PRMAX):
+def fit(mode,bl,pr,lf,landthresh,bins,fitparams):
     '''
     Purpose: Fit POD ramp model(s) to training data and return model with diagnostic data.
     Args:
     - mode (str): 'pooled' (single ramp) | 'regional' (separate land/ocean ramps)
-    - x (xr.DataArray): input BL data
-    - y (xr.DataArray): target precipitation data
+    - bl (xr.DataArray): input BL data
+    - pr (xr.DataArray): target precipitation data
     - lf (xr.DataArray): land fraction data
-    - landthresh (float): threshold for land/ocean classification (defaults to LANDTHRESH)
-    - binmin (float): minimum bin edge (defaults to BINMIN)
-    - binmax (float): maximum bin edge (defaults to BINMAX)
-    - binwidth (float): bin width (defaults to BINWIDTH)
-    - samplethresh (int): minimum samples per bin (defaults to SAMPLETHRESH)
-    - prmin (float): minimum precipitation for linear fit (defaults to PRMIN)
-    - prmax (float): maximum precipitation for linear fit (defaults to PRMAX)
+    - landthresh (float): threshold for land/ocean classification
+    - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
+    - fitparams (dict): fit parameters with keys 'prmin', 'prmax'
     Returns:
     - tuple[PODModel,dict]: trained model instance and diagnostics dictionary with binning data
-    '''    
-    binedges   = np.arange(binmin,binmax+binwidth,binwidth)
+    '''
+    binedges   = np.arange(bins['min'],bins['max']+bins['width'],bins['width'])
     bincenters = 0.5*(binedges[:-1]+binedges[1:])
+    samplethresh = bins['minsample']
+    prmin = fitparams['prmin']
+    prmax = fitparams['prmax']
     def ramp(x,y):
         binidxs = np.digitize(x,binedges)-1
         inrange = (binidxs>=0)&(binidxs<bincenters.size)
@@ -82,13 +61,13 @@ def fit(mode,x,y,lf,landthresh=LANDTHRESH,binmin=BINMIN,binmax=BINMAX,binwidth=B
         fitrange = np.isfinite(ymeans)&(ymeans>=prmin)&(ymeans<=prmax)
         alpha,intercept = np.polyfit(bincenters[fitrange],ymeans[fitrange],1)
         blcrit = -intercept/alpha
-        return float(alpha),float(blcrit),ymeans,fitrange    
-    xflat = x.values.ravel()
-    yflat = y.values.ravel()
+        return float(alpha),float(blcrit),ymeans,fitrange
+    xflat = bl.values.ravel()
+    yflat = pr.values.ravel()
     if mode=='pooled':
         finite  = np.isfinite(xflat)&np.isfinite(yflat)
         results = ramp(xflat[finite],yflat[finite])
-        model   = PODModel(mode='pooled',alphapooled=results[0],blcritpooled=results[1])
+        model   = PODModel(mode='pooled',landthresh=landthresh,alphapooled=results[0],blcritpooled=results[1])
         diagnostics = {
             'bincenters':bincenters,
             'ymeanpooled':results[2],
@@ -101,7 +80,7 @@ def fit(mode,x,y,lf,landthresh=LANDTHRESH,binmin=BINMIN,binmax=BINMAX,binwidth=B
         ocean  = finite&(lfflat<landthresh)
         landresults  = ramp(xflat[land],yflat[land])
         oceanresults = ramp(xflat[ocean],yflat[ocean])
-        model        = PODModel(mode='regional',alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
+        model        = PODModel(mode='regional',landthresh=landthresh,alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
         diagnostics = {
             'bincenters':bincenters,
             'ymeanland':landresults[2],
@@ -110,14 +89,14 @@ def fit(mode,x,y,lf,landthresh=LANDTHRESH,binmin=BINMIN,binmax=BINMAX,binwidth=B
             'fitrangeocean':oceanresults[3]}
         return model,diagnostics
 
-def save(model,diagnostics,runname,modeldir=MODELDIR):
+def save(model,diagnostics,runname,modeldir):
     '''
-    Purpose: Save trained model parameters/configuration and diagnostic data to a .npz file in the specified directory, then verify the write by reopening.
+    Purpose: Save trained model parameters/configuration and diagnostic data to a .npz file, then verify.
     Args:
     - model (PODModel): trained model instance
     - diagnostics (dict): dictionary containing binning and fitting diagnostic data
     - runname (str): model run name
-    - modeldir (str): output directory (defaults to MODELDIR)
+    - modeldir (str): output directory
     Returns:
     - bool: True if write and verification succeed, otherwise False
     '''
@@ -157,14 +136,15 @@ def save(model,diagnostics,runname,modeldir=MODELDIR):
         return False
 
 if __name__=='__main__':
-    logger.info('Loading training + validation data splits combined...')
-    x,y,lf = load()
+    config    = Config()
+    pod       = config.pod
+    modeldir  = os.path.join(config.modelsdir,'pod')
+    logger.info('Loading regular training + validation data splits combined...')
+    bl,pr,lf = load(config.splitsdir)
     logger.info('Training and saving ramp-fit POD models...')
-    for run in RUNCONFIGS:
-        runname     = run['run_name']
-        mode        = run['mode']
-        description = run['description']
-        logger.info(f'   Training {description}')
-        model,diagnostics = fit(mode,x,y,lf)
-        save(model,diagnostics,runname)
+    for runname,runconfig in pod['runs'].items():
+        mode = runconfig['mode']
+        logger.info(f'   Training `{runname}` ({mode})...')
+        model,diagnostics = fit(mode,bl,pr,lf,pod['landthresh'],pod['bins'],pod['fit'])
+        save(model,diagnostics,runname,modeldir)
         del model,diagnostics

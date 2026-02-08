@@ -20,11 +20,10 @@ class Inferencer:
         self.dataloader = dataloader
         self.device     = device
 
-    def predict(self,uselocal,haskernel):
+    def predict(self,haskernel):
         '''
         Purpose: Generate predictions for all samples in the dataloader.
         Args:
-        - uselocal (bool): whether to use local inputs
         - haskernel (bool): whether model has integration kernel
         Returns:
         - np.ndarray: predictions array with shape (nsamples,)
@@ -33,16 +32,13 @@ class Inferencer:
         predslist = []
         with torch.no_grad():
             for batch in self.dataloader:
-                fieldpatch  = batch['fieldpatch'].to(self.device,non_blocking=True)
-                localvalues = batch['localvalues'].to(self.device,non_blocking=True) if uselocal else None
+                fields = batch['fields'].to(self.device,non_blocking=True)
+                lf     = batch['lf'].to(self.device,non_blocking=True)
                 if haskernel:
-                    dareapatch = batch['dareapatch'].to(self.device,non_blocking=True)
-                    dlevpatch  = batch['dlevpatch'].to(self.device,non_blocking=True)
-                    dtimepatch = batch['dtimepatch'].to(self.device,non_blocking=True)
-                    dlevfull   = batch['dlevfull'].to(self.device,non_blocking=True)
-                    output     = self.model(fieldpatch,dareapatch,dlevpatch,dtimepatch,dlevfull,localvalues)
+                    dlev   = batch['dlev'].to(self.device,non_blocking=True)
+                    output = self.model(fields,dlev,lf)
                 else:
-                    output     = self.model(fieldpatch,localvalues)
+                    output = self.model(fields,lf)
                 predslist.append(output.detach().cpu().numpy())
         return np.concatenate(predslist,axis=0).astype(np.float32)
 
@@ -52,7 +48,7 @@ class Inferencer:
         Args:
         - nonparam (bool): whether the kernel is non-parametric
         Returns:
-        - list[np.ndarray]: list of component weight arrays (length 1 for single-component, 2 for mixture)
+        - list[np.ndarray]: list of component weight arrays; each has shape (nfieldvars, nlevs)
         '''
         if self.model.kernel.norm is None:
             raise RuntimeError('`model.kernel.norm` was not populated during forward pass')
@@ -62,10 +58,8 @@ class Inferencer:
         if hasattr(self.model.kernel,'get_weights'):
             batch = next(iter(self.dataloader))
             with torch.no_grad():
-                dareapatch = batch['dareapatch'].to(self.device,non_blocking=True)
-                dlevfull   = batch['dlevfull'].to(self.device,non_blocking=True)
-                dtimepatch = batch['dtimepatch'].to(self.device,non_blocking=True)
-                self.model.kernel.get_weights(dareapatch,dlevfull,dtimepatch,self.device,decompose=True)
+                dlev = batch['dlev'].to(self.device,non_blocking=True)
+                self.model.kernel.get_weights(dlev,self.device,decompose=True)
             if self.model.kernel.components is not None:
                 components = self.model.kernel.components.detach().cpu().numpy().astype(np.float32)
                 return [components[i] for i in range(components.shape[0])]

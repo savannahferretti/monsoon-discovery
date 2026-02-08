@@ -1,7 +1,7 @@
 {
   "filepaths":{
     "raw":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/raw",
-    "interim":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/interim", 
+    "interim":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/interim",
     "splits":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/splits",
     "predictions":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/predictions",
     "features":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/features",
@@ -12,7 +12,7 @@
     "author":"Savannah L. Ferretti",
     "email":"savannah.ferretti@uci.edu"
   },
-  "domain": {
+  "domain":{
     "latrange":[5.0,25.0],
     "lonrange":[60.0,90.0],
     "levrange":[500.0,1000.0],
@@ -29,77 +29,55 @@
     "local":["lf","lhf","shf"],
     "target":"pr"
   },
-  "training":{
-    "projectname":"Chapter 3 Experiments",
-    "seeds":[42,72,102],
-    "workers":8,
-    "epochs":20,
-    "batchsize":500,
-    "learningrate":0.0005,
-    "patience":4,
-    "criterion":"MSELoss"
-  },
-  "models":[
-    {"name":"baseline_nonlocal",
-        "kind":"baseline",
-        "description":"($\\mathbf{x}$, $\\mathit{p}$, $\\mathit{t}$)",
-        "patch":{"radius":1,"levmode":"column","timelag":6},
-        "uselocal":true},
-    {"name":"baseline_nonlocal_vertical",
-        "kind":"baseline",
-        "description":"($\\mathbf{x}_0$, $\\mathit{p}$, $\\mathit{t}_0$)",
-        "patch":{"radius":0,"levmode":"column","timelag":0},
-        "uselocal":true},
-   {"name":"baseline_nonlocal_horizontal",
-        "kind":"baseline",
-        "description":"($\\mathbf{x}$, $\\mathit{p}_0$, $\\mathit{t}_0$)",
-        "patch":{"radius":1,"levmode":"surface","timelag":0},
-        "uselocal":true},
-   {"name":"baseline_nonlocal_temporal",
-        "kind":"baseline",
-        "description":"($\\mathbf{x}_0$, $\\mathit{p}_0$, $\\mathit{t}$)",
-        "patch":{"radius":0,"levmode":"surface","timelag":6},
-        "uselocal":true},
-    {"name":"baseline_local",
-        "kind":"baseline",
-        "description":"($\\mathbf{x}_0$, $\\mathit{p}_0$, $\\mathit{t}_0$)",
-        "patch":{"radius":0,"levmode":"surface","timelag":0},
-        "uselocal":true},
-    {"name":"kernel_nonparametric_vertical",
-         "kind":"nonparametric",
-         "description":"($\\mathbf{x}_0$, $\\mathit{p}^\\mathit{k}$, $\\mathit{t}_0$)",
-         "patch":{"radius":0,"levmode":"column","timelag":0},
-         "uselocal":true,
-         "kerneldims":["lev"]},
-    {"name":"kernel_gaussian_vertical",
-         "kind":"parametric",
-         "description":"($\\mathbf{x}_0$, $\\mathit{p}^\\mathrm{G}$, $\\mathit{t}_0$)",
-         "patch":{"radius":0,"levmode":"column","timelag":0},
-         "uselocal":true,
-         "kerneldict":{"lev":"gaussian"}},
-    {"name":"kernel_exponential_vertical",
-         "kind":"parametric",
-         "description":"($\\mathbf{x}_0$, $\\mathit{p}^\\mathrm{EXP}$, $\\mathit{t}_0$)",
-         "patch":{"radius":0,"levmode":"column","timelag":0},
-         "uselocal":true,
-         "kerneldict":{"lev":"exponential"}},
-    {"name":"kernel_tophat_vertical",
-         "kind":"parametric",
-         "description":"($\\mathbf{x}_0$, $\\mathit{p}^\\mathrm{TH}$, $\\mathit{t}_0$)",
-         "patch":{"radius":0,"levmode":"column","timelag":0},
-         "uselocal":true,
-         "kerneldict":{"lev":"tophat"}},
-    {"name":"kernel_mixgaussian_vertical",
-         "kind":"parametric",
-         "description":"($\\mathbf{x}_0$, $\\mathit{p}^\\mathrm{MG}$, $\\mathit{t}_0$)",
-         "patch":{"radius":0,"levmode":"column","timelag":0},
-         "uselocal":true,
-         "kerneldict":{"lev":"mixgaussian"}},
-    {"name":"kernel_mixparametric_vertical",
-         "kind":"parametric",
-         "description":"($\\mathbf{x}_0$, $\\mathit{p}^\\mathrm{MIX}$, $\\mathit{t}_0$)",
-         "patch":{"radius":0,"levmode":"column","timelag":0},
-         "uselocal":true,
-         "kerneldict":{"lev":["mixgaussian","exponential","mixgaussian"]}}
-  ]
+  "experiments":{
+    "pod":{
+      "bins":{"min":-0.6,"max":0.1,"width":0.001,"minsample":50},
+      "fit":{"prmin":1.0,"prmax":5.0},
+      "landthresh":0.5,
+      "runs":{
+        "pooled":  {"mode":"pooled"},
+        "regional":{"mode":"regional"}
+      }
+    },
+    "nn":{
+      "projectname":"Chapter 3 Experiments",
+      "seeds":[42,72,102],
+      "workers":8,
+      "epochs":20,
+      "batchsize":500,
+      "learningrate":0.0005,
+      "patience":4,
+      "criterion":"MSELoss",
+      "runs":{
+        "bl-baseline":             {"kind":"baseline",      "fieldvars":["bl"]},
+        "cape-baseline":           {"kind":"baseline",      "fieldvars":["cape","subsat"]},
+        "thetaeprime-baseline":    {"kind":"baseline",      "fieldvars":["thetaeprime"]},
+        "thetaeprime-nonparam":    {"kind":"nonparametric", "fieldvars":["thetaeprime"]},
+        "thetaeprime-param":       {"kind":"parametric",    "fieldvars":["thetaeprime"],    "kernel":"gaussian"},
+        "thetaeplus-baseline":     {"kind":"baseline",      "fieldvars":["thetaeplus"]},
+        "thetaeplus-nonparam":     {"kind":"nonparametric", "fieldvars":["thetaeplus"]},
+        "thetaeplus-param":        {"kind":"parametric",    "fieldvars":["thetaeplus"],     "kernel":"gaussian"},
+        "thetaecombined-baseline": {"kind":"baseline",      "fieldvars":["thetaeprime","thetaeplus"]},
+        "thetaecombined-nonparam": {"kind":"nonparametric", "fieldvars":["thetaeprime","thetaeplus"]},
+        "thetaecombined-param":    {"kind":"parametric",    "fieldvars":["thetaeprime","thetaeplus"],"kernel":"gaussian"},
+        "tq-baseline":             {"kind":"baseline",      "fieldvars":["t","q"]},
+        "tq-nonparam":             {"kind":"nonparametric", "fieldvars":["t","q"]},
+        "tq-param":                {"kind":"parametric",    "fieldvars":["t","q"],          "kernel":"gaussian"}
+      }
+    },
+    "sr":{
+      "runs":{
+        "bl-sr":                     {"fieldvars":["bl"]},
+        "cape-sr":                   {"fieldvars":["cape","subsat"]},
+        "thetaeprime-nonparam-sr":   {"fieldvars":["thetaeprime"],              "features_from":"thetaeprime-nonparam"},
+        "thetaeprime-param-sr":      {"fieldvars":["thetaeprime"],              "features_from":"thetaeprime-param"},
+        "thetaeplus-nonparam-sr":    {"fieldvars":["thetaeplus"],               "features_from":"thetaeplus-nonparam"},
+        "thetaeplus-param-sr":       {"fieldvars":["thetaeplus"],               "features_from":"thetaeplus-param"},
+        "thetaecombined-nonparam-sr":{"fieldvars":["thetaeprime","thetaeplus"], "features_from":"thetaecombined-nonparam"},
+        "thetaecombined-param-sr":   {"fieldvars":["thetaeprime","thetaeplus"], "features_from":"thetaecombined-param"},
+        "tq-nonparam-sr":            {"fieldvars":["t","q"],                    "features_from":"tq-nonparam"},
+        "tq-param-sr":               {"fieldvars":["t","q"],                    "features_from":"tq-param"}
+      }
+    }
+  }
 }
