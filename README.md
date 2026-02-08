@@ -1,7 +1,7 @@
 Data-Driven Discovery of Thermodynamic Controls on South Asian Monsoon Precipitation
 ------------
 
-Savannah L. Ferretti<sup>1</sup>, Tom Beucler<sup>2,3</sup>,  Sara Shamekh<sup>4</sup>, Michael S. Pritchard<sup>5/sup>, & Jane W. Baldwin<sup>1,6</sup>
+Savannah L. Ferretti<sup>1</sup>, Tom Beucler<sup>2,3</sup>,  Sara Shamekh<sup>4</sup>, Michael S. Pritchard<sup>5</sup>, & Jane W. Baldwin<sup>1,6</sup>
 
 <sup>1</sup>Department of Earth System Science, University of California Irvine, Irvine, CA, USA  
 <sup>2</sup>Faculty of Geosciences and Environment, University of Lausanne, Lausanne, VD, CH  
