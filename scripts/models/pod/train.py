@@ -25,10 +25,10 @@ def load(splitsdir):
         filepath = os.path.join(splitsdir,f'{splitname}.h5')
         ds = xr.open_dataset(filepath,engine='h5netcdf')[['bl','pr','lf']]
         dslist.append(ds)
+    lf = dslist[0]['lf'].load()
     trainds = xr.concat(dslist,dim='time')
     bl = trainds['bl'].load()
     pr = trainds['pr'].load()
-    lf = trainds['lf'].load()
     return bl,pr,lf
 
 def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
@@ -74,7 +74,8 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
             'fitrange':results[3]}
         return model,diagnostics
     else:
-        lfflat = np.broadcast_to(lf.values[np.newaxis,...],bl.shape).ravel()
+        lfvals = lf.values if lf.values.ndim==bl.values.ndim else lf.values[...,np.newaxis]
+        lfflat = np.broadcast_to(lfvals,bl.shape).ravel()
         finite = np.isfinite(xflat)&np.isfinite(yflat)&np.isfinite(lfflat)
         land   = finite&(lfflat>=landthresh)
         ocean  = finite&(lfflat<landthresh)

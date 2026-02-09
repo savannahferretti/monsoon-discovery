@@ -43,7 +43,8 @@ class RampPOD:
         if not self.withlf:
             ypred[finite] = self.alpha*np.maximum(0.0,xflat[finite]-self.blcrit).astype(np.float32)
         else:
-            lfflat = np.broadcast_to(lf.values[np.newaxis,...],bl.shape).ravel()
+            lfvals = lf.values if lf.values.ndim==x.values.ndim else lf.values[...,np.newaxis]
+            lfflat = np.broadcast_to(lfvals,x.shape).ravel()
             land   = (lfflat[finite]>=self.landthresh)
             ypredland     = self.alphaland*np.maximum(0.0,xflat[finite]-self.blcritland)
             ypredocean    = self.alphaocean*np.maximum(0.0,xflat[finite]-self.blcritocean)
