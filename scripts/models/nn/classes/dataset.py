@@ -49,12 +49,12 @@ def load_split(splitname,fieldvars,splitsdir):
     - fieldvars (list[str]): predictor field variable names from run config
     - splitsdir (str): directory containing normalized split HDF5 files
     Returns:
-    - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None, int, torch.Tensor | None]:
+    - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor | None]:
         (fields, lf, target, dlev, nlevs, mask) where:
         - fields: (nsamp, nfieldvars, nlevs) predictor fields
         - lf: (nsamp,) land fraction
         - target: (nsamp,) normalized precipitation
-        - dlev: (nlevs,) vertical thickness weights, or None for scalar inputs
+        - dlev: (nlevs,) vertical thickness weights (unit weight for scalar inputs)
         - nlevs: number of vertical levels (1 for scalar inputs)
         - mask: (nsamp, nlevs) surface validity mask, or None for scalar inputs
     '''
@@ -80,7 +80,7 @@ def load_split(splitname,fieldvars,splitsdir):
             arr = da.values.reshape(-1,1)
             fieldarrays.append(arr)
         fields = np.stack(fieldarrays,axis=1)
-        dlev = None
+        dlev = torch.tensor([1.0],dtype=torch.float32)
         maskarr = None
     pr = ds['pr'].transpose('time','lat','lon').values.reshape(-1)
     lf2d = ds['lf'].values
