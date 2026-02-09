@@ -148,7 +148,7 @@ class DataCalculator:
         thetae = t*(p0/p)**(0.2854*(1.0-0.28*r))*np.exp((3.376/tl-0.00254)*1000.0*r*(1.0+0.81*r))
         return thetae
 
-    def get_level_above(ptarget,levels,side):
+    def get_level_above(self,ptarget,levels,side):
         '''
         Purpose: Find the pressure level immediately above a target pressure, i.e., the next smallest 
         pressure (higher altitude).
@@ -163,7 +163,7 @@ class DataCalculator:
         levabove  = levels[np.maximum(searchidx-1,0)]
         return levabove
 
-    def get_level_below(ptarget,levels,side):
+    def get_level_below(self,ptarget,levels,side):
         '''
         Purpose: Find the pressure level immediately below a target pressure, i.e., the next largest 
         pressure (lower altitude).
@@ -178,7 +178,7 @@ class DataCalculator:
         levbelow  = levels[np.minimum(searchidx,len(levels)-1)]
         return levbelow
 
-    def calc_layer_average(da,a,b):
+    def calc_layer_average(self,da,a,b):
         '''
         Purpose: Calculate the pressure-weighted mean of an xr.DataArray between two pressure levels 'a' (bottom of layer) and 
         'b' (top of layer), with `a > b`.
@@ -192,8 +192,8 @@ class DataCalculator:
         da = da.load()
         a  = a.load()
         b  = b.load()
-        levabove = xr.apply_ufunc(get_level_above,a,kwargs={'levels':np.array(da.lev),'side':'right'})
-        levbelow = xr.apply_ufunc(get_level_below,a,kwargs={'levels':np.array(da.lev),'side':'right'})
+        levabove = xr.apply_ufunc(self.get_level_above,a,kwargs={'levels':np.array(da.lev),'side':'right'})
+        levbelow = xr.apply_ufunc(self.get_level_below,a,kwargs={'levels':np.array(da.lev),'side':'right'})
         valueabove = da.sel(lev=levabove)
         valuebelow = da.sel(lev=levbelow)
         correction = -valueabove/2*(levbelow-levabove)*(a<da.lev[-1])
@@ -201,8 +201,8 @@ class DataCalculator:
         lowerintegral = (a-levabove)*valueabove+(valuebelow-valueabove)*(a-levabove)**2/(levbelow-levabove)/2+correction
         lowerintegral = lowerintegral.fillna(0)
         innerintegral = (da*(da.lev<=a)*(da.lev>=b)).fillna(0).integrate('lev')
-        levabove = xr.apply_ufunc(get_level_above,b,kwargs={'levels':np.array(da.lev),'side':'left'})
-        levbelow = xr.apply_ufunc(get_level_below,b,kwargs={'levels':np.array(da.lev),'side':'left'})
+        levabove = xr.apply_ufunc(self.get_level_above,b,kwargs={'levels':np.array(da.lev),'side':'left'})
+        levbelow = xr.apply_ufunc(self.get_level_below,b,kwargs={'levels':np.array(da.lev),'side':'left'})
         valueabove = da.sel(lev=levabove)
         valuebelow = da.sel(lev=levbelow)
         correction = -valuebelow/2*(levbelow-levabove)*(b>da.lev[0])
@@ -213,7 +213,7 @@ class DataCalculator:
         layeraverage  = (lowerintegral+innerintegral+upperintegral)/(a-b)
         return layeraverage
     
-    def calc_weights(ps,pbltop,lfttop):
+    def calc_weights(self,ps,pbltop,lfttop):
         '''
         Purpose: Calculate weights for the boundary layer (PBL) and lower free troposphere (LFT) using Eqs. 5a and 5b from Adames AF, 
         Ahmed F, and Neelin JD. 2021. J. Atmos. Sci.
@@ -230,7 +230,7 @@ class DataCalculator:
         wl = 1.0-wb
         return wb,wl
     
-    def calc_bl_terms(thetaeb,thetael,thetaelsat,wb,wl):
+    def calc_bl_terms(self,thetaeb,thetael,thetaelsat,wb,wl):
         '''
         Purpose: Calculate CAPEL, SUBSATL, and BL following Eq. 1 from Ahmed F and Neelin JD. 2021. Geophys. Res. Lett.
         Args:

@@ -25,8 +25,8 @@
     "testyears":[2018,2020]
   },
   "variables":{
-    "field":["rh","thetae","thetaestar"],
-    "local":["lf","lhf","shf"],
+    "field":["bl","cape","subsat","thetaeprime","thetaeplus","t","q"],
+    "local":["lf"],
     "target":"pr"
   },
   "experiments":{
@@ -35,9 +35,8 @@
       "fit":{"prmin":1.0,"prmax":5.0},
       "landthresh":0.5,
       "runs":{
-        "pooled":  {"mode":"pooled"},
-        "regional":{"mode":"regional"}
-      }
+        "with":{"mode":"pooled"},
+        "regional":{"mode":"regional"}}
     },
     "nn":{
       "projectname":"Chapter 3 Experiments",
@@ -49,34 +48,39 @@
       "patience":4,
       "criterion":"MSELoss",
       "runs":{
-        "bl-baseline":             {"kind":"baseline",      "fieldvars":["bl"]},
-        "cape-baseline":           {"kind":"baseline",      "fieldvars":["cape","subsat"]},
-        "thetaeprime-baseline":    {"kind":"baseline",      "fieldvars":["thetaeprime"]},
-        "thetaeprime-nonparam":    {"kind":"nonparametric", "fieldvars":["thetaeprime"]},
-        "thetaeprime-param":       {"kind":"parametric",    "fieldvars":["thetaeprime"],    "kernel":"gaussian"},
-        "thetaeplus-baseline":     {"kind":"baseline",      "fieldvars":["thetaeplus"]},
-        "thetaeplus-nonparam":     {"kind":"nonparametric", "fieldvars":["thetaeplus"]},
-        "thetaeplus-param":        {"kind":"parametric",    "fieldvars":["thetaeplus"],     "kernel":"gaussian"},
-        "thetaecombined-baseline": {"kind":"baseline",      "fieldvars":["thetaeprime","thetaeplus"]},
-        "thetaecombined-nonparam": {"kind":"nonparametric", "fieldvars":["thetaeprime","thetaeplus"]},
-        "thetaecombined-param":    {"kind":"parametric",    "fieldvars":["thetaeprime","thetaeplus"],"kernel":"gaussian"},
-        "tq-baseline":             {"kind":"baseline",      "fieldvars":["t","q"]},
-        "tq-nonparam":             {"kind":"nonparametric", "fieldvars":["t","q"]},
-        "tq-param":                {"kind":"parametric",    "fieldvars":["t","q"],          "kernel":"gaussian"}
-      }
+        "baseline_experiment_1":{"kind":"baseline","fieldvars":["bl"]},
+        "baseline_experiment_2":{"kind":"baseline","fieldvars":["cape","subsat"]},
+        "baseline_experiment_3":{"kind":"baseline","fieldvars":["thetaeprime"]},
+        "baseline_experiment_4":{"kind":"baseline","fieldvars":["thetaeplus"]},
+        "baseline_experiment_5":{"kind":"baseline","fieldvars":["thetaeprime","thetaeplus"]},
+        "baseline_experiment_6":{"kind":"baseline","fieldvars":["t","q"]},
+        "nonparametric_experiment_1":{"kind":"nonparametric","fieldvars":["bl"]},
+        "nonparametric_experiment_2":{"kind":"nonparametric","fieldvars":["cape","subsat"]},
+        "nonparametric_experiment_3":{"kind":"nonparametric","fieldvars":["thetaeprime"]},
+        "nonparametric_experiment_4":{"kind":"nonparametric","fieldvars":["thetaeplus"]},
+        "nonparametric_experiment_5":{"kind":"nonparametric","fieldvars":["thetaeprime","thetaeplus"]},
+        "nonparametric_experiment_6":{"kind":"nonparametric","fieldvars":["t","q"]},
+        "gaussian_experiment_1":{"kind":"parametric","fieldvars":["bl"],"kernel":"gaussian"},
+        "gaussian_experiment_2":{"kind":"parametric","fieldvars":["cape","subsat"],"kernel":"gaussian"},
+        "gaussian_experiment_3":{"kind":"parametric","fieldvars":["thetaeprime"],"kernel":"gaussian"},
+        "gaussian_experiment_4":{"kind":"parametric","fieldvars":["thetaeplus"],"kernel":"gaussian"},
+        "gaussian_experiment_5":{"kind":"parametric","fieldvars":["thetaeprime","thetaeplus"],"kernel":"gaussian"},
+        "gaussian_experiment_6":{"kind":"parametric","fieldvars":["t","q"],"kernel":"gaussian"}}
     },
     "sr":{
       "runs":{
-        "bl-sr":                     {"fieldvars":["bl"]},
-        "cape-sr":                   {"fieldvars":["cape","subsat"]},
-        "thetaeprime-nonparam-sr":   {"fieldvars":["thetaeprime"],              "features_from":"thetaeprime-nonparam"},
-        "thetaeprime-param-sr":      {"fieldvars":["thetaeprime"],              "features_from":"thetaeprime-param"},
-        "thetaeplus-nonparam-sr":    {"fieldvars":["thetaeplus"],               "features_from":"thetaeplus-nonparam"},
-        "thetaeplus-param-sr":       {"fieldvars":["thetaeplus"],               "features_from":"thetaeplus-param"},
-        "thetaecombined-nonparam-sr":{"fieldvars":["thetaeprime","thetaeplus"], "features_from":"thetaecombined-nonparam"},
-        "thetaecombined-param-sr":   {"fieldvars":["thetaeprime","thetaeplus"], "features_from":"thetaecombined-param"},
-        "tq-nonparam-sr":            {"fieldvars":["t","q"],                    "features_from":"tq-nonparam"},
-        "tq-param-sr":               {"fieldvars":["t","q"],                    "features_from":"tq-param"}
+        "sr_nonparametric_experiment_1":{"fieldvars":["bl"],"features_from":"nonparametric_experiment_1"},
+        "sr_nonparametric_experiment_2":{"fieldvars":["cape","subsat"],"features_from":"nonparametric_experiment_2"},
+        "sr_nonparametric_experiment_3":{"fieldvars":["thetaeprime"],"features_from":"nonparametric_experiment_3"},
+        "sr_nonparametric_experiment_4":{"fieldvars":["thetaeplus"],"features_from":"nonparametric_experiment_4"},
+        "sr_nonparametric_experiment_5":{"fieldvars":["thetaeprime","thetaeplus"],"features_from":"nonparametric_experiment_5"},
+        "sr_nonparametric_experiment_6":{"fieldvars":["t","q"],"features_from":"nonparametric_experiment_6"},
+        "sr_gaussian_experiment_1":{"fieldvars":["bl"],"features_from":"gaussian_experiment_1"},
+        "sr_gaussian_experiment_2":{"fieldvars":["cape","subsat"],"features_from":"gaussian_experiment_2"},
+        "sr_gaussian_experiment_3":{"fieldvars":["thetaeprime"],"features_from":"gaussian_experiment_3"},
+        "sr_gaussian_experiment_4":{"fieldvars":["thetaeplus"],"features_from":"gaussian_experiment_4"},
+        "sr_gaussian_experiment_5":{"fieldvars":["thetaeprime","thetaeplus"],"features_from":"gaussian_experiment_5"},
+        "sr_gaussian_experiment_6":{"fieldvars":["t","q"],"features_from":"gaussian_experiment_6"},
       }
     }
   }
