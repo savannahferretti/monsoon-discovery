@@ -40,18 +40,18 @@ def fetch(runname,landthresh,modeldir):
     Returns:
     - PODModel: loaded model instance with fitted parameters
     '''
-    filepath = os.path.join(modeldir,f'pod_{runname}.npz')
+    filepath = os.path.join(modeldir,f'{runname}.npz')
     with np.load(filepath) as data:
-        mode = str(data['mode'][0])
-        if mode=='pooled':
+        withlf = bool(data['withlf'][0])
+        if not withlf:
             model = PODModel(
-                mode='pooled',
+                withlf=False,
                 landthresh=landthresh,
-                alphapooled=float(data['alphapooled']),
-                blcritpooled=float(data['blcritpooled']))
-        elif mode=='regional':
+                alpha=float(data['alpha']),
+                blcrit=float(data['blcrit']))
+        else:
             model = PODModel(
-                mode='regional',
+                withlf=True,
                 landthresh=landthresh,
                 alphaland=float(data['alphaland']),
                 blcritland=float(data['blcritland']),
@@ -64,12 +64,12 @@ def predict(model,bl,lf=None):
     Purpose: Run the POD forward pass and return precipitation predictions as an xr.DataArray.
     Args:
     - model (PODModel): trained model instance
-    - bl (xr.DataArray): input 3D BL DataArray
-    - lf (xr.DataArray): land fraction DataArray (required for `regional` mode)
+    - bl (xr.DataArray): input BL DataArray with dims (lat, lon, time)
+    - lf (xr.DataArray): land fraction DataArray (required when model.withlf=True)
     Returns:
-    - xr.DataArray: 3D DataArray of predicted precipitation
+    - xr.DataArray: DataArray of predicted precipitation with same shape as bl
     '''
-    ypredflat = model.forward(bl,lf=lf if model.mode=='regional' else None)
+    ypredflat = model.forward(bl,lf=lf if model.withlf else None)
     ypred = xr.DataArray(ypredflat.reshape(bl.shape),dims=bl.dims,coords=bl.coords,name='pr')
     ypred.attrs = dict(long_name='POD-predicted precipitation rate',units='mm/hr')
     return ypred
@@ -78,7 +78,7 @@ def save(ypred,runname,splitname,predsdir):
     '''
     Purpose: Save predicted precipitation to a NetCDF file, then verify by reopening.
     Args:
-    - ypred (xr.DataArray): 3D DataArray of predicted precipitation
+    - ypred (xr.DataArray): DataArray of predicted precipitation
     - runname (str): model run name
     - splitname (str): evaluated split label
     - predsdir (str): output directory
@@ -86,7 +86,7 @@ def save(ypred,runname,splitname,predsdir):
     - bool: True if writing and verification succeed, otherwise False
     '''
     os.makedirs(predsdir,exist_ok=True)
-    filename = f'pod_{runname}_{splitname}_pr.nc'
+    filename = f'{runname}_{splitname}_pr.nc'
     filepath = os.path.join(predsdir,filename)
     logger.info(f'      Attempting to save {filename}...')
     try:

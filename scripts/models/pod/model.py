@@ -4,45 +4,45 @@ import numpy as np
 
 class PODModel:
 
-    def __init__(self,mode,landthresh=0.5,alphapooled=None,blcritpooled=None,alphaland=None,blcritland=None,alphaocean=None,blcritocean=None):
+    def __init__(self,withlf,landthresh=0.5,alpha=None,blcrit=None,alphaland=None,blcritland=None,alphaocean=None,blcritocean=None):
         '''
         Purpose: Initialize a ramp-based POD model for precipitation prediction using Eq. 8 from Ahmed F., Adames A.F., &
         Neelin J.D. (2020), J. Atmos. Sci.
         Args:
-        - mode (str): 'pooled' (single ramp) | 'regional' (separate land/ocean ramps)
+        - withlf (bool): False for a single ramp fit, True for separate land/ocean ramp fits
         - landthresh (float): threshold for land/ocean classification (defaults to 0.5)
-        - alphapooled (float): slope for pooled mode (optional)
-        - blcritpooled (float): critical BL for pooled mode (optional)
-        - alphaland (float): slope for land in regional mode (optional)
-        - blcritland (float): critical BL for land in regional mode (optional)
-        - alphaocean (float): slope for ocean in regional mode (optional)
-        - blcritocean (float): critical BL for ocean in regional mode (optional)
+        - alpha (float): slope for single fit (optional, used when withlf=False)
+        - blcrit (float): critical BL for single fit (optional, used when withlf=False)
+        - alphaland (float): slope for land fit (optional, used when withlf=True)
+        - blcritland (float): critical BL for land fit (optional, used when withlf=True)
+        - alphaocean (float): slope for ocean fit (optional, used when withlf=True)
+        - blcritocean (float): critical BL for ocean fit (optional, used when withlf=True)
         '''
-        self.mode         = str(mode)
+        self.withlf       = bool(withlf)
         self.landthresh   = float(landthresh)
-        self.alphapooled  = alphapooled
-        self.blcritpooled = blcritpooled
+        self.alpha        = alpha
+        self.blcrit       = blcrit
         self.alphaland    = alphaland
         self.blcritland   = blcritland
         self.alphaocean   = alphaocean
         self.blcritocean  = blcritocean
-        self.nparams      = 2 if mode=='pooled' else 4
+        self.nparams      = 4 if withlf else 2
 
     def forward(self,x,lf=None):
         '''
         Purpose: Forward pass through the POD ramp.
         Args:
-        - x (xr.DataArray): input 3D BL DataArray
-        - lf (xr.DataArray): land fraction for routing in 'regional' mode (same shape as 'x')
+        - x (xr.DataArray): input BL DataArray with dims (lat, lon, time)
+        - lf (xr.DataArray): land fraction DataArray (required when withlf=True)
         Returns:
         - np.ndarray: predicted precipitation array of shape (x.size,)
         '''
         xflat  = x.values.ravel()
         ypred  = np.full(xflat.shape,np.nan,dtype=np.float32)
         finite = np.isfinite(xflat)
-        if self.mode=='pooled':
-            ypred[finite] = self.alphapooled*np.maximum(0.0,xflat[finite]-self.blcritpooled).astype(np.float32)
-        elif self.mode=='regional':
+        if not self.withlf:
+            ypred[finite] = self.alpha*np.maximum(0.0,xflat[finite]-self.blcrit).astype(np.float32)
+        else:
             lfflat = lf.values.ravel()
             land   = (lfflat[finite]>=self.landthresh)
             ypredland     = self.alphaland*np.maximum(0.0,xflat[finite]-self.blcritland)

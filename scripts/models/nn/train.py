@@ -7,6 +7,7 @@ import argparse
 import numpy as np
 from scripts.utils import Config
 from scripts.models.nn.classes.factory import build_model
+from scripts.models.nn.classes.dataset import FieldDataset,load_split
 from scripts.models.nn.classes.trainer import Trainer
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
@@ -50,9 +51,25 @@ if __name__=='__main__':
     seeds  = nn['seeds']
     logger.info('Spinning up...')
     selectedruns = parse()
+    cachedvars   = None
+    cacheddata   = None
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
+        fieldvars = runconfig['fieldvars']
+        fieldkey  = tuple(fieldvars)
+        if fieldkey!=cachedvars:
+            logger.info(f'Loading normalized splits for {fieldvars}...')
+            trainfields,trainlf,trainpr,dlev,nlevs = load_split('train',fieldvars,config.splitsdir)
+            validfields,validlf,validpr,_,_        = load_split('valid',fieldvars,config.splitsdir)
+            cachedvars = fieldkey
+            cacheddata = (trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs)
+        else:
+            trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs = cacheddata
+        trainset    = FieldDataset(trainfields,trainlf,trainpr,dlev)
+        validset    = FieldDataset(validfields,validlf,validpr,dlev)
+        trainloader = torch.utils.data.DataLoader(trainset,batch_size=nn['batchsize'],shuffle=True, num_workers=nn['workers'],pin_memory=True)
+        validloader = torch.utils.data.DataLoader(validset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         for seed in seeds:
             runid = f'{name}_{seed}'
             if os.path.exists(os.path.join(config.modelsdir,'nn',f'{runid}.pth')):
@@ -60,10 +77,6 @@ if __name__=='__main__':
                 continue
             logger.info(f'Training `{runid}`...')
             device = setup(seed)
-            # TODO: load normalized split data for runconfig['fieldvars'] + lf + pr
-            # trainloader, validloader = ...
-            # nlevs = number of vertical levels (1 for scalar inputs)
-            nlevs = 1  # placeholder
             model = build_model(name,runconfig,nlevs).to(device)
             trainer = Trainer(
                 model=model,

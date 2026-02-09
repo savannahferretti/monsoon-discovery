@@ -35,8 +35,9 @@
       "fit":{"prmin":1.0,"prmax":5.0},
       "landthresh":0.5,
       "runs":{
-        "with":{"mode":"pooled"},
-        "regional":{"mode":"regional"}}
+        "pod_single_fit":    {"withlf":false},
+        "pod_land_ocean_fit":{"withlf":true}
+      }
     },
     "nn":{
       "projectname":"Chapter 3 Experiments",
@@ -65,7 +66,8 @@
         "gaussian_experiment_3":{"kind":"parametric","fieldvars":["thetaeprime"],"kernel":"gaussian"},
         "gaussian_experiment_4":{"kind":"parametric","fieldvars":["thetaeplus"],"kernel":"gaussian"},
         "gaussian_experiment_5":{"kind":"parametric","fieldvars":["thetaeprime","thetaeplus"],"kernel":"gaussian"},
-        "gaussian_experiment_6":{"kind":"parametric","fieldvars":["t","q"],"kernel":"gaussian"}}
+        "gaussian_experiment_6":{"kind":"parametric","fieldvars":["t","q"],"kernel":"gaussian"}
+      }
     },
     "sr":{
       "runs":{
@@ -80,7 +82,7 @@
         "sr_gaussian_experiment_3":{"fieldvars":["thetaeprime"],"features_from":"gaussian_experiment_3"},
         "sr_gaussian_experiment_4":{"fieldvars":["thetaeplus"],"features_from":"gaussian_experiment_4"},
         "sr_gaussian_experiment_5":{"fieldvars":["thetaeprime","thetaeplus"],"features_from":"gaussian_experiment_5"},
-        "sr_gaussian_experiment_6":{"fieldvars":["t","q"],"features_from":"gaussian_experiment_6"},
+        "sr_gaussian_experiment_6":{"fieldvars":["t","q"],"features_from":"gaussian_experiment_6"}
       }
     }
   }

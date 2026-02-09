@@ -31,11 +31,11 @@ def load(splitsdir):
     lf = trainds['lf'].load()
     return bl,pr,lf
 
-def fit(mode,bl,pr,lf,landthresh,bins,fitparams):
+def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
     '''
     Purpose: Fit POD ramp model(s) to training data and return model with diagnostic data.
     Args:
-    - mode (str): 'pooled' (single ramp) | 'regional' (separate land/ocean ramps)
+    - withlf (bool): False for a single ramp fit, True for separate land/ocean ramp fits
     - bl (xr.DataArray): input BL data
     - pr (xr.DataArray): target precipitation data
     - lf (xr.DataArray): land fraction data
@@ -64,23 +64,23 @@ def fit(mode,bl,pr,lf,landthresh,bins,fitparams):
         return float(alpha),float(blcrit),ymeans,fitrange
     xflat = bl.values.ravel()
     yflat = pr.values.ravel()
-    if mode=='pooled':
+    if not withlf:
         finite  = np.isfinite(xflat)&np.isfinite(yflat)
         results = ramp(xflat[finite],yflat[finite])
-        model   = PODModel(mode='pooled',landthresh=landthresh,alphapooled=results[0],blcritpooled=results[1])
+        model   = PODModel(withlf=False,landthresh=landthresh,alpha=results[0],blcrit=results[1])
         diagnostics = {
             'bincenters':bincenters,
-            'ymeanpooled':results[2],
-            'fitrangepooled':results[3]}
+            'ymean':results[2],
+            'fitrange':results[3]}
         return model,diagnostics
-    elif mode=='regional':
+    else:
         lfflat = lf.values.ravel()
         finite = np.isfinite(xflat)&np.isfinite(yflat)&np.isfinite(lfflat)
         land   = finite&(lfflat>=landthresh)
         ocean  = finite&(lfflat<landthresh)
         landresults  = ramp(xflat[land],yflat[land])
         oceanresults = ramp(xflat[ocean],yflat[ocean])
-        model        = PODModel(mode='regional',landthresh=landthresh,alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
+        model        = PODModel(withlf=True,landthresh=landthresh,alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
         diagnostics = {
             'bincenters':bincenters,
             'ymeanland':landresults[2],
@@ -101,22 +101,22 @@ def save(model,diagnostics,runname,modeldir):
     - bool: True if write and verification succeed, otherwise False
     '''
     os.makedirs(modeldir,exist_ok=True)
-    filename = f'pod_{runname}.npz'
+    filename = f'{runname}.npz'
     filepath = os.path.join(modeldir,filename)
     logger.info(f'      Attempting to save {filename}...')
     try:
-        if model.mode=='pooled':
+        if not model.withlf:
             np.savez(filepath,
-                     mode=np.array([model.mode],dtype='U10'),
-                     alphapooled=model.alphapooled,
-                     blcritpooled=model.blcritpooled,
+                     withlf=np.array([False]),
+                     alpha=model.alpha,
+                     blcrit=model.blcrit,
                      bincenters=diagnostics['bincenters'],
-                     ymeanpooled=diagnostics['ymeanpooled'],
-                     fitrangepooled=diagnostics['fitrangepooled'],
+                     ymean=diagnostics['ymean'],
+                     fitrange=diagnostics['fitrange'],
                      nparams=np.int32(model.nparams))
-        elif model.mode=='regional':
+        else:
             np.savez(filepath,
-                     mode=np.array([model.mode],dtype='U10'),
+                     withlf=np.array([True]),
                      alphaland=model.alphaland,
                      blcritland=model.blcritland,
                      alphaocean=model.alphaocean,
@@ -143,8 +143,8 @@ if __name__=='__main__':
     bl,pr,lf = load(config.splitsdir)
     logger.info('Training and saving ramp-fit POD models...')
     for runname,runconfig in pod['runs'].items():
-        mode = runconfig['mode']
-        logger.info(f'   Training `{runname}` ({mode})...')
-        model,diagnostics = fit(mode,bl,pr,lf,pod['landthresh'],pod['bins'],pod['fit'])
+        withlf = runconfig['withlf']
+        logger.info(f'   Training `{runname}` (withlf={withlf})...')
+        model,diagnostics = fit(withlf,bl,pr,lf,pod['landthresh'],pod['bins'],pod['fit'])
         save(model,diagnostics,runname,modeldir)
         del model,diagnostics

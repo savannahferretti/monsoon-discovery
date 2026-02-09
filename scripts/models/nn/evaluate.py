@@ -7,6 +7,7 @@ import argparse
 import numpy as np
 from scripts.utils import Config
 from scripts.models.nn.classes.factory import build_model
+from scripts.models.nn.classes.dataset import FieldDataset,load_split
 from scripts.models.nn.classes.inferencer import Inferencer
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
@@ -75,15 +76,24 @@ if __name__=='__main__':
     logger.info('Spinning up...')
     device = setup(seeds[0])
     selectedruns,split = parse()
+    cachedvars = None
+    cacheddata = None
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
         haskernel = runconfig['kind']!='baseline'
         nonparam  = runconfig['kind']=='nonparametric'
-        # TODO: load normalized split data for runconfig['fieldvars'] + lf + pr
-        # dataloader = ...
-        # nlevs = number of vertical levels (1 for scalar inputs)
-        nlevs = 1  # placeholder
+        fieldvars = runconfig['fieldvars']
+        fieldkey  = tuple(fieldvars)
+        if fieldkey!=cachedvars:
+            logger.info(f'Loading normalized {split} split for {fieldvars}...')
+            fields,lf,pr,dlev,nlevs = load_split(split,fieldvars,config.splitsdir)
+            cachedvars = fieldkey
+            cacheddata = (fields,lf,pr,dlev,nlevs)
+        else:
+            fields,lf,pr,dlev,nlevs = cacheddata
+        dataset    = FieldDataset(fields,lf,pr,dlev)
+        dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         allpreds      = []
         allcomponents = []
         for seedidx,seed in enumerate(seeds):
