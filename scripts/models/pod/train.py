@@ -74,8 +74,7 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
             'fitrange':results[3]}
         return model,diagnostics
     else:
-        lfvals = lf.values if lf.values.ndim==bl.values.ndim else lf.values[np.newaxis,...]
-        lfflat = np.broadcast_to(lfvals,bl.shape).ravel()
+        lfflat = np.broadcast_to(lf.values[np.newaxis,...],bl.shape).ravel()
         finite = np.isfinite(xflat)&np.isfinite(yflat)&np.isfinite(lfflat)
         land   = finite&(lfflat>=landthresh)
         ocean  = finite&(lfflat<landthresh)
