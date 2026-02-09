@@ -74,7 +74,7 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
             'fitrange':results[3]}
         return model,diagnostics
     else:
-        lfflat = lf.values.ravel()
+        lfflat = np.broadcast_to(lf.values,bl.shape).ravel()
         finite = np.isfinite(xflat)&np.isfinite(yflat)&np.isfinite(lfflat)
         land   = finite&(lfflat>=landthresh)
         ocean  = finite&(lfflat<landthresh)
