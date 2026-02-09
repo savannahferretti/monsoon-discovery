@@ -139,12 +139,12 @@ if __name__=='__main__':
     config    = Config()
     pod       = config.pod
     modeldir  = os.path.join(config.modelsdir,'pod')
-    logger.info('Loading regular training + validation data splits combined...')
+    logger.info('Loading combined training and validation splits...')
     bl,pr,lf = load(config.splitsdir)
     logger.info('Training and saving ramp-fit POD models...')
     for runname,runconfig in pod['runs'].items():
         withlf = runconfig['withlf']
-        logger.info(f'   Training `{runname}` (withlf={withlf})...')
+        logger.info(f'   Training `{runname}`...')
         model,diagnostics = fit(withlf,bl,pr,lf,pod['landthresh'],pod['bins'],pod['fit'])
         save(model,diagnostics,runname,modeldir)
         del model,diagnostics

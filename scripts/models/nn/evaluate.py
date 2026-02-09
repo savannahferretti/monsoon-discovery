@@ -100,7 +100,7 @@ if __name__=='__main__':
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             model = load(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
             if model is None:
-                logger.error(f'   Failed to load model for seed {seed}, skipping')
+                logger.error(f'   Failed to load model for seed {seed}, skipping...')
                 break
             inferencer = Inferencer(model,dataloader,device)
             preds = inferencer.predict(haskernel)
