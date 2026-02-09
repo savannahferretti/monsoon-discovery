@@ -42,7 +42,7 @@ if __name__=='__main__':
     logger.info('Calculating layer averages...')
     pbltop      = ps-100.0
     lfttop      = xr.full_like(ps,500.0)
-    thetaeb     = calculator.calc_layer_average(thetae,ps,pbltop)*np.sqrt(-1+2*(ps>lfttop))
+    thetaeb     = calculator.calc_layer_average(thetae,ps,pbltop)
     thetael     = calculator.calc_layer_average(thetae,pbltop,lfttop)
     thetaelstar = calculator.calc_layer_average(thetaestar,pbltop,lfttop)
     logger.info('Calculating BL terms...')
