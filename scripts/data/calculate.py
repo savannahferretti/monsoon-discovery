@@ -50,8 +50,12 @@ if __name__=='__main__':
     cape,subsat,bl = calculator.calc_bl_terms(thetaeb,thetael,thetaelstar,wb,wl)
     logger.info('Calculating quadrature weights...')
     dlev = calculator.calc_dlev(t)
+    logger.info('Calculating surface mask...')
+    surfmask = xr.where(p<=ps,1.0,0.0).astype(np.float32)
     logger.info('Creating datasets...')
     dslist = [
+        calculator.create_dataset(t,'t','Air temperature','K'),
+        calculator.create_dataset(q,'q','Specific humidity','kg/kg'),
         calculator.create_dataset(thetaeprime,'thetaeprime','Difference between surface and unsaturated equivalent potential temperature','K'),
         calculator.create_dataset(thetaeplus,'thetaeplus','Difference between unsaturated and saturated equivalent potential temperature','K'),
         calculator.create_dataset(bl,'bl','Average buoyancy in the lower troposphere','m/s²'),
@@ -60,7 +64,8 @@ if __name__=='__main__':
         calculator.create_dataset(ps,'ps','Surface pressure','hPa'),
         calculator.create_dataset(lf,'lf','Land fraction','0-1'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
-        calculator.create_dataset(dlev,'dlev','Vertical thickness weights','hPa')]
+        calculator.create_dataset(dlev,'dlev','Vertical thickness weights','hPa'),
+        calculator.create_dataset(surfmask,'surfmask','Binary surface validity mask','0-1')]
     logger.info('Saving datasets...')
     for ds in dslist:
         calculator.save(ds)

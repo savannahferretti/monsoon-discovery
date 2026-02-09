@@ -15,8 +15,9 @@ def build_model(name,runconfig,nlevs):
     '''
     kind       = runconfig['kind']
     nfieldvars = len(runconfig['fieldvars'])
+    hasmask    = nlevs>1
     if kind=='baseline':
-        model = BaselineNN(nfieldvars,nlevs)
+        model = BaselineNN(nfieldvars,nlevs,hasmask=hasmask)
     elif kind=='nonparametric':
         kernel = NonparametricKernelLayer(nfieldvars,nlevs)
         model  = KernelNN(kernel,nfieldvars)

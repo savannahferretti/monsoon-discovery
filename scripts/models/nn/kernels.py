@@ -7,7 +7,7 @@ class KernelModule:
     @staticmethod
     def normalize(kernel,dlev,epsilon=1e-6):
         '''
-        Purpose: Normalize a 1D vertical kernel so that sum(k * dlev) = 1 for each field.
+        Purpose: Normalize a 1D vertical kernel so that sum(k * dlev) = 1 for each field over the full column.
         Args:
         - kernel (torch.Tensor): unnormalized kernel with shape (nfieldvars, nlevs)
         - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
@@ -22,17 +22,22 @@ class KernelModule:
         return weights
 
     @staticmethod
-    def integrate(fields,weights,dlev):
+    def integrate(fields,weights,dlev,mask=None):
         '''
         Purpose: Integrate predictor fields using normalized kernel weights over the vertical dimension.
+            When a surface validity mask is provided, sub-surface levels are zeroed out so the effective
+            integral is less than 1 at high-elevation grid cells.
         Args:
         - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
         - weights (torch.Tensor): normalized kernel weights with shape (nfieldvars, nlevs)
         - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
+        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs), or None
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
         weighted = fields*weights.unsqueeze(0)*dlev.unsqueeze(0).unsqueeze(0)
+        if mask is not None:
+            weighted = weighted*mask.unsqueeze(1)
         return weighted.sum(dim=2)
 
 
@@ -68,17 +73,18 @@ class NonparametricKernelLayer(torch.nn.Module):
         self.norm = KernelModule.normalize(self.raw,dlev)
         return self.norm
 
-    def forward(self,fields,dlev):
+    def forward(self,fields,dlev,mask=None):
         '''
         Purpose: Apply non-parametric kernels to a batch of vertical profiles.
         Args:
         - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
         - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
+        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs), or None
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
         norm = self.get_weights(dlev,fields.device)
-        feats = KernelModule.integrate(fields,norm,dlev)
+        feats = KernelModule.integrate(fields,norm,dlev,mask=mask)
         self.features = feats
         return feats
 
@@ -260,16 +266,17 @@ class ParametricKernelLayer(torch.nn.Module):
             self.components = torch.stack([normc1,normc2],dim=0)
         return self.norm
 
-    def forward(self,fields,dlev):
+    def forward(self,fields,dlev,mask=None):
         '''
         Purpose: Apply parametric kernel to a batch of vertical profiles.
         Args:
         - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
         - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
+        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs), or None
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
         norm = self.get_weights(dlev,fields.device)
-        feats = KernelModule.integrate(fields,norm,dlev)
+        feats = KernelModule.integrate(fields,norm,dlev,mask=mask)
         self.features = feats
         return feats

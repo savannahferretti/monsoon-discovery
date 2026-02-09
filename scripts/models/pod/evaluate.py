@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import PODModel
+from scripts.models.pod.model import RampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -32,25 +32,25 @@ def load(splitname,splitsdir):
 
 def fetch(runname,landthresh,modeldir):
     '''
-    Purpose: Load a trained POD model from saved .npz file.
+    Purpose: Load a trained RampPOD from saved .npz file.
     Args:
     - runname (str): model run name
     - landthresh (float): land/ocean threshold
     - modeldir (str): directory containing model files
     Returns:
-    - PODModel: loaded model instance with fitted parameters
+    - RampPOD: loaded RampPOD instance with fitted parameters
     '''
     filepath = os.path.join(modeldir,f'{runname}.npz')
     with np.load(filepath) as data:
         withlf = bool(data['withlf'][0])
         if not withlf:
-            model = PODModel(
+            model = RampPOD(
                 withlf=False,
                 landthresh=landthresh,
                 alpha=float(data['alpha']),
                 blcrit=float(data['blcrit']))
         else:
-            model = PODModel(
+            model = RampPOD(
                 withlf=True,
                 landthresh=landthresh,
                 alphaland=float(data['alphaland']),
@@ -61,9 +61,9 @@ def fetch(runname,landthresh,modeldir):
 
 def predict(model,bl,lf=None):
     '''
-    Purpose: Run the POD forward pass and return precipitation predictions as an xr.DataArray.
+    Purpose: Run the forward pass and return precipitation predictions as an xr.DataArray.
     Args:
-    - model (PODModel): trained model instance
+    - model (RampPOD): trained RampPOD instance
     - bl (xr.DataArray): input BL DataArray with dims (lat, lon, time)
     - lf (xr.DataArray): land fraction DataArray (required when model.withlf=True)
     Returns:

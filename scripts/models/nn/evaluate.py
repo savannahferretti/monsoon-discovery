@@ -87,12 +87,12 @@ if __name__=='__main__':
         fieldkey  = tuple(fieldvars)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}...')
-            fields,lf,pr,dlev,nlevs = load_split(split,fieldvars,config.splitsdir)
+            fields,lf,pr,dlev,nlevs,mask = load_split(split,fieldvars,config.splitsdir)
             cachedvars = fieldkey
-            cacheddata = (fields,lf,pr,dlev,nlevs)
+            cacheddata = (fields,lf,pr,dlev,nlevs,mask)
         else:
-            fields,lf,pr,dlev,nlevs = cacheddata
-        dataset    = FieldDataset(fields,lf,pr,dlev)
+            fields,lf,pr,dlev,nlevs,mask = cacheddata
+        dataset    = FieldDataset(fields,lf,pr,dlev,mask=mask)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         allpreds      = []
         allcomponents = []

@@ -57,7 +57,7 @@ class DataSplitter:
         '''
         stats = {}
         for varname,da in trainds.data_vars.items():
-            if varname in ('ps','lf','dlev'):
+            if varname in ('ps','lf','dlev','surfmask'):
                 continue
             elif varname=='pr':
                 arr = np.log1p(da.values)
@@ -84,7 +84,7 @@ class DataSplitter:
         '''
         datavars = {}
         for varname,da in ds.data_vars.items():
-            if varname in ('ps','lf','dlev'):
+            if varname in ('ps','lf','dlev','surfmask'):
                 datavars[varname] = da
                 continue
             mean = stats[f'{varname}_mean']

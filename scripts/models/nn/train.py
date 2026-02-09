@@ -60,14 +60,14 @@ if __name__=='__main__':
         fieldkey  = tuple(fieldvars)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized splits for {fieldvars}...')
-            trainfields,trainlf,trainpr,dlev,nlevs = load_split('train',fieldvars,config.splitsdir)
-            validfields,validlf,validpr,_,_        = load_split('valid',fieldvars,config.splitsdir)
+            trainfields,trainlf,trainpr,dlev,nlevs,trainmask = load_split('train',fieldvars,config.splitsdir)
+            validfields,validlf,validpr,_,_,validmask         = load_split('valid',fieldvars,config.splitsdir)
             cachedvars = fieldkey
-            cacheddata = (trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs)
+            cacheddata = (trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs,trainmask,validmask)
         else:
-            trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs = cacheddata
-        trainset    = FieldDataset(trainfields,trainlf,trainpr,dlev)
-        validset    = FieldDataset(validfields,validlf,validpr,dlev)
+            trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs,trainmask,validmask = cacheddata
+        trainset    = FieldDataset(trainfields,trainlf,trainpr,dlev,mask=trainmask)
+        validset    = FieldDataset(validfields,validlf,validpr,dlev,mask=validmask)
         trainloader = torch.utils.data.DataLoader(trainset,batch_size=nn['batchsize'],shuffle=True, num_workers=nn['workers'],pin_memory=True)
         validloader = torch.utils.data.DataLoader(validset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         for seed in seeds:

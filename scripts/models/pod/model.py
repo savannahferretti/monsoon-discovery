@@ -2,11 +2,11 @@
 
 import numpy as np
 
-class PODModel:
+class RampPOD:
 
     def __init__(self,withlf,landthresh=0.5,alpha=None,blcrit=None,alphaland=None,blcritland=None,alphaocean=None,blcritocean=None):
         '''
-        Purpose: Initialize a ramp-based POD model for precipitation prediction using Eq. 8 from Ahmed F., Adames A.F., &
+        Purpose: Initialize a ramp-based POD for precipitation prediction using Eq. 8 from Ahmed F., Adames A.F., &
         Neelin J.D. (2020), J. Atmos. Sci.
         Args:
         - withlf (bool): False for a single ramp fit, True for separate land/ocean ramp fits
@@ -30,7 +30,7 @@ class PODModel:
 
     def forward(self,x,lf=None):
         '''
-        Purpose: Forward pass through the POD ramp.
+        Purpose: Forward pass through the ramp function.
         Args:
         - x (xr.DataArray): input BL DataArray with dims (lat, lon, time)
         - lf (xr.DataArray): land fraction DataArray (required when withlf=True)

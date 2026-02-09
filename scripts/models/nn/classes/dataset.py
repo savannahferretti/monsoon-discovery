@@ -7,7 +7,7 @@ import xarray as xr
 
 class FieldDataset(torch.utils.data.Dataset):
 
-    def __init__(self,fields,lf,target,dlev=None):
+    def __init__(self,fields,lf,target,dlev=None,mask=None):
         '''
         Purpose: Dataset for NN training/inference at individual grid cell/timestep samples.
         Args:
@@ -15,11 +15,13 @@ class FieldDataset(torch.utils.data.Dataset):
         - lf (torch.Tensor): land fraction with shape (nsamp,)
         - target (torch.Tensor): target precipitation with shape (nsamp,)
         - dlev (torch.Tensor | None): vertical thickness weights with shape (nlevs,), required for kernel models
+        - mask (torch.Tensor | None): surface validity mask with shape (nsamp, nlevs), required for profile inputs
         '''
         self.fields = fields
         self.lf     = lf
         self.target = target
         self.dlev   = dlev
+        self.mask   = mask
 
     def __len__(self):
         return self.fields.shape[0]
@@ -31,6 +33,8 @@ class FieldDataset(torch.utils.data.Dataset):
             'target':self.target[idx]}
         if self.dlev is not None:
             batch['dlev'] = self.dlev
+        if self.mask is not None:
+            batch['mask'] = self.mask[idx]
         return batch
 
 
@@ -45,41 +49,48 @@ def load_split(splitname,fieldvars,splitsdir):
     - fieldvars (list[str]): predictor field variable names from run config
     - splitsdir (str): directory containing normalized split HDF5 files
     Returns:
-    - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None, int]:
-        (fields, lf, target, dlev, nlevs) where:
+    - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None, int, torch.Tensor | None]:
+        (fields, lf, target, dlev, nlevs, mask) where:
         - fields: (nsamp, nfieldvars, nlevs) predictor fields
         - lf: (nsamp,) land fraction
         - target: (nsamp,) normalized precipitation
         - dlev: (nlevs,) vertical thickness weights, or None for scalar inputs
         - nlevs: number of vertical levels (1 for scalar inputs)
+        - mask: (nsamp, nlevs) surface validity mask, or None for scalar inputs
     '''
     filepath = os.path.join(splitsdir,f'norm_{splitname}.h5')
     ds = xr.open_dataset(filepath,engine='h5netcdf')
-    has_lev = 'lev' in ds[fieldvars[0]].dims
+    haslev = 'lev' in ds[fieldvars[0]].dims
     ntime = ds.sizes['time']
-    if has_lev:
+    if haslev:
         nlevs = ds.sizes['lev']
-        field_arrays = []
+        fieldarrays = []
         for v in fieldvars:
             da  = ds[v].transpose('time','lat','lon','lev')
             arr = da.values.reshape(-1,nlevs)
-            field_arrays.append(arr)
-        fields = np.stack(field_arrays,axis=1)
+            fieldarrays.append(arr)
+        fields = np.stack(fieldarrays,axis=1)
         dlev = torch.from_numpy(ds['dlev'].values.astype(np.float32))
+        maskarr = ds['surfmask'].transpose('time','lat','lon','lev').values.reshape(-1,nlevs)
     else:
         nlevs = 1
-        field_arrays = []
+        fieldarrays = []
         for v in fieldvars:
             da  = ds[v].transpose('time','lat','lon')
             arr = da.values.reshape(-1,1)
-            field_arrays.append(arr)
-        fields = np.stack(field_arrays,axis=1)
+            fieldarrays.append(arr)
+        fields = np.stack(fieldarrays,axis=1)
         dlev = None
+        maskarr = None
     pr = ds['pr'].transpose('time','lat','lon').values.reshape(-1)
-    lf_2d = ds['lf'].values
-    lf = np.tile(lf_2d,(ntime,1,1)).reshape(-1)
+    lf2d = ds['lf'].values
+    lf = np.tile(lf2d,(ntime,1,1)).reshape(-1)
     valid = np.isfinite(fields).all(axis=(1,2))&np.isfinite(lf)&np.isfinite(pr)
     fields = torch.from_numpy(fields[valid].astype(np.float32))
     lf     = torch.from_numpy(lf[valid].astype(np.float32))
     pr     = torch.from_numpy(pr[valid].astype(np.float32))
-    return fields,lf,pr,dlev,nlevs
+    if maskarr is not None:
+        mask = torch.from_numpy(maskarr[valid].astype(np.float32))
+    else:
+        mask = None
+    return fields,lf,pr,dlev,nlevs,mask

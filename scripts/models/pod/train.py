@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import PODModel
+from scripts.models.pod.model import RampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def load(splitsdir):
 
 def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
     '''
-    Purpose: Fit POD ramp model(s) to training data and return model with diagnostic data.
+    Purpose: Fit ramp model(s) to training data and return model with diagnostic data.
     Args:
     - withlf (bool): False for a single ramp fit, True for separate land/ocean ramp fits
     - bl (xr.DataArray): input BL data
@@ -43,7 +43,7 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
     - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
     - fitparams (dict): fit parameters with keys 'prmin', 'prmax'
     Returns:
-    - tuple[PODModel,dict]: trained model instance and diagnostics dictionary with binning data
+    - tuple[RampPOD,dict]: trained RampPOD instance and diagnostics dictionary with binning data
     '''
     binedges   = np.arange(bins['min'],bins['max']+bins['width'],bins['width'])
     bincenters = 0.5*(binedges[:-1]+binedges[1:])
@@ -67,7 +67,7 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
     if not withlf:
         finite  = np.isfinite(xflat)&np.isfinite(yflat)
         results = ramp(xflat[finite],yflat[finite])
-        model   = PODModel(withlf=False,landthresh=landthresh,alpha=results[0],blcrit=results[1])
+        model   = RampPOD(withlf=False,landthresh=landthresh,alpha=results[0],blcrit=results[1])
         diagnostics = {
             'bincenters':bincenters,
             'ymean':results[2],
@@ -80,7 +80,7 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
         ocean  = finite&(lfflat<landthresh)
         landresults  = ramp(xflat[land],yflat[land])
         oceanresults = ramp(xflat[ocean],yflat[ocean])
-        model        = PODModel(withlf=True,landthresh=landthresh,alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
+        model        = RampPOD(withlf=True,landthresh=landthresh,alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
         diagnostics = {
             'bincenters':bincenters,
             'ymeanland':landresults[2],
@@ -93,7 +93,7 @@ def save(model,diagnostics,runname,modeldir):
     '''
     Purpose: Save trained model parameters/configuration and diagnostic data to a .npz file, then verify.
     Args:
-    - model (PODModel): trained model instance
+    - model (RampPOD): trained RampPOD instance
     - diagnostics (dict): dictionary containing binning and fitting diagnostic data
     - runname (str): model run name
     - modeldir (str): output directory
