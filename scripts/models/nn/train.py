@@ -60,8 +60,8 @@ if __name__=='__main__':
         fieldkey  = tuple(fieldvars)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized splits for {fieldvars}...')
-            trainfields,trainlf,trainpr,dlev,nlevs,trainmask = load_split('train',fieldvars,config.splitsdir)
-            validfields,validlf,validpr,_,_,validmask         = load_split('valid',fieldvars,config.splitsdir)
+            trainfields,trainlf,trainpr,dlev,nlevs,trainmask,_,_ = load_split('train',fieldvars,config.splitsdir)
+            validfields,validlf,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,config.splitsdir)
             cachedvars = fieldkey
             cacheddata = (trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs,trainmask,validmask)
         else:

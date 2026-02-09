@@ -49,14 +49,16 @@ def load_split(splitname,fieldvars,splitsdir):
     - fieldvars (list[str]): predictor field variable names from run config
     - splitsdir (str): directory containing normalized split HDF5 files
     Returns:
-    - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor | None]:
-        (fields, lf, target, dlev, nlevs, mask) where:
+    - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor | None, np.ndarray, xr.DataArray]:
+        (fields, lf, target, dlev, nlevs, mask, valid, refda) where:
         - fields: (nsamp, nfieldvars, nlevs) predictor fields
         - lf: (nsamp,) land fraction
         - target: (nsamp,) normalized precipitation
         - dlev: (nlevs,) vertical thickness weights (unit weight for scalar inputs)
         - nlevs: number of vertical levels (1 for scalar inputs)
         - mask: (nsamp, nlevs) surface validity mask, or None for scalar inputs
+        - valid: (nlat*nlon*ntime,) boolean array indicating which flattened samples were kept
+        - refda: reference DataArray with (lat, lon, time) coordinates for reconstructing the grid
     '''
     filepath = os.path.join(splitsdir,f'norm_{splitname}.h5')
     ds = xr.open_dataset(filepath,engine='h5netcdf')
@@ -86,6 +88,7 @@ def load_split(splitname,fieldvars,splitsdir):
     lf2d = ds['lf'].values
     lf = np.tile(lf2d,(ntime,1,1)).reshape(-1)
     valid = np.isfinite(fields).all(axis=(1,2))&np.isfinite(lf)&np.isfinite(pr)
+    refda = ds['pr'].transpose('time','lat','lon')
     fields = torch.from_numpy(fields[valid].astype(np.float32))
     lf     = torch.from_numpy(lf[valid].astype(np.float32))
     pr     = torch.from_numpy(pr[valid].astype(np.float32))
@@ -93,4 +96,4 @@ def load_split(splitname,fieldvars,splitsdir):
         mask = torch.from_numpy(maskarr[valid].astype(np.float32))
     else:
         mask = None
-    return fields,lf,pr,dlev,nlevs,mask
+    return fields,lf,pr,dlev,nlevs,mask,valid,refda
