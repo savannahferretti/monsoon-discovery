@@ -192,7 +192,7 @@ class Trainer:
                 'Training loss':trainloss,
                 'Validation loss':validloss,
                 'Learning rate':self.optimizer.param_groups[0]['lr']})
-            logger.info(f'   Epoch {epoch}/{self.epochs} | Training Loss={trainloss:.4f}, Validation Loss={validloss:45f}')
+            logger.info(f'   Epoch {epoch}/{self.epochs} | Training Loss={trainloss:.4f}, Validation Loss={validloss:.4f}')
             if noimprove>=self.patience
                 break
         duration = time.time()-starttime
