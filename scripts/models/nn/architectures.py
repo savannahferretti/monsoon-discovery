@@ -61,6 +61,7 @@ class BaselineNN(torch.nn.Module):
         - torch.Tensor: predictions with shape (nbatch,)
         '''
         if self.hasmask and mask is not None:
+            fields = fields*mask.unsqueeze(1)
             X = torch.cat([fields,mask.unsqueeze(1)],dim=1)
             X = torch.cat([X.flatten(1),lf.unsqueeze(1)],dim=1)
         else:
