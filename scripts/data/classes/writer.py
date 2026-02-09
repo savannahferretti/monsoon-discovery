@@ -48,7 +48,7 @@ class PredictionWriter:
         - xr.Dataset: Dataset with precipitation predictions in mm/hr
         '''
         dims   = ('time','lat','lon','seed')
-        coords = dict(refda.coords)
+        coords = {dim:refda.coords[dim].values for dim in refda.dims}
         coords['seed'] = np.arange(predstack.shape[-1])
         da = xr.DataArray(predstack,dims=dims,coords=coords,name='pr')
         da.attrs = dict(long_name='Predicted precipitation rate',units='mm/hr')
