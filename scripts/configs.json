@@ -40,7 +40,7 @@
       }
     },
     "nn":{
-      "projectname":"Chapter 3 Experiments",
+      "projectname":"Chapter-3-Experiments",
       "seeds":[42,72,102],
       "workers":8,
       "epochs":20,
