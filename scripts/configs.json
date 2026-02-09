@@ -29,13 +29,13 @@
     "local":["lf"],
     "target":"pr"
   },
-  "experiments":{
+  "models":{
     "pod":{
       "bins":{"min":-0.6,"max":0.1,"width":0.001,"minsample":50},
       "fit":{"prmin":1.0,"prmax":5.0},
       "landthresh":0.5,
       "runs":{
-        "pod_single_fit":    {"withlf":false},
+        "pod_single_fit":{"withlf":false},
         "pod_land_ocean_fit":{"withlf":true}
       }
     },
