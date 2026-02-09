@@ -6,6 +6,7 @@ import logging
 import argparse
 import numpy as np
 from scripts.utils import Config
+from scripts.data.classes import PredictionWriter
 from scripts.models.nn.classes.factory import build_model
 from scripts.models.nn.classes.dataset import FieldDataset,load_split
 from scripts.models.nn.classes.inferencer import Inferencer
@@ -76,10 +77,14 @@ if __name__=='__main__':
     logger.info('Spinning up...')
     device = setup(seeds[0])
     selectedruns,split = parse()
+    writer = PredictionWriter(config.splitsdir)
     cachedvars = None
     cacheddata = None
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
+            continue
+        if os.path.exists(os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')):
+            logger.info(f'Skipping `{name}`, predictions already exist')
             continue
         haskernel = runconfig['kind']!='baseline'
         nonparam  = runconfig['kind']=='nonparametric'
@@ -87,11 +92,11 @@ if __name__=='__main__':
         fieldkey  = tuple(fieldvars)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}...')
-            fields,lf,pr,dlev,nlevs,mask = load_split(split,fieldvars,config.splitsdir)
+            fields,lf,pr,dlev,nlevs,mask,valid,refda = load_split(split,fieldvars,config.splitsdir)
             cachedvars = fieldkey
-            cacheddata = (fields,lf,pr,dlev,nlevs,mask)
+            cacheddata = (fields,lf,pr,dlev,nlevs,mask,valid,refda)
         else:
-            fields,lf,pr,dlev,nlevs,mask = cacheddata
+            fields,lf,pr,dlev,nlevs,mask,valid,refda = cacheddata
         dataset    = FieldDataset(fields,lf,pr,dlev,mask=mask)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         allpreds      = []
@@ -104,7 +109,7 @@ if __name__=='__main__':
                 break
             inferencer = Inferencer(model,dataloader,device)
             preds = inferencer.predict(haskernel)
-            allpreds.append(preds)
+            allpreds.append(writer.to_array(preds,valid,refda))
             if haskernel:
                 components = inferencer.extract_weights(nonparam)
                 allcomponents.append(components)
@@ -112,5 +117,6 @@ if __name__=='__main__':
         else:
             logger.info(f'   Saving predictions for `{name}`...')
             predstack = np.stack(allpreds,axis=-1)
-            # TODO: save predictions and kernel weights to config.predsdir / config.weightsdir / config.featsdir
-            del predstack
+            ds = writer.to_dataset(predstack,refda)
+            writer.save(name,ds,split,config.predsdir)
+            del predstack,ds
