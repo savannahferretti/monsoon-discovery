@@ -23,13 +23,16 @@ class Inferencer:
     def predict(self,haskernel):
         '''
         Purpose: Generate predictions for all samples in the dataloader.
+            When haskernel is True, also collects kernel-integrated features from the kernel layer.
         Args:
         - haskernel (bool): whether model has integration kernel
         Returns:
-        - np.ndarray: predictions array with shape (nsamples,)
+        - tuple[np.ndarray, np.ndarray | None]: predictions with shape (nsamples,) and
+            kernel-integrated features with shape (nsamples, nfieldvars) or None for baseline models
         '''
         self.model.eval()
         predslist = []
+        featslist = [] if haskernel else None
         with torch.no_grad():
             for batch in self.dataloader:
                 fields = batch['fields'].to(self.device,non_blocking=True)
@@ -38,10 +41,13 @@ class Inferencer:
                 if haskernel:
                     dlev   = batch['dlev'].to(self.device,non_blocking=True)
                     output = self.model(fields,dlev,lf,mask=mask)
+                    featslist.append(self.model.kernel.features.detach().cpu().numpy())
                 else:
                     output = self.model(fields,lf,mask=mask)
                 predslist.append(output.detach().cpu().numpy())
-        return np.concatenate(predslist,axis=0).astype(np.float32)
+        preds = np.concatenate(predslist,axis=0).astype(np.float32)
+        feats = np.concatenate(featslist,axis=0).astype(np.float32) if haskernel else None
+        return preds,feats
 
     def extract_weights(self,nonparam):
         '''
