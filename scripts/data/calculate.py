@@ -32,13 +32,11 @@ if __name__=='__main__':
     q   = calculator.regrid(q).load()
     lf  = calculator.regrid(lf).load()
     pr  = calculator.regrid(calculator.resample(pr)).clip(min=0).load()
-    logger.info('Calculating equivalent potential temperature terms...')
+    logger.info('Calculating relative humidity equivalent potential temperature terms...')
     p           = calculator.create_p_array(q)
     thetae      = calculator.calc_thetae(p,t,q)
     thetaestar  = calculator.calc_thetae(p,t)
-    thetaesurf  = calculator.calc_thetae(p,t,q,ps)
-    thetaeprime = thetaesurf-thetaestar
-    thetaeplus  = thetaestar-thetae    
+    rh          = calculator.calc_rh(p,t,q) 
     logger.info('Calculating layer averages...')
     pbltop      = ps-100.0
     lfttop      = xr.full_like(ps,500.0)
@@ -54,10 +52,9 @@ if __name__=='__main__':
     surfmask = xr.where(p<=ps,1.0,0.0).astype(np.float32)
     logger.info('Creating datasets...')
     dslist = [
-        calculator.create_dataset(t,'t','Air temperature','K'),
-        calculator.create_dataset(q,'q','Specific humidity','kg/kg'),
-        calculator.create_dataset(thetaeprime,'thetaeprime','Difference between surface and unsaturated equivalent potential temperature','K'),
-        calculator.create_dataset(thetaeplus,'thetaeplus','Difference between unsaturated and saturated equivalent potential temperature','K'),
+        calculator.create_dataset(thetae,'thetae','Equivalent potential temperature','K'),
+        calculator.create_dataset(thetaestar,'thetaestar','Saturated equivalent potential temperature','K'),
+        calculator.create_dataset(rh,'rh','Relative humidity','%'),
         calculator.create_dataset(bl,'bl','Average buoyancy in the lower troposphere','m/s²'),
         calculator.create_dataset(cape,'cape','Undilute buoyancy in the lower troposphere','K'),
         calculator.create_dataset(subsat,'subsat','Lower free-tropospheric subsaturation','K'),

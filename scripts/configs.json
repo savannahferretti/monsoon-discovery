@@ -25,7 +25,7 @@
     "testyears":[2018,2020]
   },
   "variables":{
-    "field":["bl","cape","subsat","thetaeprime","thetaeplus","t","q"],
+    "field":["bl","cape","subsat","rh","thetae","thetaestar"],
     "local":["lf"],
     "target":"pr"
   },
@@ -35,8 +35,10 @@
       "fit":{"prmin":1.0,"prmax":5.0},
       "landthresh":0.5,
       "runs":{
-        "pod_single_fit":{"withlf":false},
-        "pod_land_ocean_fit":{"withlf":true}
+        "pod_single_fit":{"withlf":false,
+            "description":"$\\mathit{B_L}$ POD"},
+        "pod_land_ocean_fit":{"withlf":true,
+            "description":"$\\mathit{B_L}$ + LF POD "}
       }
     },
     "nn":{
@@ -49,40 +51,22 @@
       "patience":4,
       "criterion":"MSELoss",
       "runs":{
-        "baseline_experiment_1":{"kind":"baseline","fieldvars":["bl"]},
-        "baseline_experiment_2":{"kind":"baseline","fieldvars":["cape","subsat"]},
-        "baseline_experiment_3":{"kind":"baseline","fieldvars":["thetaeprime"]},
-        "baseline_experiment_4":{"kind":"baseline","fieldvars":["thetaeplus"]},
-        "baseline_experiment_5":{"kind":"baseline","fieldvars":["thetaeprime","thetaeplus"]},
-        "baseline_experiment_6":{"kind":"baseline","fieldvars":["t","q"]},
-        "nonparametric_experiment_1":{"kind":"nonparametric","fieldvars":["bl"]},
-        "nonparametric_experiment_2":{"kind":"nonparametric","fieldvars":["cape","subsat"]},
-        "nonparametric_experiment_3":{"kind":"nonparametric","fieldvars":["thetaeprime"]},
-        "nonparametric_experiment_4":{"kind":"nonparametric","fieldvars":["thetaeplus"]},
-        "nonparametric_experiment_5":{"kind":"nonparametric","fieldvars":["thetaeprime","thetaeplus"]},
-        "nonparametric_experiment_6":{"kind":"nonparametric","fieldvars":["t","q"]},
-        "gaussian_experiment_1":{"kind":"parametric","fieldvars":["bl"],"kernel":"gaussian"},
-        "gaussian_experiment_2":{"kind":"parametric","fieldvars":["cape","subsat"],"kernel":"gaussian"},
-        "gaussian_experiment_3":{"kind":"parametric","fieldvars":["thetaeprime"],"kernel":"gaussian"},
-        "gaussian_experiment_4":{"kind":"parametric","fieldvars":["thetaeplus"],"kernel":"gaussian"},
-        "gaussian_experiment_5":{"kind":"parametric","fieldvars":["thetaeprime","thetaeplus"],"kernel":"gaussian"},
-        "gaussian_experiment_6":{"kind":"parametric","fieldvars":["t","q"],"kernel":"gaussian"}
+        "baseline_bl":{"kind":"baseline","fieldvars":["bl"],
+            "description":"$\\mathit{B_L}$ + LF Baseline NN"},
+        "baseline_cape_subsat":{"kind":"baseline","fieldvars":["cape","subsat"],
+            "description":"$CAPE_L + SUBSAT_L$ + LF Baseline NN"},
+        "baseline_rh_thetae_thetastar":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],
+            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Baseline NN"},
+        "nonparametric_rh_thetae_thetastar":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],
+            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Nonparametric Kernel NN"},
+        "gaussian_rh_thetae_thetastar":{"kind":"parametric","fieldvars":["rh","thetae","thetaestar"],"kernel":"gaussian",
+            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Gaussian Kernel NN"}
       }
     },
     "sr":{
       "runs":{
-        "sr_nonparametric_experiment_1":{"fieldvars":["bl"],"features_from":"nonparametric_experiment_1"},
-        "sr_nonparametric_experiment_2":{"fieldvars":["cape","subsat"],"features_from":"nonparametric_experiment_2"},
-        "sr_nonparametric_experiment_3":{"fieldvars":["thetaeprime"],"features_from":"nonparametric_experiment_3"},
-        "sr_nonparametric_experiment_4":{"fieldvars":["thetaeplus"],"features_from":"nonparametric_experiment_4"},
-        "sr_nonparametric_experiment_5":{"fieldvars":["thetaeprime","thetaeplus"],"features_from":"nonparametric_experiment_5"},
-        "sr_nonparametric_experiment_6":{"fieldvars":["t","q"],"features_from":"nonparametric_experiment_6"},
-        "sr_gaussian_experiment_1":{"fieldvars":["bl"],"features_from":"gaussian_experiment_1"},
-        "sr_gaussian_experiment_2":{"fieldvars":["cape","subsat"],"features_from":"gaussian_experiment_2"},
-        "sr_gaussian_experiment_3":{"fieldvars":["thetaeprime"],"features_from":"gaussian_experiment_3"},
-        "sr_gaussian_experiment_4":{"fieldvars":["thetaeplus"],"features_from":"gaussian_experiment_4"},
-        "sr_gaussian_experiment_5":{"fieldvars":["thetaeprime","thetaeplus"],"features_from":"gaussian_experiment_5"},
-        "sr_gaussian_experiment_6":{"fieldvars":["t","q"],"features_from":"gaussian_experiment_6"}
+        "sr_nonparametric_rh_thetae_thetastar":{"fieldvars":["rh","thetae","thetaestar"],"features_from":"nonparametric_rh_thetae_thetastar"},
+        "sr_gaussian_rh_thetae_thetastar":{"fieldvars":["rh","thetae","thetaestar"],"features_from":"gaussian_rh_thetae_thetastar"}
       }
     }
   }
