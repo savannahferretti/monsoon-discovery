@@ -55,18 +55,18 @@
             "description":"$\\mathit{B_L}$ + LF Baseline NN"},
         "baseline_cape_subsat":{"kind":"baseline","fieldvars":["cape","subsat"],
             "description":"$CAPE_L + SUBSAT_L$ + LF Baseline NN"},
-        "baseline_rh_thetae_thetastar":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],
+        "baseline_rh_thetae_thetaestar":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],
             "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Baseline NN"},
-        "nonparametric_rh_thetae_thetastar":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],
+        "nonparametric_rh_thetae_thetaestar":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],
             "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Nonparametric Kernel NN"},
-        "gaussian_rh_thetae_thetastar":{"kind":"parametric","fieldvars":["rh","thetae","thetaestar"],"kernel":"gaussian",
+        "gaussian_rh_thetae_thetaestar":{"kind":"parametric","fieldvars":["rh","thetae","thetaestar"],"kernel":"gaussian",
             "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Gaussian Kernel NN"}
       }
     },
     "sr":{
       "runs":{
-        "sr_nonparametric_rh_thetae_thetastar":{"fieldvars":["rh","thetae","thetaestar"],"features_from":"nonparametric_rh_thetae_thetastar"},
-        "sr_gaussian_rh_thetae_thetastar":{"fieldvars":["rh","thetae","thetaestar"],"features_from":"gaussian_rh_thetae_thetastar"}
+        "sr_nonparametric_rh_thetae_thetaestar":{"fieldvars":["rh","thetae","thetaestar"],"features_from":"nonparametric_rh_thetae_thetaestar"},
+        "sr_gaussian_rh_thetae_thetaestar":{"fieldvars":["rh","thetae","thetaestar"],"features_from":"gaussian_rh_thetae_thetaestar"}
       }
     }
   }
