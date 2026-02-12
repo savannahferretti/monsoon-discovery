@@ -26,7 +26,7 @@
   },
   "variables":{
     "field":["bl","cape","subsat","rh","thetae","thetaestar"],
-    "local":["lf"],
+    "local":["lf","shf","lhf"],
     "target":"pr"
   },
   "experiments":{
@@ -52,15 +52,15 @@
       "criterion":"MSELoss",
       "runs":{
         "baseline_bl":{"kind":"baseline","fieldvars":["bl"],
-            "description":"$\\mathit{B_L}$ + LF Baseline NN"},
+            "description":"$\\mathit{B_L}$ + LF + SHF + LHF Baseline NN"},
         "baseline_cape_subsat":{"kind":"baseline","fieldvars":["cape","subsat"],
-            "description":"$CAPE_L + SUBSAT_L$ + LF Baseline NN"},
-        "baseline_rh_thetae_thetaestar":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],
-            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Baseline NN"},
+            "description":"$CAPE_L + SUBSAT_L$ + LF + SHF + LHF Baseline NN"},
+        "baseline_rh_thetae_thetaestar_fluxes":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],
+            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF + SHF + LHF Baseline NN"},
         "nonparametric_rh_thetae_thetaestar":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],
-            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Nonparametric Kernel NN"},
+            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF + SHF + LHF Nonparametric Kernel NN"},
         "gaussian_rh_thetae_thetaestar":{"kind":"parametric","fieldvars":["rh","thetae","thetaestar"],"kernel":"gaussian",
-            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF Gaussian Kernel NN"}
+            "description":"RH + $\\mathit{\theta_e}$ + $\\mathit{\theta_e^*}$ + LF + SHF + LHF Gaussian Kernel NN"}
       }
     },
     "sr":{
