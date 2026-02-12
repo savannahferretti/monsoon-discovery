@@ -36,14 +36,14 @@ class Inferencer:
         with torch.no_grad():
             for batch in self.dataloader:
                 fields = batch['fields'].to(self.device,non_blocking=True)
-                lf     = batch['lf'].to(self.device,non_blocking=True)
+                local  = batch['local'].to(self.device,non_blocking=True)
                 mask   = batch['mask'].to(self.device,non_blocking=True) if 'mask' in batch else None
                 if haskernel:
                     dlev   = batch['dlev'].to(self.device,non_blocking=True)
-                    output = self.model(fields,dlev,lf,mask=mask)
+                    output = self.model(fields,dlev,local,mask=mask)
                     featslist.append(self.model.kernel.features.detach().cpu().numpy())
                 else:
-                    output = self.model(fields,lf,mask=mask)
+                    output = self.model(fields,local,mask=mask)
                 predslist.append(output.detach().cpu().numpy())
         preds = np.concatenate(predslist,axis=0).astype(np.float32)
         feats = np.concatenate(featslist,axis=0).astype(np.float32) if haskernel else None

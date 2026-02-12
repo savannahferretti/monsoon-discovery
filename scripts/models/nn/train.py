@@ -51,6 +51,8 @@ if __name__=='__main__':
     seeds  = nn['seeds']
     logger.info('Spinning up...')
     selectedruns = parse()
+    localvars    = config.localvars
+    nlocalvars   = len(localvars)
     cachedvars   = None
     cacheddata   = None
     for name,runconfig in runs.items():
@@ -60,14 +62,14 @@ if __name__=='__main__':
         fieldkey  = tuple(fieldvars)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized splits for {fieldvars}...')
-            trainfields,trainlf,trainpr,dlev,nlevs,trainmask,_,_ = load_split('train',fieldvars,config.splitsdir)
-            validfields,validlf,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,config.splitsdir)
+            trainfields,trainlocal,trainpr,dlev,nlevs,trainmask,_,_ = load_split('train',fieldvars,localvars,config.splitsdir)
+            validfields,validlocal,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir)
             cachedvars = fieldkey
-            cacheddata = (trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs,trainmask,validmask)
+            cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dlev,nlevs,trainmask,validmask)
         else:
-            trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs,trainmask,validmask = cacheddata
-        trainset    = FieldDataset(trainfields,trainlf,trainpr,dlev,mask=trainmask)
-        validset    = FieldDataset(validfields,validlf,validpr,dlev,mask=validmask)
+            trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dlev,nlevs,trainmask,validmask = cacheddata
+        trainset    = FieldDataset(trainfields,trainlocal,trainpr,dlev,mask=trainmask)
+        validset    = FieldDataset(validfields,validlocal,validpr,dlev,mask=validmask)
         trainloader = torch.utils.data.DataLoader(trainset,batch_size=nn['batchsize'],shuffle=True, num_workers=nn['workers'],pin_memory=True)
         validloader = torch.utils.data.DataLoader(validset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         for seed in seeds:
@@ -77,7 +79,7 @@ if __name__=='__main__':
                 continue
             logger.info(f'Training `{runid}`...')
             device = setup(seed)
-            model = build_model(name,runconfig,nlevs).to(device)
+            model = build_model(name,runconfig,nlevs,nlocalvars).to(device)
             trainer = Trainer(
                 model=model,
                 trainloader=trainloader,

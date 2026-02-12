@@ -95,6 +95,10 @@ class Config:
         return int(teststart),int(testend)
 
     @property
+    def localvars(self):
+        return self.variables['local']
+
+    @property
     def targetvar(self):
         return self.variables['target']
 
