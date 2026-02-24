@@ -19,26 +19,26 @@ class PredictionWriter:
         filepath = os.path.join(statsdir,'stats.json')
         with open(filepath,'r',encoding='utf-8') as f:
             stats = json.load(f)
-        self.pr_mean = stats['pr_mean']
-        self.pr_std  = stats['pr_std']
+        self.prmean = stats['pr_mean']
+        self.prstd  = stats['pr_std']
 
-    def to_array(self,preds,valid,refda):
+    def predictions_to_array(self,preds,valid,refda):
         '''
-        Purpose: Place flat predictions back onto the (lat, lon, time) grid and denormalize to mm/hr.
+        Purpose: Place flat predictions back onto the 3D grid and denormalize and un-transform to native units (mm/hr).
         Args:
-        - preds (np.ndarray): flat predictions with shape (nsamp,)
+        - preds (np.ndarray): flat predictions with shape (nsamples,)
         - valid (np.ndarray): boolean array with shape (nlat*nlon*ntime,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         Returns:
-        - np.ndarray: denormalized predictions on the full grid with shape (time, lat, lon)
+        - np.ndarray: native-unit predictions on the full grid with shape (time, lat, lon)
         '''
         arr = np.full(valid.shape,np.nan,dtype=np.float32)
         arr[valid] = preds
         arr = arr.reshape(refda.shape)
-        arr = np.expm1(arr*self.pr_std+self.pr_mean)
+        arr = np.expm1(arr*self.prstd+self.prmean)
         return arr
 
-    def to_dataset(self,predstack,refda):
+    def predictions_to_dataset(self,predstack,refda):
         '''
         Purpose: Wrap a stacked prediction array into an xr.Dataset with a seed dimension.
         Args:
@@ -58,7 +58,7 @@ class PredictionWriter:
         '''
         Purpose: Place flat kernel-integrated features back onto the (time, lat, lon) grid per field variable.
         Args:
-        - feats (np.ndarray): features with shape (nsamp, nfieldvars)
+        - feats (np.ndarray): features with shape (nsamples, nfieldvars)
         - valid (np.ndarray): boolean array with shape (nlat*nlon*ntime,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         Returns:

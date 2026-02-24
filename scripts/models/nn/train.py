@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import json
 import torch
 import logging
 import argparse
@@ -9,6 +10,7 @@ from scripts.utils import Config
 from scripts.models.nn.classes.factory import build_model
 from scripts.models.nn.classes.dataset import FieldDataset,load_split
 from scripts.models.nn.classes.trainer import Trainer
+from scripts.models.nn.classes.sampler import build_precipitation_sampler,build_uniform_precipitation_sampler
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -51,25 +53,27 @@ if __name__=='__main__':
     seeds  = nn['seeds']
     logger.info('Spinning up...')
     selectedruns = parse()
-    cachedvars   = None
+    cachedkey    = None
     cacheddata   = None
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
-        fieldvars = runconfig['fieldvars']
-        fieldkey  = tuple(fieldvars)
-        if fieldkey!=cachedvars:
-            logger.info(f'Loading normalized splits for {fieldvars}...')
-            trainfields,trainlf,trainpr,dlev,nlevs,trainmask,_,_ = load_split('train',fieldvars,config.splitsdir)
-            validfields,validlf,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,config.splitsdir)
-            cachedvars = fieldkey
-            cacheddata = (trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs,trainmask,validmask)
+        fieldvars  = runconfig['fieldvars']
+        localvars  = runconfig.get('localvars',[])
+        nlocalvars = len(localvars)
+        cachekey   = (tuple(fieldvars),tuple(localvars))
+        if cachekey!=cachedkey:
+            logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}...')
+            trainfields,trainlocal,trainpr,dlev,nlevs,trainmask,_,_  = load_split('train',fieldvars,localvars,config.splitsdir)
+            validfields,validlocal,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir)
+            cachedkey  = cachekey
+            cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dlev,nlevs,trainmask,validmask)
         else:
-            trainfields,trainlf,trainpr,validfields,validlf,validpr,dlev,nlevs,trainmask,validmask = cacheddata
-        trainset    = FieldDataset(trainfields,trainlf,trainpr,dlev,mask=trainmask)
-        validset    = FieldDataset(validfields,validlf,validpr,dlev,mask=validmask)
-        trainloader = torch.utils.data.DataLoader(trainset,batch_size=nn['batchsize'],shuffle=True, num_workers=nn['workers'],pin_memory=True)
-        validloader = torch.utils.data.DataLoader(validset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
+            trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dlev,nlevs,trainmask,validmask = cacheddata
+        traindataset = FieldDataset(trainfields,trainlocal,trainpr,dlev,mask=trainmask)
+        validdataset = FieldDataset(validfields,validlocal,validpr,dlev,mask=validmask)
+        trainloader = torch.utils.data.DataLoader(traindataset,batch_size=nn['batchsize'],shuffle=True,num_workers=nn['workers'],pin_memory=True)
+        validloader = torch.utils.data.DataLoader(validdataset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         for seed in seeds:
             runid = f'{name}_{seed}'
             if os.path.exists(os.path.join(config.modelsdir,'nn',f'{runid}.pth')):
@@ -77,7 +81,8 @@ if __name__=='__main__':
                 continue
             logger.info(f'Training `{runid}`...')
             device = setup(seed)
-            model = build_model(name,runconfig,nlevs).to(device)
+            model  = build_model(name,runconfig,nlevs,nlocalvars).to(device)
+            criterion        = runconfig.get('criterion',nn['criterion'])
             trainer = Trainer(
                 model=model,
                 trainloader=trainloader,
@@ -88,7 +93,7 @@ if __name__=='__main__':
                 seed=seed,
                 lr=nn['learningrate'],
                 patience=nn['patience'],
-                criterion=nn['criterion'],
+                criterion=criterion,
                 epochs=nn['epochs'],
                 useamp=True,
                 accumsteps=1,

@@ -54,7 +54,7 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
         binidxs = np.digitize(x,binedges)-1
         inrange = (binidxs>=0)&(binidxs<bincenters.size)
         counts = np.bincount(binidxs[inrange],minlength=bincenters.size).astype(np.int64)
-        sums = np.bincount(binidxs[inrange],weights=y[inrange],minlength=bincenters.size).astype(np.float32)
+        sums   = np.bincount(binidxs[inrange],weights=y[inrange],minlength=bincenters.size).astype(np.float32)
         with np.errstate(divide='ignore',invalid='ignore'):
             ymeans = sums/counts
         ymeans[counts<samplethresh] = np.nan
@@ -81,7 +81,8 @@ def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
         ocean  = finite&(lfflat<landthresh)
         landresults  = ramp(xflat[land],yflat[land])
         oceanresults = ramp(xflat[ocean],yflat[ocean])
-        model        = RampPOD(withlf=True,landthresh=landthresh,alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
+        model = RampPOD(
+            withlf=True,landthresh=landthresh,alphaland=landresults[0],blcritland=landresults[1],alphaocean=oceanresults[0],blcritocean=oceanresults[1])
         diagnostics = {
             'bincenters':bincenters,
             'ymeanland':landresults[2],

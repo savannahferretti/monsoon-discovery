@@ -7,18 +7,18 @@ import xarray as xr
 
 class FieldDataset(torch.utils.data.Dataset):
 
-    def __init__(self,fields,lf,target,dlev=None,mask=None):
+    def __init__(self,fields,local,target,dlev=None,mask=None):
         '''
         Purpose: Dataset for NN training/inference at individual grid cell/timestep samples.
         Args:
         - fields (torch.Tensor): predictor fields with shape (nsamp, nfieldvars, nlevs)
-        - lf (torch.Tensor): land fraction with shape (nsamp,)
+        - local (torch.Tensor): local input variables with shape (nsamp, nlocalvars)
         - target (torch.Tensor): target precipitation with shape (nsamp,)
         - dlev (torch.Tensor | None): vertical thickness weights with shape (nlevs,), required for kernel models
         - mask (torch.Tensor | None): surface validity mask with shape (nsamp, nlevs), required for profile inputs
         '''
         self.fields = fields
-        self.lf     = lf
+        self.local  = local
         self.target = target
         self.dlev   = dlev
         self.mask   = mask
@@ -29,7 +29,7 @@ class FieldDataset(torch.utils.data.Dataset):
     def __getitem__(self,idx):
         batch = {
             'fields':self.fields[idx],
-            'lf':self.lf[idx],
+            'local':self.local[idx],
             'target':self.target[idx]}
         if self.dlev is not None:
             batch['dlev'] = self.dlev
@@ -37,8 +37,7 @@ class FieldDataset(torch.utils.data.Dataset):
             batch['mask'] = self.mask[idx]
         return batch
 
-
-def load_split(splitname,fieldvars,splitsdir):
+def load_split(splitname,fieldvars,localvars,splitsdir):
     '''
     Purpose: Load a normalized data split and return tensors shaped for NN training/inference.
         Each sample corresponds to a single (lat, lon, time) grid cell and timestep.
@@ -47,12 +46,13 @@ def load_split(splitname,fieldvars,splitsdir):
     Args:
     - splitname (str): 'train' | 'valid' | 'test'
     - fieldvars (list[str]): predictor field variable names from run config
+    - localvars (list[str]): local input variable names (e.g. ['lf','shf','lhf'])
     - splitsdir (str): directory containing normalized split HDF5 files
     Returns:
     - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor | None, np.ndarray, xr.DataArray]:
-        (fields, lf, target, dlev, nlevs, mask, valid, refda) where:
+        (fields, local, target, dlev, nlevs, mask, valid, refda) where:
         - fields: (nsamp, nfieldvars, nlevs) predictor fields
-        - lf: (nsamp,) land fraction
+        - local: (nsamp, nlocalvars) local input variables
         - target: (nsamp,) normalized precipitation
         - dlev: (nlevs,) vertical thickness weights (unit weight for scalar inputs)
         - nlevs: number of vertical levels (1 for scalar inputs)
@@ -85,15 +85,25 @@ def load_split(splitname,fieldvars,splitsdir):
         dlev = torch.tensor([1.0],dtype=torch.float32)
         maskarr = None
     pr = ds['pr'].transpose('time','lat','lon').values.reshape(-1)
-    lf2d = ds['lf'].values
-    lf = np.tile(lf2d,(ntime,1,1)).reshape(-1)
-    valid = np.isfinite(fields).all(axis=(1,2))&np.isfinite(lf)&np.isfinite(pr)
+    ntotal = fields.shape[0]
+    if localvars:
+        localarrays = []
+        for v in localvars:
+            if 'time' in ds[v].dims:
+                arr = ds[v].transpose('time','lat','lon').values.reshape(-1)
+            else:
+                arr = np.tile(ds[v].values,(ntime,1,1)).reshape(-1)
+            localarrays.append(arr)
+        local = np.stack(localarrays,axis=1)
+    else:
+        local = np.empty((ntotal,0),dtype=np.float32)
+    valid = np.isfinite(fields).all(axis=(1,2))&np.isfinite(local).all(axis=1)&np.isfinite(pr)
     refda = ds['pr'].transpose('time','lat','lon')
     fields = torch.from_numpy(fields[valid].astype(np.float32))
-    lf     = torch.from_numpy(lf[valid].astype(np.float32))
+    local  = torch.from_numpy(local[valid].astype(np.float32))
     pr     = torch.from_numpy(pr[valid].astype(np.float32))
     if maskarr is not None:
         mask = torch.from_numpy(maskarr[valid].astype(np.float32))
     else:
         mask = None
-    return fields,lf,pr,dlev,nlevs,mask,valid,refda
+    return fields,local,pr,dlev,nlevs,mask,valid,refda

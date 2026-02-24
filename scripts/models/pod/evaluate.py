@@ -86,7 +86,7 @@ def save(ypred,runname,splitname,predsdir):
     - bool: True if writing and verification succeed, otherwise False
     '''
     os.makedirs(predsdir,exist_ok=True)
-    filename = f'{runname}_{splitname}_pr.nc'
+    filename = f'{runname}_{splitname}_predictions.nc'
     filepath = os.path.join(predsdir,filename)
     logger.info(f'      Attempting to save {filename}...')
     try:

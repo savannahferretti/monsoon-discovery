@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 class Trainer:
 
-    def __init__(self,model,trainloader,validloader,device,modeldir,project,seed,lr=1e-3,patience=5,
-                 criterion='MSELoss',epochs=100,useamp=True,accumsteps=1,compile=False):
+    def __init__(self,model,trainloader,validloader,device,modeldir,project,seed,lr,patience,criterion,epochs,useamp,accumsteps,compile):
         '''
         Purpose: Initialize Trainer with model, dataloaders, and training configuration.
         Args:
@@ -23,13 +22,13 @@ class Trainer:
         - modeldir (str): output directory for checkpoints
         - project (str): project name for Weights & Biases logging
         - seed (int): random seed for reproducibility
-        - lr (float): initial learning rate (defaults to 1e-3)
-        - patience (int): early stopping patience (defaults to 5)
-        - criterion (str): loss function name (defaults to MSELoss)
-        - epochs (int): maximum number of epochs (defaults to 100)
-        - useamp (bool): whether to use automatic mixed precision (defaults to True for CUDA)
-        - accumsteps (int): gradient accumulation steps for larger effective batch size (defaults to 1)
-        - compile (bool): whether to use torch.compile for faster training (defaults to False)
+        - lr (float): initial learning rate
+        - patience (int): early stopping patience
+        - criterion (str): loss function name
+        - epochs (int): maximum number of epochs
+        - useamp (bool): whether to use automatic mixed precision
+        - accumsteps (int): gradient accumulation steps for larger effective batch size
+        - compile (bool): whether to use torch.compile for faster training
         '''
         self.model       = model
         self.trainloader = trainloader
@@ -77,20 +76,20 @@ class Trainer:
         '''
         Purpose: Run a forward pass on a batch, dispatching to baseline or kernel model interface.
         Args:
-        - batch (dict): batch dictionary with keys 'fields', 'lf', 'target', and optionally 'dlev' and 'mask'
+        - batch (dict): batch dictionary with keys 'fields', 'local', 'target', and optionally 'dlev' and 'mask'
         - haskernel (bool): whether model has integration kernel
         Returns:
         - tuple[torch.Tensor, torch.Tensor]: (predictions, targets)
         '''
         fields = batch['fields'].to(self.device,non_blocking=True)
-        lf     = batch['lf'].to(self.device,non_blocking=True)
+        local  = batch['local'].to(self.device,non_blocking=True)
         target = batch['target'].to(self.device,non_blocking=True)
         mask   = batch['mask'].to(self.device,non_blocking=True) if 'mask' in batch else None
         if haskernel:
-            dlev   = batch['dlev'].to(self.device,non_blocking=True)
-            output = self.model(fields,dlev,lf,mask=mask)
+            dlev   = batch['dlev'][0].to(self.device,non_blocking=True)
+            output = self.model(fields,dlev,local,mask=mask)
         else:
-            output = self.model(fields,lf,mask=mask)
+            output = self.model(fields,local,mask=mask)
         return output,target
 
     def train_epoch(self,haskernel):
@@ -148,7 +147,7 @@ class Trainer:
                     loss = self.criterion(outputvalues,targetvalues)
                 totalloss += loss.detach()*targetvalues.numel()
         return (totalloss/len(self.validloader.dataset)).item()
-
+        
     def fit(self,name):
         '''
         Purpose: Train model with early stopping and learning rate scheduling.
@@ -162,7 +161,7 @@ class Trainer:
             config={
                 'Seed':self.seed,
                 'Epochs':self.epochs,
-                'Effective batch size':self.trainloader.batch_size*self.accumsteps,
+                'Batch size':self.trainloader.batch_size*self.accumsteps,
                 'Initial learning rate':self.lr,
                 'Early stopping patience':self.patience,
                 'Loss function':self.criterion.__class__.__name__,
@@ -192,7 +191,7 @@ class Trainer:
                 'Training loss':trainloss,
                 'Validation loss':validloss,
                 'Learning rate':self.optimizer.param_groups[0]['lr']})
-            logger.info(f'   Epoch {epoch}/{self.epochs} | Training Loss={trainloss:.4f}, Validation Loss={validloss:.4f}')
+            logger.info(f'   Epoch {epoch}/{self.epochs} | Training Loss = {trainloss:.4f} | Validation Loss = {validloss:.4f}')
             if noimprove>=self.patience:
                 break
         duration = time.time()-starttime

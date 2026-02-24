@@ -16,8 +16,8 @@ class KernelModule:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
         kernelsum = (kernel*dlev.unsqueeze(0)).sum(dim=1)
-        weights = kernel/(kernelsum.unsqueeze(1)+epsilon)
-        checksum = (weights*dlev.unsqueeze(0)).sum(dim=1)
+        weights   = kernel/(kernelsum.unsqueeze(1)+epsilon)
+        checksum  = (weights*dlev.unsqueeze(0)).sum(dim=1)
         assert torch.allclose(checksum,torch.ones_like(checksum),atol=1e-2),f'Kernel normalization failed, weights sum to {checksum.mean().item():.6f} instead of 1.0'
         return weights
 
@@ -31,7 +31,7 @@ class KernelModule:
         - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
         - weights (torch.Tensor): normalized kernel weights with shape (nfieldvars, nlevs)
         - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
-        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs), or None
+        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs) or None
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
@@ -68,8 +68,8 @@ class NonparametricKernelLayer(torch.nn.Module):
         Returns:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
-        self.raw = self.raw.to(device)
-        dlev     = dlev.to(device)
+        dlev      = dlev.to(device)
+        self.raw  = self.raw.to(device)
         self.norm = KernelModule.normalize(self.raw,dlev)
         return self.norm
 
@@ -83,7 +83,7 @@ class NonparametricKernelLayer(torch.nn.Module):
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
-        norm = self.get_weights(dlev,fields.device)
+        norm  = self.get_weights(dlev,fields.device)
         feats = KernelModule.integrate(fields,norm,dlev,mask=mask)
         self.features = feats
         return feats
@@ -117,36 +117,6 @@ class ParametricKernelLayer(torch.nn.Module):
             kernel1D = torch.exp(-0.5*((coord[None,:]-self.mu[:,None])/std[:,None])**2)
             return kernel1D
 
-    class TopHatKernel(torch.nn.Module):
-
-        def __init__(self,nfieldvars):
-            '''
-            Purpose: Initialize parameters of a 1D top-hat kernel.
-            Args:
-            - nfieldvars (int): number of predictor fields
-            '''
-            super().__init__()
-            self.lower = torch.nn.Parameter(torch.full((int(nfieldvars),),-0.5))
-            self.upper = torch.nn.Parameter(torch.full((int(nfieldvars),),0.5))
-
-        def forward(self,nlevs,device):
-            '''
-            Purpose: Evaluate the top-hat kernel over vertical levels.
-            Args:
-            - nlevs (int): number of vertical levels
-            - device (str | torch.device): device to use
-            Returns:
-            - torch.Tensor: top-hat kernel values with shape (nfieldvars, nlevs)
-            '''
-            coord = torch.linspace(-1.0,1.0,steps=nlevs,device=device)
-            s1,s2 = torch.min(self.lower,self.upper),torch.max(self.lower,self.upper)
-            width = s2-s1
-            widthconstrained = torch.where(width>1.5,1.5*torch.tanh(width/1.5),width)
-            leftedge  = torch.sigmoid((coord[None,:]-s1[:,None])/0.02)
-            rightedge = torch.sigmoid(((s1+widthconstrained)[:,None]-coord[None,:])/0.02)
-            kernel1D  = leftedge*rightedge+1e-8
-            return kernel1D
-
     class ExponentialKernel(torch.nn.Module):
 
         def __init__(self,nfieldvars):
@@ -175,74 +145,23 @@ class ParametricKernelLayer(torch.nn.Module):
             kernel1D = torch.exp(-distance/tau[:,None])
             return kernel1D
 
-    class MixtureGaussianKernel(torch.nn.Module):
-
-        def __init__(self,nfieldvars):
-            '''
-            Purpose: Initialize a mixture-of-Gaussians kernel.
-            Args:
-            - nfieldvars (int): number of predictor fields
-            '''
-            super().__init__()
-            self.mu1      = torch.nn.Parameter(torch.full((int(nfieldvars),),-0.5))
-            self.mu2      = torch.nn.Parameter(torch.full((int(nfieldvars),),0.5))
-            self.logstd1  = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
-            self.logstd2  = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
-            self.weight1  = torch.nn.Parameter(torch.ones(int(nfieldvars)))
-            self.weight2  = torch.nn.Parameter(torch.ones(int(nfieldvars)))
-
-        def get_components(self,nlevs,device):
-            '''
-            Purpose: Compute individual Gaussian components separately (for visualization).
-            Args:
-            - nlevs (int): number of vertical levels
-            - device (str | torch.device): device to use
-            Returns:
-            - tuple: tuple of individual Gaussian kernels each with shape (nfieldvars, nlevs)
-            '''
-            coord = torch.linspace(-1.0,1.0,steps=nlevs,device=device)
-            std1  = torch.exp(self.logstd1).clamp(min=0.1,max=2.0)
-            std2  = torch.exp(self.logstd2).clamp(min=0.1,max=2.0)
-            component1 = self.weight1[:,None]*(torch.exp(-(coord[None,:]-self.mu1[:,None])**2/(2*std1[:,None]**2)))
-            component2 = self.weight2[:,None]*(torch.exp(-(coord[None,:]-self.mu2[:,None])**2/(2*std2[:,None]**2)))
-            return component1,component2
-
-        def forward(self,nlevs,device):
-            '''
-            Purpose: Evaluate a mixture-of-Gaussians kernel over vertical levels.
-            Args:
-            - nlevs (int): number of vertical levels
-            - device (str | torch.device): device to use
-            Returns:
-            - torch.Tensor: mixture kernel values with shape (nfieldvars, nlevs)
-            '''
-            component1,component2 = self.get_components(nlevs,device)
-            kernel1D = component1+component2
-            kernel1D = kernel1D+1e-8
-            return kernel1D
-
-    KERNEL_TYPES = {
-        'gaussian':GaussianKernel,
-        'tophat':TopHatKernel,
-        'exponential':ExponentialKernel,
-        'mixgaussian':MixtureGaussianKernel}
+    kerneltypes = {'gaussian':GaussianKernel,'exponential':ExponentialKernel}
 
     def __init__(self,nfieldvars,kerneltype):
         '''
         Purpose: Initialize a parametric vertical kernel.
         Args:
         - nfieldvars (int): number of predictor fields
-        - kerneltype (str): 'gaussian' | 'tophat' | 'exponential' | 'mixgaussian'
+        - kerneltype (str): 'gaussian' | 'exponential'
         '''
         super().__init__()
         self.nfieldvars = int(nfieldvars)
         self.kerneltype = str(kerneltype)
         self.norm       = None
-        self.components = None
         self.features   = None
-        if kerneltype not in self.KERNEL_TYPES:
-            raise ValueError(f'Unknown kernel type `{kerneltype}`; must be one of {list(self.KERNEL_TYPES.keys())}')
-        self.function = self.KERNEL_TYPES[kerneltype](self.nfieldvars)
+        if kerneltype not in self.kerneltypes:
+            raise ValueError(f'Unknown kernel type `{kerneltype}`; must be one of {list(self.kerneltypes.keys())}')
+        self.function = self.kerneltypes[kerneltype](self.nfieldvars)
 
     def get_weights(self,dlev,device,decompose=False):
         '''
@@ -254,16 +173,10 @@ class ParametricKernelLayer(torch.nn.Module):
         Returns:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
-        dlev = dlev.to(device)
-        nlevs = dlev.numel()
+        dlev   = dlev.to(device)
+        nlevs  = dlev.numel()
         kernel = self.function(nlevs,device)
         self.norm = KernelModule.normalize(kernel,dlev)
-        self.components = None
-        if decompose and isinstance(self.function,self.MixtureGaussianKernel):
-            c1,c2 = self.function.get_components(nlevs,device)
-            normc1 = KernelModule.normalize(c1,dlev)
-            normc2 = KernelModule.normalize(c2,dlev)
-            self.components = torch.stack([normc1,normc2],dim=0)
         return self.norm
 
     def forward(self,fields,dlev,mask=None):
@@ -276,7 +189,7 @@ class ParametricKernelLayer(torch.nn.Module):
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
-        norm = self.get_weights(dlev,fields.device)
+        norm  = self.get_weights(dlev,fields.device)
         feats = KernelModule.integrate(fields,norm,dlev,mask=mask)
         self.features = feats
         return feats

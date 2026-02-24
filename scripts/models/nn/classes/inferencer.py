@@ -22,8 +22,7 @@ class Inferencer:
 
     def predict(self,haskernel):
         '''
-        Purpose: Generate predictions for all samples in the dataloader.
-            When haskernel is True, also collects kernel-integrated features from the kernel layer.
+        Purpose: Generate predictions for all samples in the dataloader. When haskernel is True, also collects kernel-integrated features from the kernel layer.
         Args:
         - haskernel (bool): whether model has integration kernel
         Returns:
@@ -36,14 +35,14 @@ class Inferencer:
         with torch.no_grad():
             for batch in self.dataloader:
                 fields = batch['fields'].to(self.device,non_blocking=True)
-                lf     = batch['lf'].to(self.device,non_blocking=True)
+                local  = batch['local'].to(self.device,non_blocking=True)
                 mask   = batch['mask'].to(self.device,non_blocking=True) if 'mask' in batch else None
                 if haskernel:
-                    dlev   = batch['dlev'].to(self.device,non_blocking=True)
-                    output = self.model(fields,dlev,lf,mask=mask)
+                    dlev   = batch['dlev'][0].to(self.device,non_blocking=True)
+                    output = self.model(fields,dlev,local,mask=mask)
                     featslist.append(self.model.kernel.features.detach().cpu().numpy())
                 else:
-                    output = self.model(fields,lf,mask=mask)
+                    output = self.model(fields,local,mask=mask)
                 predslist.append(output.detach().cpu().numpy())
         preds = np.concatenate(predslist,axis=0).astype(np.float32)
         feats = np.concatenate(featslist,axis=0).astype(np.float32) if haskernel else None
@@ -67,7 +66,4 @@ class Inferencer:
             with torch.no_grad():
                 dlev = batch['dlev'].to(self.device,non_blocking=True)
                 self.model.kernel.get_weights(dlev,self.device,decompose=True)
-            if self.model.kernel.components is not None:
-                components = self.model.kernel.components.detach().cpu().numpy().astype(np.float32)
-                return [components[i] for i in range(components.shape[0])]
         return [norm]

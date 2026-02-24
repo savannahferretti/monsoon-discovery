@@ -118,26 +118,34 @@ class DataCalculator:
         qs = (epsilon*es)/(p-es*(1.0-epsilon))
         return qs
 
-    def calc_thetae(self,p,t,q=None,ps=None):
+    def calc_rh(self,p,t,q):
         '''
-        Purpose: Calculate (unsaturated, saturated, or surface) equivalent potential temperature (θₑ) using Eqs. 43 and 55 
+        Purpose: Calculate relative humidity (RH) using qₛ.
+        Args:
+        - p (xr.DataArray): pressure DataArray (hPa)
+        - t (xr.DataArray): temperature DataArray (K)
+        - q (xr.DataArray): specific humidity DataArray (kg/kg)
+        Returns:
+        - xr.DataArray: RH DataArray (%)
+        '''
+        qs = self.calc_qs(p,t)
+        rh = (q/qs)*100.0
+        rh = rh.clip(min=0.0,max=100.0)
+        return rh
+
+    def calc_thetae(self,p,t,q=None):
+        '''
+        Purpose: Calculate (unsaturated or saturated) equivalent potential temperature (θₑ) using Eqs. 43 and 55 
         from Bolton D. (1980), Mon. Wea. Rev.     
         Args:
         - p (xr.DataArray): pressure DataArray (hPa)
         - t (xr.DataArray): temperature DataArray (K)
         - q (xr.DataArray, optional): specific humidity DataArray (kg/kg); if None, saturated θₑ computed
-        - ps (xr.DataArray, optional): surface pressure DataArray (hPa); if given, θₑ at the surface will be calculated
-          (ps > 1,000 hPa are clamped to 1,000 hPa to prevent extrapolation beyond the available pressure levels from ERA5)
         Returns:
-        - xr.DataArray: unsaturated, saturated, and/or surface) θₑ DataArray (K)
+        - xr.DataArray: unsaturated or saturated θₑ DataArray (K)
         '''
         if q is None:
             q = self.calc_qs(p,t)
-        if ps is not None:
-            psclamped = xr.where(ps>1000.,1000.,ps)
-            t = t.interp(lev=psclamped)
-            q = q.interp(lev=psclamped)
-            p = psclamped
         p0 = 1000.0
         rv = 461.5
         rd = 287.04

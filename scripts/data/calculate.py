@@ -25,20 +25,22 @@ if __name__=='__main__':
     t   = calculator.retrieve('ERA5_air_temperature')
     q   = calculator.retrieve('ERA5_specific_humidity')
     lf  = calculator.retrieve('ERA5_land_fraction')
+    lhf = calculator.retrieve('ERA5_mean_surface_latent_heat_flux')
+    shf = calculator.retrieve('ERA5_mean_surface_sensible_heat_flux')
     pr  = calculator.retrieve('IMERG_V06_precipitation_rate')
     logger.info('Resampling/regridding variables...')
     ps  = calculator.regrid(ps).load()
     t   = calculator.regrid(t).load()
     q   = calculator.regrid(q).load()
     lf  = calculator.regrid(lf).load()
+    lhf = calculator.regrid(lhf).load()
+    shf = calculator.regrid(shf).load()
     pr  = calculator.regrid(calculator.resample(pr)).clip(min=0).load()
-    logger.info('Calculating equivalent potential temperature terms...')
-    p           = calculator.create_p_array(q)
-    thetae      = calculator.calc_thetae(p,t,q)
-    thetaestar  = calculator.calc_thetae(p,t)
-    thetaesurf  = calculator.calc_thetae(p,t,q,ps)
-    thetaeprime = thetaesurf-thetaestar
-    thetaeplus  = thetaestar-thetae    
+    logger.info('Calculating relative humidity and equivalent potential temperature terms...')
+    p          = calculator.create_p_array(q)
+    rh         = calculator.calc_rh(p,t,q)
+    thetae     = calculator.calc_thetae(p,t,q)
+    thetaestar = calculator.calc_thetae(p,t)
     logger.info('Calculating layer averages...')
     pbltop      = ps-100.0
     lfttop      = xr.full_like(ps,500.0)
@@ -54,15 +56,16 @@ if __name__=='__main__':
     surfmask = xr.where(p<=ps,1.0,0.0).astype(np.float32)
     logger.info('Creating datasets...')
     dslist = [
-        calculator.create_dataset(t,'t','Air temperature','K'),
-        calculator.create_dataset(q,'q','Specific humidity','kg/kg'),
-        calculator.create_dataset(thetaeprime,'thetaeprime','Difference between surface and unsaturated equivalent potential temperature','K'),
-        calculator.create_dataset(thetaeplus,'thetaeplus','Difference between unsaturated and saturated equivalent potential temperature','K'),
+        calculator.create_dataset(rh,'rh','Relative humidity','%'),
+        calculator.create_dataset(thetae,'thetae','Equivalent potential temperature','K'),
+        calculator.create_dataset(thetaestar,'thetaestar','Saturated equivalent potential temperature','K'),
         calculator.create_dataset(bl,'bl','Average buoyancy in the lower troposphere','m/s²'),
         calculator.create_dataset(cape,'cape','Undilute buoyancy in the lower troposphere','K'),
         calculator.create_dataset(subsat,'subsat','Lower free-tropospheric subsaturation','K'),
         calculator.create_dataset(ps,'ps','Surface pressure','hPa'),
         calculator.create_dataset(lf,'lf','Land fraction','0-1'),
+        calculator.create_dataset(lhf,'lhf','Mean surface latent heat flux','W/m²'),
+        calculator.create_dataset(shf,'shf','Mean surface sensible heat flux','W/m²'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
         calculator.create_dataset(dlev,'dlev','Vertical thickness weights','hPa'),
         calculator.create_dataset(surfmask,'surfmask','Binary surface validity mask','0-1')]
