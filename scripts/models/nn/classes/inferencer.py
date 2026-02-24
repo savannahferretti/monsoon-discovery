@@ -48,22 +48,12 @@ class Inferencer:
         feats = np.concatenate(featslist,axis=0).astype(np.float32) if haskernel else None
         return preds,feats
 
-    def extract_weights(self,nonparam):
+    def extract_weights(self):
         '''
-        Purpose: Extract normalized kernel weights as a list of components.
-        Args:
-        - nonparam (bool): whether the kernel is non-parametric
+        Purpose: Extract normalized kernel weights from the kernel layer.
         Returns:
-        - list[np.ndarray]: list of component weight arrays; each has shape (nfieldvars, nlevs)
+        - np.ndarray: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
         if self.model.kernel.norm is None:
             raise RuntimeError('`model.kernel.norm` was not populated during forward pass')
-        norm = self.model.kernel.norm.detach().cpu().numpy().astype(np.float32)
-        if nonparam:
-            return [norm]
-        if hasattr(self.model.kernel,'get_weights'):
-            batch = next(iter(self.dataloader))
-            with torch.no_grad():
-                dlev = batch['dlev'].to(self.device,non_blocking=True)
-                self.model.kernel.get_weights(dlev,self.device,decompose=True)
-        return [norm]
+        return self.model.kernel.norm.detach().cpu().numpy().astype(np.float32)

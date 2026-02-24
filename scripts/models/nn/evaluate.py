@@ -88,21 +88,21 @@ if __name__=='__main__':
             logger.info(f'Skipping `{name}`, predictions already exist')
             continue
         haskernel = runconfig['kind']!='baseline'
-        nonparam  = runconfig['kind']=='nonparametric'
         fieldvars = runconfig['fieldvars']
-        fieldkey  = tuple(fieldvars)
+        localvars = runconfig.get('localvars',[])
+        fieldkey  = (tuple(fieldvars),tuple(localvars))
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}...')
-            fields,lf,pr,dlev,nlevs,mask,valid,refda = load_split(split,fieldvars,config.splitsdir)
+            fields,local,pr,dlev,nlevs,mask,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir)
             cachedvars = fieldkey
-            cacheddata = (fields,lf,pr,dlev,nlevs,mask,valid,refda)
+            cacheddata = (fields,local,pr,dlev,nlevs,mask,valid,refda)
         else:
-            fields,lf,pr,dlev,nlevs,mask,valid,refda = cacheddata
-        dataset    = FieldDataset(fields,lf,pr,dlev,mask=mask)
+            fields,local,pr,dlev,nlevs,mask,valid,refda = cacheddata
+        dataset    = FieldDataset(fields,local,pr,dlev,mask=mask)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
-        allpreds      = []
-        allcomponents = []
-        allfeats      = []
+        allpreds   = []
+        allweights = []
+        allfeats   = []
         for seedidx,seed in enumerate(seeds):
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             model = load(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
@@ -111,24 +111,22 @@ if __name__=='__main__':
                 break
             inferencer = Inferencer(model,dataloader,device)
             preds,feats = inferencer.predict(haskernel)
-            allpreds.append(writer.to_array(preds,valid,refda))
+            allpreds.append(writer.predictions_to_array(preds,valid,refda))
             if haskernel:
-                components = inferencer.extract_weights(nonparam)
-                allcomponents.append(components)
+                allweights.append(inferencer.extract_weights())
                 allfeats.append(writer.features_to_array(feats,valid,refda))
             del model,inferencer
         else:
             logger.info(f'   Saving predictions for `{name}`...')
             predstack = np.stack(allpreds,axis=-1)
-            ds = writer.to_dataset(predstack,refda)
+            ds = writer.predictions_to_dataset(predstack,refda)
             writer.save(name,ds,'predictions',split,config.predsdir)
             del predstack,ds
             if haskernel:
                 logger.info(f'   Saving kernel weights for `{name}`...')
-                ncomps = len(allcomponents[0])
-                stacked = [np.stack([s[i] for s in allcomponents],axis=-1) for i in range(ncomps)]
+                stacked = np.stack(allweights,axis=-1)
                 refds = xr.open_dataset(os.path.join(config.splitsdir,f'norm_{split}.h5'),engine='h5netcdf')
-                ds = writer.weights_to_dataset(stacked,fieldvars,refds)
+                ds = writer.weights_to_dataset([stacked],fieldvars,refds)
                 refds.close()
                 writer.save(name,ds,'weights',split,config.weightsdir)
                 del stacked,ds

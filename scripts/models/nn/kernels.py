@@ -163,13 +163,12 @@ class ParametricKernelLayer(torch.nn.Module):
             raise ValueError(f'Unknown kernel type `{kerneltype}`; must be one of {list(self.kerneltypes.keys())}')
         self.function = self.kerneltypes[kerneltype](self.nfieldvars)
 
-    def get_weights(self,dlev,device,decompose=False):
+    def get_weights(self,dlev,device):
         '''
         Purpose: Obtain normalized parametric kernel weights.
         Args:
         - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
         - device (str | torch.device): device to use
-        - decompose (bool): whether to decompose mixture kernels into individual components (default: False)
         Returns:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''

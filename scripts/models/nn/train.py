@@ -10,7 +10,6 @@ from scripts.utils import Config
 from scripts.models.nn.classes.factory import build_model
 from scripts.models.nn.classes.dataset import FieldDataset,load_split
 from scripts.models.nn.classes.trainer import Trainer
-from scripts.models.nn.classes.sampler import build_precipitation_sampler,build_uniform_precipitation_sampler
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -60,7 +59,6 @@ if __name__=='__main__':
             continue
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
-        nlocalvars = len(localvars)
         cachekey   = (tuple(fieldvars),tuple(localvars))
         if cachekey!=cachedkey:
             logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}...')
@@ -81,7 +79,7 @@ if __name__=='__main__':
                 continue
             logger.info(f'Training `{runid}`...')
             device = setup(seed)
-            model  = build_model(name,runconfig,nlevs,nlocalvars).to(device)
+            model  = build_model(name,runconfig,nlevs).to(device)
             criterion        = runconfig.get('criterion',nn['criterion'])
             trainer = Trainer(
                 model=model,
