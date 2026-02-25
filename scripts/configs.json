@@ -49,6 +49,7 @@
       "patience":4,
       "criterion":"MSELoss",
       "runs":{
+        "baseline_bl":{"kind":"baseline","fieldvars":["bl"]},
         "baseline_bl_lf":{"kind":"baseline","fieldvars":["bl"],"localvars":["lf"]},
         "baseline_cape_subsat_lf":{"kind":"baseline","fieldvars":["cape","subsat"],"localvars":["lf"]},
         "baseline_rh_thetae_thetaestar_lf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf"]},
