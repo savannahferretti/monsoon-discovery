@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import torch
+import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
 class MainNN(torch.nn.Module):
@@ -13,12 +14,14 @@ class MainNN(torch.nn.Module):
         '''
         super().__init__()
         nfeatures = int(nfeatures)
-        self.register_buffer('threshold',torch.tensor(-0.3758200191636361))
+        # self.register_buffer('prmean',torch.tensor(0.1292700618505478,dtype=torch.float32))
+        # self.register_buffer('prstd',torch.tensor(0.343968003988266,dtype=torch.float32))
+        # self.register_buffer('zmin',(0.0-self.prmean)/self.prstd)
         self.layers = torch.nn.Sequential(
-            torch.nn.Linear(nfeatures,256), torch.nn.GELU(), torch.nn.Dropout(0.05),
-            torch.nn.Linear(256,128),       torch.nn.GELU(), torch.nn.Dropout(0.05),
-            torch.nn.Linear(128,64),        torch.nn.GELU(), torch.nn.Dropout(0.05),
-            torch.nn.Linear(64,32),         torch.nn.GELU(), torch.nn.Dropout(0.05),
+            torch.nn.Linear(nfeatures,256), torch.nn.GELU(), torch.nn.Dropout(0.1),
+            torch.nn.Linear(256,128),       torch.nn.GELU(), torch.nn.Dropout(0.1),
+            torch.nn.Linear(128,64),        torch.nn.GELU(), torch.nn.Dropout(0.1),
+            torch.nn.Linear(64,32),         torch.nn.GELU(), torch.nn.Dropout(0.1),
             torch.nn.Linear(32,1))
 
     def forward(self,X):
@@ -29,7 +32,11 @@ class MainNN(torch.nn.Module):
         Returns:
         - torch.Tensor: predictions with shape (nbatch,)
         '''
-        return self.layers(X).clamp(min=self.threshold).squeeze()
+        # z = self.layers(X).squeeze()
+        # return z.clamp(min=self.zmin)
+        # return self.zmin+F.softplus(z-self.zmin)
+        return self.layers(X).squeeze()
+        
 
 class BaselineNN(torch.nn.Module):
 
