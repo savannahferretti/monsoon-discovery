@@ -81,6 +81,7 @@ if __name__=='__main__':
             device = setup(seed)
             model  = build_model(name,runconfig,nlevs).to(device)
             criterion        = runconfig.get('criterion',nn['criterion'])
+            criterionkwargs  = runconfig.get('criterionkwargs',nn.get('criterionkwargs',{}))
             trainer = Trainer(
                 model=model,
                 trainloader=trainloader,
@@ -92,6 +93,7 @@ if __name__=='__main__':
                 lr=nn['learningrate'],
                 patience=nn['patience'],
                 criterion=criterion,
+                criterionkwargs=criterionkwargs,
                 epochs=nn['epochs'],
                 useamp=True,
                 accumsteps=1,

@@ -5,13 +5,14 @@ import time
 import torch
 import wandb
 import logging
+import scripts.models.nn.architectures as architectures
 from torch.amp import autocast,GradScaler
 
 logger = logging.getLogger(__name__)
 
 class Trainer:
 
-    def __init__(self,model,trainloader,validloader,device,modeldir,project,seed,lr,patience,criterion,epochs,useamp,accumsteps,compile):
+    def __init__(self,model,trainloader,validloader,device,modeldir,project,seed,lr,patience,criterion,epochs,useamp,accumsteps,compile,criterionkwargs=None):
         '''
         Purpose: Initialize Trainer with model, dataloaders, and training configuration.
         Args:
@@ -45,7 +46,11 @@ class Trainer:
         self.optimizer   = torch.optim.Adam(self.model.parameters(),lr=lr)
         self.scheduler   = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='min',factor=0.5,patience=2,min_lr=1e-6)
         self.scaler      = GradScaler('cuda') if self.useamp else None
-        self.criterion   = getattr(torch.nn,criterion)()
+        kwargs = criterionkwargs or {}
+        if hasattr(torch.nn,criterion):
+            self.criterion = getattr(torch.nn,criterion)(**kwargs)
+        else:
+            self.criterion = getattr(architectures,criterion)(**kwargs)
         if compile and hasattr(torch,'compile'):
             logger.info('   Compiling model with torch.compile...')
             self.model = torch.compile(self.model)
