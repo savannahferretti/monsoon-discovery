@@ -47,7 +47,7 @@
       "batchsize":2000,
       "learningrate":0.0005,
       "patience":4,
-      "criterion":"MSELoss",
+      "criterion":"DiceLoss",
       "runs":{
         "baseline_bl":{"kind":"baseline","fieldvars":["bl"]},
         "baseline_bl_lf":{"kind":"baseline","fieldvars":["bl"],"localvars":["lf"]},
@@ -55,6 +55,9 @@
         "baseline_rh_thetae_thetaestar_lf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf"]},
         "baseline_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"]},
         "clamp_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"]},
+        "clamp_wmse_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"]},
+        "clamp_logcosh_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"]},
+        "clamp_dice_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"]},
         "nonparametric_bl_lf":{"kind":"nonparametric","fieldvars":["bl"],"localvars":["lf"]},
         "gaussian_bl_lf":{"kind":"parametric","fieldvars":["bl"],"localvars":["lf"],"kernel":"gaussian"}
       }
