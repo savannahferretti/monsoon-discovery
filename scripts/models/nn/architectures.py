@@ -118,6 +118,7 @@ class WeightedMSELoss(torch.nn.Module):
         and assigns them linearly increasing weight. Dry samples retain weight 1.
         '''
         weight = 1.0 + F.relu(target.detach())
+        weight = weight / weight.mean()
         return (weight * (pred - target) ** 2).mean()
 
 class LogCoshLoss(torch.nn.Module):
