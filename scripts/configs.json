@@ -56,7 +56,9 @@
         "q75_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"},
         "q50_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"}
+          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"},
+        "hurdle_rh_thetae_thetaestar_lf_lhf_shf":
+          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss","criterionkwargs":{"alpha":1.0}}
       }
     },
     "sr":{
