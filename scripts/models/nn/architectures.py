@@ -9,7 +9,7 @@ class LogCoshLoss(torch.nn.Module):
         return torch.log(torch.cosh(output-target)).mean()
 
 class QuantileLoss(torch.nn.Module):
-    def __init__(self,q=0.75):
+    def __init__(self,q=0.50):
         super().__init__()
         self.q = q
     def forward(self,output,target):
