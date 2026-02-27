@@ -4,6 +4,18 @@ import torch
 import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
+class LogCoshLoss(torch.nn.Module):
+    def forward(self,output,target):
+        return torch.log(torch.cosh(output-target)).mean()
+
+class QuantileLoss(torch.nn.Module):
+    def __init__(self,q=0.75):
+        super().__init__()
+        self.q = q
+    def forward(self,output,target):
+        err = target-output
+        return torch.where(err>=0,self.q*err,(self.q-1)*err).mean()
+
 class MainNN(torch.nn.Module):
 
     def __init__(self,nfeatures):
@@ -14,8 +26,8 @@ class MainNN(torch.nn.Module):
         '''
         super().__init__()
         nfeatures = int(nfeatures)
-        self.register_buffer('prmean',torch.tensor(0.1292700618505478,dtype=torch.float32))
-        self.register_buffer('prstd',torch.tensor(0.343968003988266,dtype=torch.float32))
+        self.register_buffer('prmean',torch.tensor(0.12733465433120728,dtype=torch.float32))
+        self.register_buffer('prstd',torch.tensor(0.3446449339389801,dtype=torch.float32))
         self.register_buffer('zmin',(0.0-self.prmean)/self.prstd)
         self.layers = torch.nn.Sequential(
             torch.nn.Linear(nfeatures,256), torch.nn.GELU(), torch.nn.Dropout(0.1),
@@ -32,10 +44,7 @@ class MainNN(torch.nn.Module):
         Returns:
         - torch.Tensor: predictions with shape (nbatch,)
         '''
-        z = self.layers(X).squeeze()
-        return z.clamp(min=self.zmin)
-        # return self.layers(X).squeeze()
-        
+        return self.layers(X).squeeze().clamp(min=self.zmin)
 
 class BaselineNN(torch.nn.Module):
 
@@ -108,54 +117,3 @@ class KernelNN(torch.nn.Module):
         features = self.kernel(fields,dlev,mask=mask)
         X = torch.cat([features,lf],dim=1)
         return self.model(X)
-
-class WeightedMSELoss(torch.nn.Module):
-
-    def forward(self,pred,target):
-        '''
-        Purpose: MSE loss with per-sample weights that emphasize higher-precipitation events.
-        Targets are in standardized log1p space, so relu(target) selects above-average wet events
-        and assigns them linearly increasing weight. Dry samples retain weight 1.
-        '''
-        weight = 1.0 + F.relu(target.detach())
-        weight = weight / weight.mean()
-        return (weight * (pred - target) ** 2).mean()
-
-class LogCoshLoss(torch.nn.Module):
-
-    def forward(self,pred,target):
-        '''
-        Purpose: Log-cosh loss. Behaves like MSE for small errors and MAE for large ones,
-        smoothly downweighting the influence of extreme outliers relative to MSE.
-        '''
-        return torch.log(torch.cosh(pred - target)).mean()
-
-class QuantileLoss(torch.nn.Module):
-
-    def __init__(self,q=0.5):
-        '''
-        Purpose: Pinball (quantile) loss that targets the q-th conditional quantile.
-        Args:
-        - q (float): quantile to target, in (0, 1). Defaults to 0.5 (median = MAE).
-                     Use q > 0.5 to penalise under-prediction more (e.g. missing rain events).
-        '''
-        super().__init__()
-        self.q = q
-
-    def forward(self,pred,target):
-        err = target - pred
-        return torch.where(err >= 0, self.q * err, (self.q - 1) * err).mean()
-
-class DiceLoss(torch.nn.Module):
-
-    def forward(self,pred,target):
-        '''
-        Purpose: Soft Dice loss adapted for continuous regression targets.
-        Applies sigmoid to map standardized predictions and targets into (0, 1), then
-        computes 1 - Dice coefficient. Encourages spatial overlap of high-precipitation
-        predictions with observed events rather than pointwise accuracy.
-        '''
-        p = torch.sigmoid(pred)
-        t = torch.sigmoid(target)
-        intersection = (p * t).sum()
-        return 1.0 - (2.0 * intersection) / (p.sum() + t.sum() + 1e-8)
