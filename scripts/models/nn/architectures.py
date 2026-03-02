@@ -16,6 +16,24 @@ class QuantileLoss(torch.nn.Module):
         err = target-output
         return torch.where(err>=0,self.q*err,(self.q-1)*err).mean()
 
+class TweedieLoss(torch.nn.Module):
+    def __init__(self,p=1.5):
+        '''
+        Purpose: Tweedie loss for right-skewed, non-negative distributions (compound Poisson-Gamma for 1 < p < 2).
+            Inputs are denormalized from log-space to mm/hr before computing the loss.
+        Args:
+        - p (float): Tweedie power parameter, must satisfy 1 < p < 2 (defaults to 1.5)
+        '''
+        super().__init__()
+        assert 1<p<2,'Tweedie power p must satisfy 1 < p < 2'
+        self.p      = p
+        self.prmean = 0.12733465433120728
+        self.prstd  = 0.3446449339389801
+    def forward(self,output,target):
+        y_hat = torch.expm1(output*self.prstd+self.prmean).clamp(min=1e-6)
+        y     = torch.expm1(target*self.prstd+self.prmean).clamp(min=0)
+        return (y_hat.pow(2-self.p)/(2-self.p)-y*y_hat.pow(1-self.p)/(1-self.p)).mean()
+
 class MainNN(torch.nn.Module):
 
     def __init__(self,nfeatures):
@@ -189,16 +207,24 @@ class HurdleBaselineNN(torch.nn.Module):
 
 class HurdleLoss(torch.nn.Module):
 
-    def __init__(self,alpha=1.0):
+    def __init__(self,alpha=1.0,reg_criterion='MSELoss',reg_criterion_kwargs=None):
         '''
-        Purpose: Initialize a compound loss for hurdle models combining binary cross-entropy for rain/no-rain classification and MSE for precipitation amount on rainy samples.
+        Purpose: Initialize a compound loss for hurdle models combining binary cross-entropy for rain/no-rain
+            classification and a configurable regression loss applied only to rainy samples.
         Args:
         - alpha (float): weight applied to the regression loss relative to the classification loss (defaults to 1.0)
+        - reg_criterion (str): name of the regression loss class; resolved from torch.nn first, then this module (defaults to 'MSELoss')
+        - reg_criterion_kwargs (dict | None): keyword arguments forwarded to the regression loss constructor (defaults to None)
         '''
         super().__init__()
         self.alpha = alpha
         self.bce   = torch.nn.BCEWithLogitsLoss()
         self.register_buffer('zmin',torch.tensor((0.0-0.12733465433120728)/0.3446449339389801,dtype=torch.float32))
+        kwargs = reg_criterion_kwargs or {}
+        if hasattr(torch.nn,reg_criterion):
+            self.reg_loss = getattr(torch.nn,reg_criterion)(**kwargs)
+        else:
+            self.reg_loss = globals()[reg_criterion](**kwargs)
 
     def forward(self,output,target):
         '''
@@ -214,7 +240,7 @@ class HurdleLoss(torch.nn.Module):
         cls_loss     = self.bce(logit,rain_mask)
         rain_idx     = rain_mask.bool()
         if rain_idx.any():
-            reg_loss = F.mse_loss(amount[rain_idx],target[rain_idx])
+            reg_loss = self.reg_loss(amount[rain_idx],target[rain_idx])
         else:
             reg_loss = torch.tensor(0.0,device=logit.device)
         return cls_loss+self.alpha*reg_loss
