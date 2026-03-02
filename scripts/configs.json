@@ -53,7 +53,7 @@
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"MSELoss"},
         "q75_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"},
-        "hurdlev1_rh_thetae_thetaestar_lf_lhf_shf":
+        "hurdle_mse_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss","criterionkwargs":{"alpha":1.0}}
       }
     },
