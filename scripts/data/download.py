@@ -43,7 +43,8 @@ if __name__=='__main__':
         downloader.process(lfdata,'lf','ERA5 land fraction','0-1',radius=4),
         downloader.process(lhfdata,'lhf','ERA5 mean surface latent heat flux','W/m²',radius=4),
         downloader.process(shfdata,'shf','ERA5 mean surface sensible heat flux','W/m²',radius=4),
-        downloader.process(prdata,'pr','IMERG V06 precipitation rate','mm/hr',radius=10)]    del psdata,tdata,qdata,lfdata,lhfdata,shfdata,prdata
+        downloader.process(prdata,'pr','IMERG V06 precipitation rate','mm/hr',radius=10)]    
+    del psdata,tdata,qdata,lfdata,lhfdata,shfdata,prdata
     logger.info('Saving datasets...')
     for ds in dslist:
         downloader.save(ds)

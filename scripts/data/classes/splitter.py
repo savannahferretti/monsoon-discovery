@@ -112,7 +112,7 @@ class DataSplitter:
         - bool: True if save successful, False otherwise
         '''
         os.makedirs(self.savedir,exist_ok=True)
-        filename = f'{splitname}.h5'
+        filename = f'OLD_{splitname}.h5'
         filepath = os.path.join(self.savedir,filename)
         logger.info(f'   Attempting to save {filename}...')
         ds.load()

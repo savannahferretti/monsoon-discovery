@@ -36,7 +36,9 @@
       "landthresh":0.5,
       "runs":{
         "pod_bl":{"withlf":false},
-        "pod_bl_lf":{"withlf":true}
+        "pod_bl_lf":{"withlf":true},
+        "coarse_pod_bl":{"withlf":false},
+        "coarse_pod_bl_lf":{"withlf":true}
       }
     },
     "nn":{
@@ -54,13 +56,27 @@
         "q75_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"},
         "hurdle_mse_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss","criterionkwargs":{"alpha":1.0}},
+          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss",
+              "criterionkwargs":{"alpha":1.0,"reg_criterion":"MSELoss"}},
         "hurdle_q75_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss","criterionkwargs":{"alpha":1.0,"reg_criterion":"QuantileLoss","reg_criterion_kwargs":{"q":0.75}}},
+          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss",
+              "criterionkwargs":{"alpha":1.0,"reg_criterion":"QuantileLoss","reg_criterion_kwargs":{"q":0.75}}},
         "hurdle_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss","criterionkwargs":{"alpha":1.0,"reg_criterion":"TweedieLoss","reg_criterion_kwargs":{"p":1.5}}},
-        "hurdle_msev2_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss","criterionkwargs":{"alpha":1.0,"reg_criterion":"MSELoss"}}
+          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss",
+              "criterionkwargs":{"alpha":1.0,"reg_criterion":"TweedieLoss","reg_criterion_kwargs":{"p":1.5}}},
+        "coarse_mse_rh_thetae_thetaestar_lf_lhf_shf":
+          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"MSELoss"},
+        "coarse_q75_rh_thetae_thetaestar_lf_lhf_shf":
+          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"},
+        "coarse_hurdle_mse_rh_thetae_thetaestar_lf_lhf_shf":
+          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss",
+              "criterionkwargs":{"alpha":1.0,"reg_criterion":"MSELoss"}},
+        "coarse_hurdle_q75_rh_thetae_thetaestar_lf_lhf_shf":
+          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss",
+              "criterionkwargs":{"alpha":1.0,"reg_criterion":"QuantileLoss","reg_criterion_kwargs":{"q":0.75}}},
+        "coarse_hurdle_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
+          {"kind":"hurdle","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"HurdleLoss",
+              "criterionkwargs":{"alpha":1.0,"reg_criterion":"TweedieLoss","reg_criterion_kwargs":{"p":1.5}}}
       }
     },
     "sr":{

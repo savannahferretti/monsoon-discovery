@@ -27,8 +27,8 @@ class TweedieLoss(torch.nn.Module):
         super().__init__()
         assert 1<p<2,'Tweedie power p must satisfy 1 < p < 2'
         self.p      = p
-        self.prmean = 0.12733465433120728
-        self.prstd  = 0.3446449339389801
+        self.prmean = 0.14332610368728638
+        self.prstd  = 0.3335336446762085
     def forward(self,output,target):
         y_hat = torch.expm1(output*self.prstd+self.prmean).clamp(min=1e-6)
         y     = torch.expm1(target*self.prstd+self.prmean).clamp(min=0)
@@ -44,8 +44,8 @@ class MainNN(torch.nn.Module):
         '''
         super().__init__()
         nfeatures = int(nfeatures)
-        self.register_buffer('prmean',torch.tensor(0.12733465433120728,dtype=torch.float32))
-        self.register_buffer('prstd',torch.tensor(0.3446449339389801,dtype=torch.float32))
+        self.register_buffer('prmean',torch.tensor(0.14332610368728638,dtype=torch.float32))
+        self.register_buffer('prstd',torch.tensor(0.3335336446762085,dtype=torch.float32))
         self.register_buffer('zmin',(0.0-self.prmean)/self.prstd)
         self.layers = torch.nn.Sequential(
             torch.nn.Linear(nfeatures,256), torch.nn.GELU(), torch.nn.Dropout(0.1),
@@ -154,9 +154,9 @@ class HurdleBaselineNN(torch.nn.Module):
         self.nlevs      = int(nlevs)
         self.nlocalvars = int(nlocalvars)
         self.hasmask    = bool(hasmask)
-        self.register_buffer('prmean',torch.tensor(0.12733465433120728,dtype=torch.float32))
-        self.register_buffer('prstd',torch.tensor(0.3446449339389801,dtype=torch.float32))
-        self.register_buffer('zmin',(torch.tensor(0.0)-torch.tensor(0.12733465433120728))/torch.tensor(0.3446449339389801))
+        self.register_buffer('prmean',torch.tensor(0.14332610368728638,dtype=torch.float32))
+        self.register_buffer('prstd',torch.tensor(0.3335336446762085,dtype=torch.float32))
+        self.register_buffer('zmin',(torch.tensor(0.0)-torch.tensor(0.14332610368728638))/torch.tensor(0.3335336446762085))
         if hasmask:
             nfeatures = (self.nfieldvars+1)*self.nlevs+self.nlocalvars
         else:
@@ -219,7 +219,7 @@ class HurdleLoss(torch.nn.Module):
         super().__init__()
         self.alpha = alpha
         self.bce   = torch.nn.BCEWithLogitsLoss()
-        self.register_buffer('zmin',torch.tensor((0.0-0.12733465433120728)/0.3446449339389801,dtype=torch.float32))
+        self.register_buffer('zmin',torch.tensor((0.0-0.14332610368728638)/0.3335336446762085,dtype=torch.float32))
         kwargs = reg_criterion_kwargs or {}
         if hasattr(torch.nn,reg_criterion):
             self.reg_loss = getattr(torch.nn,reg_criterion)(**kwargs)
