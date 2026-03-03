@@ -13,18 +13,20 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
-def load(splitname,splitsdir):
+def load(splitname,splitsdir,coarse=True):
     '''
     Purpose: Load the regular (non-normalized) evaluation data split.
     Args:
     - splitname (str): 'valid' | 'test'
     - splitsdir (str): directory containing split files
+    - coarse (bool): if True, load from '{split}.h5'; if False, load from 'OLD_{split}.h5'
     Returns:
     - tuple[xr.DataArray,xr.DataArray]: BL/land fraction DataArrays for evaluation
     '''
     if splitname not in ('valid','test'):
         raise ValueError('Splitname must be `valid` or `test`.')
-    filepath = os.path.join(splitsdir,f'{splitname}.h5')
+    prefix = '' if coarse else 'OLD_'
+    filepath = os.path.join(splitsdir,f'{prefix}{splitname}.h5')
     evalds = xr.open_dataset(filepath,engine='h5netcdf')[['bl','lf']]
     bl = evalds['bl'].load()
     lf = evalds['lf'].load()
@@ -106,12 +108,13 @@ if __name__=='__main__':
     config   = Config()
     pod      = config.pod
     modeldir = os.path.join(config.modelsdir,'pod')
-    logger.info(f'Loading {args.split} data split...')
-    bl,lf = load(args.split,config.splitsdir)
     logger.info('Evaluating POD models...')
     for runname,runconfig in pod['runs'].items():
+        coarse = 'coarse' in runname
         logger.info(f'   Evaluating `{runname}`...')
+        logger.info(f'      Loading {"coarse" if coarse else "original"} {args.split} split...')
+        bl,lf = load(args.split,config.splitsdir,coarse=coarse)
         model = fetch(runname,pod['landthresh'],modeldir)
         ypred = predict(model,bl,lf=lf)
         save(ypred,runname,args.split,config.predsdir)
-        del model,ypred
+        del bl,lf,model,ypred
