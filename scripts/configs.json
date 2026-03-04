@@ -36,9 +36,7 @@
       "landthresh":0.5,
       "runs":{
         "pod_bl":{"withlf":false},
-        "pod_bl_lf":{"withlf":true},
-        "coarse_pod_bl":{"withlf":false},
-        "coarse_pod_bl_lf":{"withlf":true}
+        "pod_bl_lf":{"withlf":true}
       }
     },
     "nn":{
