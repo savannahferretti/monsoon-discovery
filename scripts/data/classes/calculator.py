@@ -311,7 +311,7 @@ class DataCalculator:
         '''
         os.makedirs(self.savedir,exist_ok=True)
         shortname = list(ds.data_vars)[0]
-        filename  = f'OLD_{shortname}.nc'
+        filename  = f'{shortname}.nc'
         filepath  = os.path.join(self.savedir,filename)
         logger.info(f'   Attempting to save {filename}...')
         ds.load()
