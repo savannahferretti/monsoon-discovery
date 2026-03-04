@@ -21,6 +21,7 @@ class DataCalculator:
         - savedir (str): directory to save output files
         - latrange (tuple[float,float]): latitude range
         - lonrange (tuple[float,float]): longitude range
+        - regridders (tuple[float,float]): longitude range
         '''
         self.author   = author
         self.email    = email
@@ -28,6 +29,7 @@ class DataCalculator:
         self.savedir  = savedir
         self.latrange = latrange
         self.lonrange = lonrange
+        self.regridders = {}
 
     def retrieve(self,longname):
         '''
@@ -58,32 +60,50 @@ class DataCalculator:
         p = refda.lev.expand_dims({'lat':refda.lat,'lon':refda.lon,'time':refda.time}).transpose('lat','lon','lev','time')
         return p
 
+    # def resample(self,da):
+    #     '''
+    #     Purpose: Compute a centered hourly mean (uses the two half-hour samples that straddle each hour; 
+    #     falls back to one at boundaries).
+    #     Args:
+    #     - da (xr.DataArray): input DataArray
+    #     Returns:
+    #     - xr.DataArray: DataArray resampled at on-the-hour timestamps
+    #     '''
+    #     da = da.rolling(time=2,center=True,min_periods=1).mean()
+    #     da = da.sel(time=da.time.dt.minute==0)
+    #     return da
+
     def resample(self,da):
         '''
-        Purpose: Compute a centered hourly mean (uses the two half-hour samples that straddle each hour; 
-        falls back to one at boundaries).
+        Purpose: Compute 3-hourly means.
         Args:
         - da (xr.DataArray): input DataArray
         Returns:
-        - xr.DataArray: DataArray resampled at on-the-hour timestamps
+        - xr.DataArray: DataArray resampled to 3-hourly timestamps
         '''
-        da = da.rolling(time=2,center=True,min_periods=1).mean()
-        da = da.sel(time=da.time.dt.minute==0)
+        dt = float(da.time.diff('time')[0])/3.6e12
+        n  = round(3/dt)
+        da = da.coarsen(time=n,boundary='trim').mean()
         return da
 
     def regrid(self,da):
         '''
-        Purpose: Regrid a DataArray to 1.0° × 1.0° grid over the target domain.
+        Purpose: Regrid a DataArray to 2.0° × 2.0° grid over the target domain.
         Args:
         - da (xr.DataArray): input DataArray with radius (for better interpolation)
         Returns:
         - xr.DataArray: regridded DataArray
         '''
-        targetlats = np.arange(self.latrange[0],self.latrange[1]+1.0,1.0)
-        targetlons = np.arange(self.lonrange[0],self.lonrange[1]+1.0,1.0)
-        targetgrid = xr.Dataset({'lat':(['lat'],targetlats),'lon':(['lon'],targetlons)})
-        regridder  = xesmf.Regridder(da,targetgrid,method='conservative')
-        da = regridder(da,keep_attrs=True)
+        targetlats = np.arange(self.latrange[0],self.latrange[1]+1.0,2.0)
+        targetlons = np.arange(self.lonrange[0],self.lonrange[1]+1.0,2.0)
+        # targetgrid = xr.Dataset({'lat':(['lat'],targetlats),'lon':(['lon'],targetlons)})
+        # regridder  = xesmf.Regridder(da,targetgrid,method='conservative')
+        # da = regridder(da,keep_attrs=True)
+        key = (da.lat.values.tobytes(),da.lon.values.tobytes())
+        if key not in self.regridders:
+            targetgrid = xr.Dataset({'lat':(['lat'],targetlats),'lon':(['lon'],targetlons)})
+            self.regridders[key] = xesmf.Regridder(da, targetgrid,method='conservative')
+        da = self.regridders[key](da,keep_attrs=True)
         return da
 
     def calc_es(self,t):
@@ -300,12 +320,12 @@ class DataCalculator:
         logger.info(f'   {longname} size: {ds.nbytes*1e-9:.3f} GB')
         return ds
 
-    def save(self,ds,timechunksize=2208):
+    def save(self,ds,timechunksize=736):
         '''
         Purpose: Save an xr.Dataset to NetCDF and verify by reopening.
         Args:
         - ds (xr.Dataset): Dataset to save
-        - timechunksize (int): chunk size for time dimension (defaults to 2,208 for 3-month chunks)
+        - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks)
         Returns:
         - bool: True if save successful, False otherwise
         '''
