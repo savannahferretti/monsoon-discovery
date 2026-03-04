@@ -12,17 +12,19 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
-def load(splitsdir):
+def load(splitsdir,coarse=True):
     '''
     Purpose: Load regular (non-normalized) training and validation data splits combined for POD fitting.
     Args:
     - splitsdir (str): directory containing split files
+    - coarse (bool): if True, load from '{split}.h5'; if False, load from 'OLD_{split}.h5'
     Returns:
     - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: BL/precipitation/land fraction DataArrays
     '''
+    prefix = '' if coarse else 'OLD_'
     dslist = []
     for splitname in ('train','valid'):
-        filepath = os.path.join(splitsdir,f'{splitname}.h5')
+        filepath = os.path.join(splitsdir,f'{prefix}{splitname}.h5')
         ds = xr.open_dataset(filepath,engine='h5netcdf')[['bl','pr','lf']]
         dslist.append(ds)
     lf = dslist[0]['lf'].load()
@@ -146,12 +148,13 @@ if __name__=='__main__':
     config    = Config()
     pod       = config.pod
     modeldir  = os.path.join(config.modelsdir,'pod')
-    logger.info('Loading combined training and validation splits...')
-    bl,pr,lf = load(config.splitsdir)
     logger.info('Training and saving ramp-fit POD models...')
     for runname,runconfig in pod['runs'].items():
         withlf = runconfig['withlf']
+        coarse = 'coarse' in runname
         logger.info(f'   Training `{runname}`...')
+        logger.info(f'      Loading {"coarse" if coarse else "original"} training and validation splits...')
+        bl,pr,lf = load(config.splitsdir,coarse=coarse)
         model,diagnostics = fit(withlf,bl,pr,lf,pod['landthresh'],pod['bins'],pod['fit'])
         save(model,diagnostics,runname,modeldir)
-        del model,diagnostics
+        del bl,pr,lf,model,diagnostics
