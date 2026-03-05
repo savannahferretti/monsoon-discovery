@@ -83,7 +83,7 @@ class DataCalculator:
         '''
         dt = float(da.time.diff('time')[0])/3.6e12
         n  = round(3/dt)
-        da = da.coarsen(time=n,boundary='trim').mean()
+        da = da.coarsen(time=n,boundary='trim',coord_func='min').mean()
         return da
 
     def regrid(self,da):

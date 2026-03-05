@@ -4,10 +4,6 @@ import torch
 import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
-class LogCoshLoss(torch.nn.Module):
-    def forward(self,output,target):
-        return torch.log(torch.cosh(output-target)).mean()
-
 class QuantileLoss(torch.nn.Module):
     def __init__(self,q=0.50):
         super().__init__()
@@ -27,8 +23,8 @@ class TweedieLoss(torch.nn.Module):
         super().__init__()
         assert 1<p<2,'Tweedie power p must satisfy 1 < p < 2'
         self.p      = p
-        self.prmean = 0.14332610368728638
-        self.prstd  = 0.3335336446762085
+        self.prmean = 0.14831386506557465
+        self.prstd  = 0.3297143280506134
     def forward(self,output,target):
         y_hat = torch.expm1(output*self.prstd+self.prmean).clamp(min=1e-6)
         y     = torch.expm1(target*self.prstd+self.prmean).clamp(min=0)
@@ -44,8 +40,8 @@ class MainNN(torch.nn.Module):
         '''
         super().__init__()
         nfeatures = int(nfeatures)
-        self.register_buffer('prmean',torch.tensor(0.14332610368728638,dtype=torch.float32))
-        self.register_buffer('prstd',torch.tensor(0.3335336446762085,dtype=torch.float32))
+        self.register_buffer('prmean',torch.tensor(0.14831386506557465,dtype=torch.float32))
+        self.register_buffer('prstd',torch.tensor(0.3297143280506134,dtype=torch.float32))
         self.register_buffer('zmin',(0.0-self.prmean)/self.prstd)
         self.layers = torch.nn.Sequential(
             torch.nn.Linear(nfeatures,256), torch.nn.GELU(), torch.nn.Dropout(0.1),
@@ -154,9 +150,9 @@ class HurdleBaselineNN(torch.nn.Module):
         self.nlevs      = int(nlevs)
         self.nlocalvars = int(nlocalvars)
         self.hasmask    = bool(hasmask)
-        self.register_buffer('prmean',torch.tensor(0.14332610368728638,dtype=torch.float32))
-        self.register_buffer('prstd',torch.tensor(0.3335336446762085,dtype=torch.float32))
-        self.register_buffer('zmin',(torch.tensor(0.0)-torch.tensor(0.14332610368728638))/torch.tensor(0.3335336446762085))
+        self.register_buffer('prmean',torch.tensor(0.14831386506557465,dtype=torch.float32))
+        self.register_buffer('prstd',torch.tensor(0.3297143280506134,dtype=torch.float32))
+        self.register_buffer('zmin',(torch.tensor(0.0)-torch.tensor(0.14831386506557465))/torch.tensor(0.3297143280506134))
         if hasmask:
             nfeatures = (self.nfieldvars+1)*self.nlevs+self.nlocalvars
         else:
@@ -219,7 +215,7 @@ class HurdleLoss(torch.nn.Module):
         super().__init__()
         self.alpha = alpha
         self.bce   = torch.nn.BCEWithLogitsLoss()
-        self.register_buffer('zmin',torch.tensor((0.0-0.14332610368728638)/0.3335336446762085,dtype=torch.float32))
+        self.register_buffer('zmin',torch.tensor((0.0-0.14831386506557465)/0.3297143280506134,dtype=torch.float32))
         kwargs = reg_criterion_kwargs or {}
         if hasattr(torch.nn,reg_criterion):
             self.reg_loss = getattr(torch.nn,reg_criterion)(**kwargs)
