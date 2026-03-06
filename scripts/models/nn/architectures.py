@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
 class QuantileLoss(torch.nn.Module):
-    def __init__(self,q=0.50):
+    def __init__(self,q=0.75):
         super().__init__()
         self.q = q
     def forward(self,output,target):
