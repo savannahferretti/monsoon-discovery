@@ -59,7 +59,7 @@ class DataSplitter:
         for varname,da in trainds.data_vars.items():
             if varname in ('ps','lf','dlev','surfmask'):
                 continue
-            elif varname=='pr':
+            elif varname in ('pr','tp'):
                 arr = np.log1p(da.values)
             else:
                 arr = da.values
@@ -89,7 +89,7 @@ class DataSplitter:
                 continue
             mean = stats[f'{varname}_mean']
             std  = stats[f'{varname}_std']
-            if varname=='pr':
+            if varname in ('pr','tp'):
                 norm   = (np.log1p(da.values)-mean)/std
                 suffix = ' (log1p-transformed and standardized)'
             else:

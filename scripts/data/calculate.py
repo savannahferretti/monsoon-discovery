@@ -27,18 +27,19 @@ if __name__=='__main__':
     lf  = calculator.retrieve('ERA5_land_fraction')
     lhf = calculator.retrieve('ERA5_mean_surface_latent_heat_flux')
     shf = calculator.retrieve('ERA5_mean_surface_sensible_heat_flux')
+    tp  = calculator.retrieve('ERA5_total_accumulated_precipitation')
     pr  = calculator.retrieve('IMERG_V06_precipitation_rate')
     logger.info('Resampling/regridding variables...')
-    ps  = calculator.regrid(calculator.resample(ps)).load()
-    t   = calculator.regrid(calculator.resample(t)).load()
-    q   = calculator.regrid(calculator.resample(q)).load()
+    ps  = calculator.regrid(ps).load()
+    t   = calculator.regrid(t).load()
+    q   = calculator.regrid(q).load()
     lf  = calculator.regrid(lf).load()
-    lhf = calculator.regrid(calculator.resample(lhf)).load()
-    shf = calculator.regrid(calculator.resample(shf)).load()
-    pr  = calculator.regrid(calculator.resample(pr))
-    # pr  = pr.where((pr>=0.01)|pr.isnull(),0.0).load()
-    pr = pr.where(pr>=0,0.0).load()
-    logger.info('   pr done')
+    lhf = calculator.regrid(lhf).load()
+    shf = calculator.regrid(shf).load()
+    tp = calculator.regrid(tp)
+    tp = tp.where(tp>=0.001,0.0).load()
+    pr = calculator.regrid(calculator.resample(pr))
+    pr = pr.where(pr>=0.001,0.0).load()
     logger.info('Calculating relative humidity and equivalent potential temperature terms...')
     p          = calculator.create_p_array(q)
     rh         = calculator.calc_rh(p,t,q)
@@ -59,6 +60,8 @@ if __name__=='__main__':
     surfmask = xr.where(p<=ps,1.0,0.0).astype(np.float32)
     logger.info('Creating datasets...')
     dslist = [
+        calculator.create_dataset(t,'t','Air temperature','K'),
+        calculator.create_dataset(q,'q','Specific humidity','kg/kg'),
         calculator.create_dataset(rh,'rh','Relative humidity','%'),
         calculator.create_dataset(thetae,'thetae','Equivalent potential temperature','K'),
         calculator.create_dataset(thetaestar,'thetaestar','Saturated equivalent potential temperature','K'),
@@ -70,6 +73,7 @@ if __name__=='__main__':
         calculator.create_dataset(lhf,'lhf','Mean surface latent heat flux','W/m²'),
         calculator.create_dataset(shf,'shf','Mean surface sensible heat flux','W/m²'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
+        calculator.create_dataset(tp,'tp','Total accumulated precipitation','mm'),
         calculator.create_dataset(dlev,'dlev','Vertical thickness weights','hPa'),
         calculator.create_dataset(surfmask,'surfmask','Binary surface validity mask','0-1')]
     logger.info('Saving datasets...')

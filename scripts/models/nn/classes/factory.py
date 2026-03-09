@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from scripts.models.nn.architectures import BaselineNN,KernelNN,HurdleBaselineNN
+from scripts.models.nn.architectures import BaselineNN,KernelNN
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
 def build_model(name,runconfig,nlevs):
