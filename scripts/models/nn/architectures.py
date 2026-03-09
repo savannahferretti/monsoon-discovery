@@ -4,13 +4,13 @@ import torch
 import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
-TARGETVAR   = 'pr'
+TARGETVAR   = 'tp'
 TARGETSTATS = {
-    'pr':{'mean':0.1292700618505478,'std':0.343968003988266},
-    'tp':{'mean':0.16331738233566284,'std':0.2886301875114441}}
+    'pr':{'mean':0.10902916640043259,'std':0.3509288728237152},
+    'tp':{'mean':0.1517912745475769,'std':0.3032054603099823}}
 
-MEAN = TARGETSTATS[TARGETVAR]["mean"]
-STD  = TARGETSTATS[TARGETVAR]["std"]
+MEAN = TARGETSTATS[TARGETVAR]['mean']
+STD  = TARGETSTATS[TARGETVAR]['std']
 
 class QuantileLoss(torch.nn.Module):
     def __init__(self,q=0.75):

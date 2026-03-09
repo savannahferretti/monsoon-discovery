@@ -27,7 +27,7 @@
   "variables":{
     "field":["bl","cape","subsat","t","q","rh","thetae","thetaestar"],
     "local":["lf","lhf","shf"],
-    "target":"pr"
+    "target":"tp"
   },
   "experiments":{
     "pod":{
