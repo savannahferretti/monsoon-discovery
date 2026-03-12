@@ -10,17 +10,18 @@ logger = logging.getLogger(__name__)
 
 class PredictionWriter:
 
-    def __init__(self,statsdir):
+    def __init__(self,statsdir,targetvar='pr'):
         '''
         Purpose: Initialize PredictionWriter with denormalization statistics.
         Args:
         - statsdir (str): directory containing stats.json
+        - targetvar (str): target variable name ('pr' or 'tp') — must match run config
         '''
         filepath = os.path.join(statsdir,'stats.json')
         with open(filepath,'r',encoding='utf-8') as f:
             stats = json.load(f)
-        self.prmean = stats['pr_mean']
-        self.prstd  = stats['pr_std']
+        self.prmean = stats[f'{targetvar}_mean']
+        self.prstd  = stats[f'{targetvar}_std']
 
     def predictions_to_array(self,preds,valid,refda):
         '''

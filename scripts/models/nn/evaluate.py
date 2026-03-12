@@ -78,9 +78,10 @@ if __name__=='__main__':
     logger.info('Spinning up...')
     device = setup(seeds[0])
     selectedruns,split = parse()
-    writer = PredictionWriter(config.splitsdir)
     cachedvars = None
     cacheddata = None
+    cachedtargetvar = None
+    writer = None
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
@@ -91,14 +92,18 @@ if __name__=='__main__':
         is_hurdle = runconfig['kind']=='hurdle'
         fieldvars = runconfig['fieldvars']
         localvars = runconfig.get('localvars',[])
-        fieldkey  = (tuple(fieldvars),tuple(localvars))
+        targetvar = runconfig.get('targetvar','pr')
+        fieldkey  = (tuple(fieldvars),tuple(localvars),targetvar)
         if fieldkey!=cachedvars:
-            logger.info(f'Loading normalized {split} split for {fieldvars}...')
-            fields,local,pr,dlev,nlevs,mask,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir)
+            logger.info(f'Loading normalized {split} split for {fieldvars}, targetvar={targetvar}...')
+            fields,local,pr,dlev,nlevs,mask,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar)
             cachedvars = fieldkey
             cacheddata = (fields,local,pr,dlev,nlevs,mask,valid,refda)
         else:
             fields,local,pr,dlev,nlevs,mask,valid,refda = cacheddata
+        if targetvar!=cachedtargetvar:
+            writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
+            cachedtargetvar = targetvar
         dataset    = FieldDataset(fields,local,pr,dlev,mask=mask)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
         allpreds   = []
