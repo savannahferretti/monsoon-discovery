@@ -37,7 +37,7 @@ class FieldDataset(torch.utils.data.Dataset):
             batch['mask'] = self.mask[idx]
         return batch
 
-def load_split(splitname,fieldvars,localvars,splitsdir):
+def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr'):
     '''
     Purpose: Load a normalized data split and return tensors shaped for NN training/inference.
         Each sample corresponds to a single (lat, lon, time) grid cell and timestep.
@@ -48,6 +48,7 @@ def load_split(splitname,fieldvars,localvars,splitsdir):
     - fieldvars (list[str]): predictor field variable names from run config
     - localvars (list[str]): local input variable names (e.g. ['lf','shf','lhf'])
     - splitsdir (str): directory containing normalized split HDF5 files
+    - targetvar (str): target variable name ('pr' or 'tp') — must match run config
     Returns:
     - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor | None, np.ndarray, xr.DataArray]:
         (fields, local, target, dlev, nlevs, mask, valid, refda) where:
@@ -84,7 +85,7 @@ def load_split(splitname,fieldvars,localvars,splitsdir):
         fields = np.stack(fieldarrays,axis=1)
         dlev = torch.tensor([1.0],dtype=torch.float32)
         maskarr = None
-    pr = ds['pr'].transpose('time','lat','lon').values.reshape(-1)
+    pr = ds[targetvar].transpose('time','lat','lon').values.reshape(-1)
     ntotal = fields.shape[0]
     if localvars:
         localarrays = []
@@ -98,7 +99,7 @@ def load_split(splitname,fieldvars,localvars,splitsdir):
     else:
         local = np.empty((ntotal,0),dtype=np.float32)
     valid = np.isfinite(fields).all(axis=(1,2))&np.isfinite(local).all(axis=1)&np.isfinite(pr)
-    refda = ds['pr'].transpose('time','lat','lon')
+    refda = ds[targetvar].transpose('time','lat','lon')
     fields = torch.from_numpy(fields[valid].astype(np.float32))
     local  = torch.from_numpy(local[valid].astype(np.float32))
     pr     = torch.from_numpy(pr[valid].astype(np.float32))

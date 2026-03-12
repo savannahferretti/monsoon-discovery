@@ -4,13 +4,9 @@ import torch
 import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
-TARGETVAR   = 'tp'
 TARGETSTATS = {
     'pr':{'mean':0.11673472821712494,'std':0.34830141067504883},
     'tp':{'mean':0.33761656284332275,'std':0.5284095406532288}}
-
-MEAN = TARGETSTATS[TARGETVAR]['mean']
-STD  = TARGETSTATS[TARGETVAR]['std']
 
 class QuantileLoss(torch.nn.Module):
     def __init__(self,q=0.75):
@@ -21,14 +17,14 @@ class QuantileLoss(torch.nn.Module):
         err  = target-output
         loss = torch.maximum(self.q*err,(self.q-1)*err)
         return loss.mean()
-        
+
 class TweedieLoss(torch.nn.Module):
-    def __init__(self,p=1.5):
+    def __init__(self,p=1.5,mean=TARGETSTATS['pr']['mean'],std=TARGETSTATS['pr']['std']):
         super().__init__()
         assert 1<p<2,'Tweedie power p must satisfy 1 < p < 2'
         self.p = p
-        self.register_buffer('mean',torch.tensor(MEAN,dtype=torch.float32))
-        self.register_buffer('std',torch.tensor(STD,dtype=torch.float32))
+        self.register_buffer('mean',torch.tensor(mean,dtype=torch.float32))
+        self.register_buffer('std',torch.tensor(std,dtype=torch.float32))
     def forward(self,output,target):
         ypred = torch.expm1(output*self.std+self.mean).clamp(min=1e-6)
         ytrue = torch.expm1(target*self.std+self.mean).clamp(min=0)
@@ -36,17 +32,19 @@ class TweedieLoss(torch.nn.Module):
 
 class MainNN(torch.nn.Module):
 
-    def __init__(self,nfeatures):
+    def __init__(self,nfeatures,mean,std):
         '''
         Purpose: Initialize a feed-forward neural network that nonlinearly maps a feature vector to a scalar prediction.
         Args:
         - nfeatures (int): number of input features per sample
+        - mean (float): target variable log1p mean (from training stats)
+        - std (float): target variable log1p std (from training stats)
         '''
         super().__init__()
         nfeatures = int(nfeatures)
-        self.register_buffer('mean',torch.tensor(MEAN,dtype=torch.float32))
-        self.register_buffer('std',torch.tensor(STD,dtype=torch.float32))
-        self.register_buffer('zmin',torch.tensor((0.0-MEAN)/STD,dtype=torch.float32))
+        self.register_buffer('mean',torch.tensor(mean,dtype=torch.float32))
+        self.register_buffer('std',torch.tensor(std,dtype=torch.float32))
+        self.register_buffer('zmin',torch.tensor((0.0-mean)/std,dtype=torch.float32))
         self.layers = torch.nn.Sequential(
             torch.nn.Linear(nfeatures,256), torch.nn.GELU(), torch.nn.Dropout(0.1),
             torch.nn.Linear(256,128),       torch.nn.GELU(), torch.nn.Dropout(0.1),
@@ -66,7 +64,7 @@ class MainNN(torch.nn.Module):
 
 class BaselineNN(torch.nn.Module):
 
-    def __init__(self,nfieldvars,nlevs,nlocalvars,hasmask=False):
+    def __init__(self,nfieldvars,nlevs,nlocalvars,hasmask=False,mean=TARGETSTATS['pr']['mean'],std=TARGETSTATS['pr']['std']):
         '''
         Purpose: Initialize a baseline neural network that flattens vertical profiles and concatenates local variables.
         Args:
@@ -74,6 +72,8 @@ class BaselineNN(torch.nn.Module):
         - nlevs (int): number of vertical levels (1 for scalar inputs like bl, cape, subsat)
         - nlocalvars (int): number of local input variables (e.g. land fraction, heat fluxes)
         - hasmask (bool): whether to include surface validity mask as an extra input channel (defaults to False)
+        - mean (float): target variable log1p mean (from training stats)
+        - std (float): target variable log1p std (from training stats)
         '''
         super().__init__()
         self.nfieldvars = int(nfieldvars)
@@ -84,7 +84,7 @@ class BaselineNN(torch.nn.Module):
             nfeatures = (self.nfieldvars+1)*self.nlevs+self.nlocalvars
         else:
             nfeatures = self.nfieldvars*self.nlevs+self.nlocalvars
-        self.model = MainNN(nfeatures)
+        self.model = MainNN(nfeatures,mean,std)
 
     def forward(self,fields,lf,mask=None):
         '''
@@ -106,20 +106,22 @@ class BaselineNN(torch.nn.Module):
 
 class KernelNN(torch.nn.Module):
 
-    def __init__(self,kernel,nfieldvars,nlocalvars):
+    def __init__(self,kernel,nfieldvars,nlocalvars,mean=TARGETSTATS['pr']['mean'],std=TARGETSTATS['pr']['std']):
         '''
         Purpose: Initialize a kernel-based neural network that integrates over the vertical dimension.
         Args:
         - kernel (torch.nn.Module): instance of NonparametricKernelLayer or ParametricKernelLayer
         - nfieldvars (int): number of predictor field variables
         - nlocalvars (int): number of local input variables (e.g. land fraction, heat fluxes)
+        - mean (float): target variable log1p mean (from training stats)
+        - std (float): target variable log1p std (from training stats)
         '''
         super().__init__()
         self.kernel     = kernel
         self.nfieldvars = int(nfieldvars)
         self.nlocalvars = int(nlocalvars)
         nfeatures = self.nfieldvars+self.nlocalvars
-        self.model = MainNN(nfeatures)
+        self.model = MainNN(nfeatures,mean,std)
 
     def forward(self,fields,dlev,lf,mask=None):
         '''

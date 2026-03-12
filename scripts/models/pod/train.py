@@ -12,23 +12,24 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
-def load(splitsdir):
+def load(splitsdir,targetvar='pr'):
     '''
     Purpose: Load regular (non-normalized) training and validation data splits combined for POD fitting.
     Args:
     - splitsdir (str): directory containing split files
+    - targetvar (str): target variable name ('pr' or 'tp') — must match run config
     Returns:
     - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: BL/precipitation/land fraction DataArrays
     '''
     dslist = []
     for splitname in ('train','valid'):
         filepath = os.path.join(splitsdir,f'{splitname}.h5')
-        ds = xr.open_dataset(filepath,engine='h5netcdf')[['bl','pr','lf']]
+        ds = xr.open_dataset(filepath,engine='h5netcdf')[['bl',targetvar,'lf']]
         dslist.append(ds)
     lf = dslist[0]['lf'].load()
     trainds = xr.concat(dslist,dim='time')
     bl = trainds['bl'].load()
-    pr = trainds['pr'].load()
+    pr = trainds[targetvar].load()
     return bl,pr,lf
 
 def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
@@ -141,11 +142,19 @@ if __name__=='__main__':
     config    = Config()
     pod       = config.pod
     modeldir  = os.path.join(config.modelsdir,'pod')
-    logger.info('Loading combined training and validation splits...')
-    bl,pr,lf = load(config.splitsdir)
     logger.info('Training and saving ramp-fit POD models...')
+    cachedtargetvar = None
+    cacheddata      = None
     for runname,runconfig in pod['runs'].items():
-        withlf = runconfig['withlf']
+        withlf    = runconfig['withlf']
+        targetvar = runconfig.get('targetvar','pr')
+        if targetvar!=cachedtargetvar:
+            logger.info(f'Loading combined training and validation splits (targetvar={targetvar})...')
+            bl,pr,lf = load(config.splitsdir,targetvar=targetvar)
+            cachedtargetvar = targetvar
+            cacheddata      = (bl,pr,lf)
+        else:
+            bl,pr,lf = cacheddata
         logger.info(f'   Training `{runname}`...')
         model,diagnostics = fit(withlf,bl,pr,lf,pod['landthresh'],pod['bins'],pod['fit'])
         save(model,diagnostics,runname,modeldir)

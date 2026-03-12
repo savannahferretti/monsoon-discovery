@@ -59,11 +59,12 @@ if __name__=='__main__':
             continue
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
-        cachekey   = (tuple(fieldvars),tuple(localvars))
+        targetvar  = runconfig.get('targetvar','pr')
+        cachekey   = (tuple(fieldvars),tuple(localvars),targetvar)
         if cachekey!=cachedkey:
-            logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}...')
-            trainfields,trainlocal,trainpr,dlev,nlevs,trainmask,_,_  = load_split('train',fieldvars,localvars,config.splitsdir)
-            validfields,validlocal,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir)
+            logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}, targetvar={targetvar}...')
+            trainfields,trainlocal,trainpr,dlev,nlevs,trainmask,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            validfields,validlocal,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
             cachedkey  = cachekey
             cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dlev,nlevs,trainmask,validmask)
         else:
@@ -82,6 +83,10 @@ if __name__=='__main__':
             model  = build_model(name,runconfig,nlevs).to(device)
             criterion        = runconfig.get('criterion',nn['criterion'])
             criterionkwargs  = runconfig.get('criterionkwargs',nn.get('criterionkwargs',{}))
+            if criterion=='TweedieLoss':
+                from scripts.models.nn.architectures import TARGETSTATS
+                stats = TARGETSTATS[targetvar]
+                criterionkwargs = {**criterionkwargs,'mean':stats['mean'],'std':stats['std']}
             trainer = Trainer(
                 model=model,
                 trainloader=trainloader,
