@@ -35,10 +35,10 @@
       "fit":{"prmin":1.0,"prmax":5.0},
       "landthresh":0.5,
       "runs":{
-        "pr_pod_bl":{"withlf":false},
-        "pr_pod_bl_lf":{"withlf":true},
-        "tp_pod_bl":{"withlf":false},
-        "tp_pod_bl_lf":{"withlf":true}
+        "NEW_pr_pod_bl":{"withlf":false},
+        "NEW_pr_pod_bl_lf":{"withlf":true},
+        "NEW_tp_pod_bl":{"withlf":false},
+        "NEW_tp_pod_bl_lf":{"withlf":true}
       }
     },
     "nn":{
@@ -51,17 +51,17 @@
       "patience":4,
       "criterion":"MSELoss",
       "runs":{
-        "pr_mse_rh_thetae_thetaestar_lf_lhf_shf":
+        "NEW_pr_mse_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"MSELoss"},
-        "pr_q75_rh_thetae_thetaestar_lf_lhf_shf":
+        "NEW_pr_q75_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"},
-        "pr_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
+        "NEW_pr_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"TweedieLoss"},
-        "tp_mse_rh_thetae_thetaestar_lf_lhf_shf":
+        "NEW_tp_mse_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"MSELoss"},
-        "tp_q75_rh_thetae_thetaestar_lf_lhf_shf":
+        "NEW_tp_q75_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss"},
-        "tp_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
+        "NEW_tp_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
           {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"TweedieLoss"}
       }
     },

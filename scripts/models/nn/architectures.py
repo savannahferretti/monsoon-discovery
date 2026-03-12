@@ -6,8 +6,8 @@ from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelL
 
 TARGETVAR   = 'tp'
 TARGETSTATS = {
-    'pr':{'mean':0.10902916640043259,'std':0.3509288728237152},
-    'tp':{'mean':0.1517912745475769,'std':0.3032054603099823}}
+    'pr':{'mean':0.11673472821712494,'std':0.34830141067504883},
+    'tp':{'mean':0.33761656284332275,'std':0.5284095406532288}}
 
 MEAN = TARGETSTATS[TARGETVAR]['mean']
 STD  = TARGETSTATS[TARGETVAR]['std']

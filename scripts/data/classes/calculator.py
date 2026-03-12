@@ -60,21 +60,37 @@ class DataCalculator:
         p = refda.lev.expand_dims({'lat':refda.lat,'lon':refda.lon,'time':refda.time}).transpose('lat','lon','lev','time')
         return p
 
-    def resample(self,da):
+    # def resample(self,da):
+    #     '''
+    #     Purpose: Compute a centered hourly mean (uses the two half-hour samples that straddle each hour; 
+    #     falls back to one at boundaries).
+    #     Args:
+    #     - da (xr.DataArray): input DataArray
+    #     Returns:
+    #     - xr.DataArray: DataArray resampled at on-the-hour timestamps
+    #     '''
+    #     da = da.rolling(time=2,center=True,min_periods=1).mean()
+    #     da = da.sel(time=da.time.dt.minute==0)
+    #     return da
+
+    def coarsen_3h(self,da,method):
         '''
-        Purpose: Compute a centered hourly mean (uses the two half-hour samples that straddle each hour; 
-        falls back to one at boundaries).
+        Purpose: Coarsen an hourly DataArray to 3-hourly without resampling
+        (safe for temporally discontinuous data such as JJA-only records).
         Args:
-        - da (xr.DataArray): input DataArray
+        - da (xr.DataArray): hourly input DataArray
+        - method (str): aggregation — 'first' for instantaneous state variables,
+          'mean' for rates and fluxes, 'sum' for accumulations
         Returns:
-        - xr.DataArray: DataArray resampled at on-the-hour timestamps
+        - xr.DataArray: 3-hourly DataArray
         '''
-        da = da.rolling(time=2,center=True,min_periods=1).mean()
-        da = da.sel(time=da.time.dt.minute==0)
-    #     dt = float(da.time.diff('time')[0])/3.6e12
-    #     n  = round(3/dt)
-    #     da = da.coarsen(time=n,boundary='trim',coord_func='min').mean()
-        return da
+        import pandas as pd
+        if method=='first':
+            return da.sel(time=da.time.dt.hour%3==0)
+        windows = pd.DatetimeIndex(da.time.values).floor('3h')
+        da = da.assign_coords(window=('time',windows))
+        result = da.groupby('window').mean() if method=='mean' else da.groupby('window').sum()
+        return result.rename({'window':'time'})
 
     def regrid(self,da):
         '''
