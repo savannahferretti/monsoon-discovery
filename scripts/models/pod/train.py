@@ -12,12 +12,12 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
-def load(splitsdir,targetvar='pr'):
+def load(splitsdir,targetvar):
     '''
     Purpose: Load regular (non-normalized) training and validation data splits combined for POD fitting.
     Args:
     - splitsdir (str): directory containing split files
-    - targetvar (str): target variable name ('pr' or 'tp') — must match run config
+    - targetvar (str): target variable name
     Returns:
     - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: BL/precipitation/land fraction DataArrays
     '''
@@ -28,17 +28,17 @@ def load(splitsdir,targetvar='pr'):
         dslist.append(ds)
     lf = dslist[0]['lf'].load()
     trainds = xr.concat(dslist,dim='time')
-    bl = trainds['bl'].load()
-    pr = trainds[targetvar].load()
-    return bl,pr,lf
+    x = trainds['bl'].load()
+    y = trainds[targetvar].load()
+    return x,y,lf
 
-def fit(withlf,bl,pr,lf,landthresh,bins,fitparams):
+def fit(withlf,x,y,lf,landthresh,bins,fitparams):
     '''
     Purpose: Fit ramp model(s) to training data and return model with diagnostic data.
     Args:
     - withlf (bool): False for a single ramp fit, True for separate land/ocean ramp fits
-    - bl (xr.DataArray): input BL data
-    - pr (xr.DataArray): target precipitation data
+    - x (xr.DataArray): input BL data
+    - y (xr.DataArray): target precipitation data
     - lf (xr.DataArray): land fraction data
     - landthresh (float): threshold for land/ocean classification
     - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
@@ -147,9 +147,9 @@ if __name__=='__main__':
     cacheddata      = None
     for runname,runconfig in pod['runs'].items():
         withlf    = runconfig['withlf']
-        targetvar = runconfig.get('targetvar','pr')
+        targetvar = runconfig.get('targetvar')
         if targetvar!=cachedtargetvar:
-            logger.info(f'Loading combined training and validation splits (targetvar={targetvar})...')
+            logger.info(f'Loading combined training and validation splits...')
             bl,pr,lf = load(config.splitsdir,targetvar=targetvar)
             cachedtargetvar = targetvar
             cacheddata      = (bl,pr,lf)

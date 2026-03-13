@@ -4,6 +4,7 @@ import os
 import xesmf
 import logging
 import numpy as np
+import pandas as pd
 import xarray as xr
 from datetime import datetime
 
@@ -60,41 +61,9 @@ class DataCalculator:
         p = refda.lev.expand_dims({'lat':refda.lat,'lon':refda.lon,'time':refda.time}).transpose('lat','lon','lev','time')
         return p
 
-    # def resample(self,da):
-    #     '''
-    #     Purpose: Compute a centered hourly mean (uses the two half-hour samples that straddle each hour; 
-    #     falls back to one at boundaries).
-    #     Args:
-    #     - da (xr.DataArray): input DataArray
-    #     Returns:
-    #     - xr.DataArray: DataArray resampled at on-the-hour timestamps
-    #     '''
-    #     da = da.rolling(time=2,center=True,min_periods=1).mean()
-    #     da = da.sel(time=da.time.dt.minute==0)
-    #     return da
-
-    def coarsen_3h(self,da,method):
-        '''
-        Purpose: Coarsen an hourly DataArray to 3-hourly without resampling
-        (safe for temporally discontinuous data such as JJA-only records).
-        Args:
-        - da (xr.DataArray): hourly input DataArray
-        - method (str): aggregation — 'first' for instantaneous state variables,
-          'mean' for rates and fluxes, 'sum' for accumulations
-        Returns:
-        - xr.DataArray: 3-hourly DataArray
-        '''
-        import pandas as pd
-        if method=='first':
-            return da.sel(time=da.time.dt.hour%3==0)
-        windows = pd.DatetimeIndex(da.time.values).floor('3h')
-        da = da.assign_coords(window=('time',windows))
-        result = da.groupby('window').mean() if method=='mean' else da.groupby('window').sum()
-        return result.rename({'window':'time'})
-
     def regrid(self,da):
         '''
-        Purpose: Regrid a DataArray to 1.0° × 1.0° grid over the target domain.
+        Purpose: Regrid an xr.DataArray to 1.0° × 1.0° grid over the target domain.
         Args:
         - da (xr.DataArray): input DataArray with radius (for better interpolation)
         Returns:
@@ -109,6 +78,22 @@ class DataCalculator:
             self.regridders[key] = xesmf.Regridder(da,targetgrid,method=method)
         da = self.regridders[key](da,keep_attrs=True)
         return da
+        
+    def resample(self,da,method):
+        '''
+        Purpose: Coarsen an xr.DataArray to 3-hourly.
+        Args:
+        - da (xr.DataArray): input DataArray
+        - method (str): 'first' (for instantaneous variables) | 'mean' (for rates/fluxes) | 'sum' (for accumulations)
+        Returns:
+        - xr.DataArray: 3-hourly DataArray
+        '''
+        if method=='first':
+            return da.sel(time=da.time.dt.hour%3==0)
+        windows = pd.DatetimeIndex(da.time.values).floor('3h')
+        da = da.assign_coords(window=('time',windows))
+        result = da.groupby('window').mean() if method=='mean' else da.groupby('window').sum()
+        return result.rename({'window':'time'})
 
     def calc_es(self,t):
         '''
@@ -324,12 +309,12 @@ class DataCalculator:
         logger.info(f'   {longname} size: {ds.nbytes*1e-9:.3f} GB')
         return ds
 
-    def save(self,ds,timechunksize=2208):
+    def save(self,ds,timechunksize=736):
         '''
         Purpose: Save an xr.Dataset to NetCDF and verify by reopening.
         Args:
         - ds (xr.Dataset): Dataset to save
-        - timechunksize (int): chunk size for time dimension (defaults to 2,208 for 3-month chunks)
+        - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks)
         Returns:
         - bool: True if save successful, False otherwise
         '''
