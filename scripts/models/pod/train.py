@@ -144,17 +144,17 @@ if __name__=='__main__':
     pod       = config.pod
     modeldir  = os.path.join(config.modelsdir,'pod')
     logger.info('Training and saving ramp-fit POD models...')
-    cachedvars = None
-    cacheddata = None
+    targetvar  = config.targetvar
+    cachedinputvar = None
+    cacheddata     = None
     for runname,runconfig in pod['runs'].items():
-        withlf    = runconfig['withlf']
-        inputvar  = runconfig.get('inputvar')
-        targetvar = runconfig.get('targetvar')
-        if (inputvar,targetvar)!=cachedvars:
+        withlf   = runconfig['withlf']
+        inputvar = runconfig.get('inputvar')
+        if inputvar!=cachedinputvar:
             logger.info(f'Loading combined training and validation splits...')
             x,y,lf = load(config.splitsdir,inputvar=inputvar,targetvar=targetvar)
-            cachedvars = (inputvar,targetvar)
-            cacheddata = (x,y,lf)
+            cachedinputvar = inputvar
+            cacheddata     = (x,y,lf)
         else:
             x,y,lf = cacheddata
         logger.info(f'   Training `{runname}`...')

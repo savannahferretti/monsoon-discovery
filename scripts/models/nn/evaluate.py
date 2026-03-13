@@ -48,13 +48,14 @@ def parse():
     selectedruns = None if args.runs=='all' else {name.strip() for name in args.runs.split(',') if name.strip()}
     return selectedruns,args.split
 
-def load(name,runconfig,nlevs,modeldir,seed,device):
+def load(name,runconfig,nlevs,targetvar,modeldir,seed,device):
     '''
     Purpose: Build a model and load weights from a saved checkpoint.
     Args:
     - name (str): run name
     - runconfig (dict): run configuration
     - nlevs (int): number of vertical levels
+    - targetvar (str): target variable name
     - modeldir (str): directory containing checkpoints
     - seed (int): random seed used during training
     - device (str): device to use
@@ -65,7 +66,7 @@ def load(name,runconfig,nlevs,modeldir,seed,device):
     if not os.path.exists(filepath):
         logger.error(f'   Checkpoint not found: {filepath}')
         return None
-    model = build_model(name,runconfig,nlevs)
+    model = build_model(name,runconfig,nlevs,targetvar)
     state = torch.load(filepath,map_location='cpu')
     model.load_state_dict(state)
     return model.to(device)
@@ -78,10 +79,10 @@ if __name__=='__main__':
     logger.info('Spinning up...')
     device = setup(seeds[0])
     selectedruns,split = parse()
+    targetvar  = config.targetvar
+    writer     = PredictionWriter(config.splitsdir,targetvar=targetvar)
     cachedvars = None
     cacheddata = None
-    cachedtargetvar = None
-    writer = None
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
@@ -92,8 +93,7 @@ if __name__=='__main__':
         is_hurdle = runconfig['kind']=='hurdle'
         fieldvars = runconfig['fieldvars']
         localvars = runconfig.get('localvars',[])
-        targetvar = runconfig.get('targetvar','pr')
-        fieldkey  = (tuple(fieldvars),tuple(localvars),targetvar)
+        fieldkey  = (tuple(fieldvars),tuple(localvars))
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}, targetvar={targetvar}...')
             fields,local,pr,dlev,nlevs,mask,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar)
@@ -101,9 +101,6 @@ if __name__=='__main__':
             cacheddata = (fields,local,pr,dlev,nlevs,mask,valid,refda)
         else:
             fields,local,pr,dlev,nlevs,mask,valid,refda = cacheddata
-        if targetvar!=cachedtargetvar:
-            writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
-            cachedtargetvar = targetvar
         dataset    = FieldDataset(fields,local,pr,dlev,mask=mask)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
         allpreds   = []
@@ -111,7 +108,7 @@ if __name__=='__main__':
         allfeats   = []
         for seedidx,seed in enumerate(seeds):
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
-            model = load(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
+            model = load(name,runconfig,nlevs,targetvar,os.path.join(config.modelsdir,'nn'),seed,device)
             if model is None:
                 logger.error(f'   Failed to load model for seed {seed}, skipping...')
                 break

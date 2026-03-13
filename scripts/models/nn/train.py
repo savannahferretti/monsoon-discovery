@@ -52,6 +52,7 @@ if __name__=='__main__':
     seeds  = nn['seeds']
     logger.info('Spinning up...')
     selectedruns = parse()
+    targetvar    = config.targetvar
     cachedkey    = None
     cacheddata   = None
     for name,runconfig in runs.items():
@@ -59,8 +60,7 @@ if __name__=='__main__':
             continue
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
-        targetvar  = runconfig.get('targetvar','pr')
-        cachekey   = (tuple(fieldvars),tuple(localvars),targetvar)
+        cachekey   = (tuple(fieldvars),tuple(localvars))
         if cachekey!=cachedkey:
             logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}, targetvar={targetvar}...')
             trainfields,trainlocal,trainpr,dlev,nlevs,trainmask,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
@@ -80,7 +80,7 @@ if __name__=='__main__':
                 continue
             logger.info(f'Training `{runid}`...')
             device = setup(seed)
-            model  = build_model(name,runconfig,nlevs).to(device)
+            model  = build_model(name,runconfig,nlevs,targetvar).to(device)
             criterion        = runconfig.get('criterion',nn['criterion'])
             criterionkwargs  = runconfig.get('criterionkwargs',nn.get('criterionkwargs',{}))
             if criterion=='TweedieLoss':

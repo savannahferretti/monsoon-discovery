@@ -3,13 +3,14 @@
 from scripts.models.nn.architectures import BaselineNN,KernelNN,TARGETSTATS
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
-def build_model(name,runconfig,nlevs):
+def build_model(name,runconfig,nlevs,targetvar):
     '''
     Purpose: Build a model instance from a run configuration.
     Args:
     - name (str): model name
     - runconfig (dict): run configuration from configs.json experiments.nn.runs
     - nlevs (int): number of vertical levels (1 for scalar inputs)
+    - targetvar (str): target variable name
     Returns:
     - torch.nn.Module: initialized model
     '''
@@ -17,7 +18,6 @@ def build_model(name,runconfig,nlevs):
     nfieldvars = len(runconfig['fieldvars'])
     nlocalvars = len(runconfig.get('localvars',[]))
     hasmask    = nlevs>1
-    targetvar  = runconfig.get('targetvar','pr')
     mean       = TARGETSTATS[targetvar]['mean']
     std        = TARGETSTATS[targetvar]['std']
     if kind=='baseline':
