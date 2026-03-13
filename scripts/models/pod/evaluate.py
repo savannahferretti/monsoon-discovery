@@ -13,22 +13,23 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
-def load(splitname,splitsdir):
+def load(splitname,splitsdir,inputvar):
     '''
     Purpose: Load the regular (non-normalized) evaluation data split.
     Args:
     - splitname (str): 'valid' | 'test'
     - splitsdir (str): directory containing split files
+    - inputvar (str): input variable name
     Returns:
-    - tuple[xr.DataArray,xr.DataArray]: BL/land fraction DataArrays for evaluation
+    - tuple[xr.DataArray,xr.DataArray]: input/land fraction DataArrays for evaluation
     '''
     if splitname not in ('valid','test'):
         raise ValueError('Splitname must be `valid` or `test`.')
     filepath = os.path.join(splitsdir,f'{splitname}.h5')
-    evalds = xr.open_dataset(filepath,engine='h5netcdf')[['bl','lf']]
-    bl = evalds['bl'].load()
+    evalds = xr.open_dataset(filepath,engine='h5netcdf')[[inputvar,'lf']]
+    x  = evalds[inputvar].load()
     lf = evalds['lf'].load()
-    return bl,lf
+    return x,lf
 
 def fetch(runname,landthresh,modeldir):
     '''
@@ -48,29 +49,29 @@ def fetch(runname,landthresh,modeldir):
                 withlf=False,
                 landthresh=landthresh,
                 alpha=float(data['alpha']),
-                blcrit=float(data['blcrit']))
+                xcrit=float(data['xcrit']))
         else:
             model = RampPOD(
                 withlf=True,
                 landthresh=landthresh,
                 alphaland=float(data['alphaland']),
-                blcritland=float(data['blcritland']),
+                xcritland=float(data['xcritland']),
                 alphaocean=float(data['alphaocean']),
-                blcritocean=float(data['blcritocean']))
+                xcritocean=float(data['xcritocean']))
     return model
 
-def predict(model,bl,lf=None):
+def predict(model,x,lf=None):
     '''
     Purpose: Run the forward pass and return precipitation predictions as an xr.DataArray.
     Args:
     - model (RampPOD): trained RampPOD instance
-    - bl (xr.DataArray): input BL DataArray with dims (lat, lon, time)
+    - x (xr.DataArray): input DataArray with dims (lat, lon, time)
     - lf (xr.DataArray): land fraction DataArray (required when model.withlf=True)
     Returns:
-    - xr.DataArray: DataArray of predicted precipitation with same shape as bl
+    - xr.DataArray: DataArray of predicted precipitation with same shape as x
     '''
-    ypredflat = model.forward(bl,lf=lf if model.withlf else None)
-    ypred = xr.DataArray(ypredflat.reshape(bl.shape),dims=bl.dims,coords=bl.coords,name='pr')
+    ypredflat = model.forward(x,lf=lf if model.withlf else None)
+    ypred = xr.DataArray(ypredflat.reshape(x.shape),dims=x.dims,coords=x.coords,name='pr')
     ypred.attrs = dict(long_name='POD-predicted precipitation rate',units='mm/hr')
     return ypred
 
@@ -110,8 +111,9 @@ if __name__=='__main__':
     for runname,runconfig in pod['runs'].items():
         logger.info(f'   Evaluating `{runname}`...')
         logger.info(f'      Loading {args.split} split...')
-        bl,lf = load(args.split,config.splitsdir)
+        inputvar = runconfig.get('inputvar')
+        x,lf = load(args.split,config.splitsdir,inputvar=inputvar)
         model = fetch(runname,pod['landthresh'],modeldir)
-        ypred = predict(model,bl,lf=lf)
+        ypred = predict(model,x,lf=lf)
         save(ypred,runname,args.split,config.predsdir)
-        del bl,lf,model,ypred
+        del x,lf,model,ypred

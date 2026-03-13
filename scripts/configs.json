@@ -32,13 +32,13 @@
   "experiments":{
     "pod":{
       "bins":{"min":-0.6,"max":0.1,"width":0.0025,"minsample":50},
-      "fit":{"prmin":1.0,"prmax":5.0},
+      "fit":{"ymin":1.0,"ymax":5.0},
       "landthresh":0.5,
       "runs":{
-        "NEW_pr_pod_bl":{"withlf":false,"targetvar":"pr"},
-        "NEW_pr_pod_bl_lf":{"withlf":true,"targetvar":"pr"},
-        "NEW_tp_pod_bl":{"withlf":false,"targetvar":"tp"},
-        "NEW_tp_pod_bl_lf":{"withlf":true,"targetvar":"tp"}
+        "NEW_pr_pod_bl":{"withlf":false,"inputvar":"bl","targetvar":"pr"},
+        "NEW_pr_pod_bl_lf":{"withlf":true,"inputvar":"bl","targetvar":"pr"},
+        "NEW_tp_pod_bl":{"withlf":false,"inputvar":"bl","targetvar":"tp"},
+        "NEW_tp_pod_bl_lf":{"withlf":true,"inputvar":"bl","targetvar":"tp"}
       }
     },
     "nn":{
