@@ -12,23 +12,24 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
-def load(splitsdir,targetvar):
+def load(splitsdir,inputvar,targetvar):
     '''
     Purpose: Load regular (non-normalized) training and validation data splits combined for POD fitting.
     Args:
     - splitsdir (str): directory containing split files
+    - inputvar (str): input variable name
     - targetvar (str): target variable name
     Returns:
-    - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: BL/precipitation/land fraction DataArrays
+    - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: input/target/land fraction DataArrays
     '''
     dslist = []
     for splitname in ('train','valid'):
         filepath = os.path.join(splitsdir,f'{splitname}.h5')
-        ds = xr.open_dataset(filepath,engine='h5netcdf')[['bl',targetvar,'lf']]
+        ds = xr.open_dataset(filepath,engine='h5netcdf')[[inputvar,targetvar,'lf']]
         dslist.append(ds)
     lf = dslist[0]['lf'].load()
     trainds = xr.concat(dslist,dim='time')
-    x = trainds['bl'].load()
+    x = trainds[inputvar].load()
     y = trainds[targetvar].load()
     return x,y,lf
 
@@ -37,8 +38,8 @@ def fit(withlf,x,y,lf,landthresh,bins,fitparams):
     Purpose: Fit ramp model(s) to training data and return model with diagnostic data.
     Args:
     - withlf (bool): False for a single ramp fit, True for separate land/ocean ramp fits
-    - x (xr.DataArray): input BL data
-    - y (xr.DataArray): target precipitation data
+    - x (xr.DataArray): input data
+    - y (xr.DataArray): target data
     - lf (xr.DataArray): land fraction data
     - landthresh (float): threshold for land/ocean classification
     - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
