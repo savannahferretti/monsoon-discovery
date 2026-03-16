@@ -83,8 +83,9 @@ def fit(withlf,x,y,lf,landthresh,bins,fitparams):
         ocean  = finite&(lfflat<landthresh)
         landresults  = ramp(xflat[land],yflat[land])
         oceanresults = ramp(xflat[ocean],yflat[ocean])
-        model = RampPOD(
-            withlf=True,landthresh=landthresh,alphaland=landresults[0],xcritland=landresults[1],alphaocean=oceanresults[0],xcritocean=oceanresults[1])
+        model = RampPOD(withlf=True,landthresh=landthresh,
+                        alphaland=landresults[0],xcritland=landresults[1],
+                        alphaocean=oceanresults[0],xcritocean=oceanresults[1])
         diagnostics = {
             'bincenters':bincenters,
             'ymeanland':landresults[2],

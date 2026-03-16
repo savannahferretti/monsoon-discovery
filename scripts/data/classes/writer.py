@@ -51,8 +51,8 @@ class PredictionWriter:
         dims   = ('time','lat','lon','seed')
         coords = {dim:refda.coords[dim].values for dim in refda.dims}
         coords['seed'] = np.arange(predstack.shape[-1])
-        da = xr.DataArray(predstack,dims=dims,coords=coords,name='pr')
-        da.attrs = dict(long_name='Predicted precipitation rate',units='mm/hr')
+        da = xr.DataArray(predstack,dims=dims,coords=coords,name='tp')
+        da.attrs = dict(long_name='Predicted precipitation',units='mm')
         return da.to_dataset()
 
     def features_to_array(self,feats,valid,refda):

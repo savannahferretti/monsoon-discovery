@@ -71,8 +71,8 @@ def predict(model,x,lf=None):
     - xr.DataArray: DataArray of predicted precipitation with same shape as x
     '''
     ypredflat = model.forward(x,lf=lf if model.withlf else None)
-    ypred = xr.DataArray(ypredflat.reshape(x.shape),dims=x.dims,coords=x.coords,name='pr')
-    ypred.attrs = dict(long_name='POD-predicted precipitation rate',units='mm/hr')
+    ypred = xr.DataArray(ypredflat.reshape(x.shape),dims=x.dims,coords=x.coords,name='tp')
+    ypred.attrs = dict(long_name='POD-predicted total precipitation',units='mm')
     return ypred
 
 def save(ypred,runname,splitname,predsdir):

@@ -32,13 +32,11 @@
   "experiments":{
     "pod":{
       "bins":{"min":-0.6,"max":0.1,"width":0.0025,"minsample":50},
-      "fit":{"ymin":1.0,"ymax":5.0},
+      "fit":{"ymin":5.0,"ymax":15.0},
       "landthresh":0.5,
       "runs":{
-        "NEW_pr_pod_bl":{"withlf":false,"inputvar":"bl","targetvar":"pr"},
-        "NEW_pr_pod_bl_lf":{"withlf":true,"inputvar":"bl","targetvar":"pr"},
-        "NEW_tp_pod_bl":{"withlf":false,"inputvar":"bl","targetvar":"tp"},
-        "NEW_tp_pod_bl_lf":{"withlf":true,"inputvar":"bl","targetvar":"tp"}
+        "pod_bl":{"withlf":false,"inputvar":"bl","targetvar":"tp"},
+        "pod_bl_lf":{"withlf":true,"inputvar":"bl","targetvar":"tp"}
       }
     },
     "nn":{
@@ -46,23 +44,19 @@
       "seeds":[42],
       "workers":8,
       "epochs":20,
-      "batchsize":2000,
+      "batchsize":500,
       "learningrate":0.0005,
       "patience":4,
       "criterion":"MSELoss",
       "runs":{
-        "NEW_pr_mse_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"MSELoss","targetvar":"pr"},
-        "NEW_pr_q75_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss","targetvar":"pr"},
-        "NEW_pr_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"TweedieLoss","targetvar":"pr"},
-        "NEW_tp_mse_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"MSELoss","targetvar":"tp"},
-        "NEW_tp_q75_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"QuantileLoss","targetvar":"tp"},
-        "NEW_tp_tweedie_rh_thetae_thetaestar_lf_lhf_shf":
-          {"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"criterion":"TweedieLoss","targetvar":"tp"}
+        "baseline_bl_lf":{"kind":"baseline","fieldvars":["bl"],"localvars":["lf"],"targetvar":"tp"},
+        "baseline_cape_subsat_lf":{"kind":"baseline","fieldvars":["cape","subsat"],"localvars":["lf"],"targetvar":"tp"},
+        "baseline_thetae_thetaestar_lf":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":["lf"],"targetvar":"tp"},
+        "baseline_t_q_lf":{"kind":"baseline","fieldvars":["t","q"],"localvars":["lf"],"targetvar":"tp"},
+        "baseline_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"targetvar":"tp"},
+        "nonparametric_thetae_thetaestar_lf":{"kind":"nonparametric","fieldvars":["t","q"],"localvars":["lf"],"targetvar":"tp"},
+        "nonparametric_t_q_lf":{"kind":"nonparametric","fieldvars":["t","q"],"localvars":["lf"],"targetvar":"tp"},
+        "nonparametric_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"nonparametric","fieldvars":["t","q"],"localvars":["lf"],"targetvar":"tp"}
       }
     },
     "sr":{
