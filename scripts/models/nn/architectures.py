@@ -40,7 +40,7 @@ class MainNN(torch.nn.Module):
 
 class BaselineNN(torch.nn.Module):
 
-    def __init__(self,nfieldvars,nlevs,nlocalvars,hasmask=False,mean=TARGETSTATS['pr']['mean'],std=TARGETSTATS['pr']['std']):
+    def __init__(self,nfieldvars,nlevs,nlocalvars,hasmask=False,mean=TARGETSTATS['tp']['mean'],std=TARGETSTATS['tp']['std']):
         '''
         Purpose: Initialize a baseline neural network that flattens vertical profiles and concatenates local variables.
         Args:
@@ -82,7 +82,7 @@ class BaselineNN(torch.nn.Module):
 
 class KernelNN(torch.nn.Module):
 
-    def __init__(self,kernel,nfieldvars,nlocalvars,mean=TARGETSTATS['pr']['mean'],std=TARGETSTATS['pr']['std']):
+    def __init__(self,kernel,nfieldvars,nlocalvars,mean=TARGETSTATS['tp']['mean'],std=TARGETSTATS['tp']['std']):
         '''
         Purpose: Initialize a kernel-based neural network that integrates over the vertical dimension.
         Args:
