@@ -1,10 +1,24 @@
 #!/usr/bin/env python
 
+import os
+import json
 import torch
 import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
-TARGETSTATS = {'tp':{'mean':0.3376164138317108,'std':0.5284096002578735}}
+def _load_targetstats():
+    statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        flat = json.load(f)
+    stats = {}
+    for key,val in flat.items():
+        if key.endswith('_mean'):
+            stats.setdefault(key[:-5],{})['mean'] = val
+        elif key.endswith('_std'):
+            stats.setdefault(key[:-4],{})['std'] = val
+    return stats
+
+TARGETSTATS = _load_targetstats()
 
 class MainNN(torch.nn.Module):
 
