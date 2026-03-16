@@ -4,31 +4,7 @@ import torch
 import torch.nn.functional as F
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
-TARGETSTATS = {
-    'pr':{'mean':0.11673472821712494,'std':0.34830141067504883},
-    'tp':{'mean':0.33761656284332275,'std':0.5284095406532288}}
-
-class QuantileLoss(torch.nn.Module):
-    def __init__(self,q=0.75):
-        super().__init__()
-        assert 0 <q<1,'Quantile q must satisfy 0 < q < 1'
-        self.q = q
-    def forward(self,output,target):
-        err  = target-output
-        loss = torch.maximum(self.q*err,(self.q-1)*err)
-        return loss.mean()
-
-class TweedieLoss(torch.nn.Module):
-    def __init__(self,p=1.5,mean=TARGETSTATS['pr']['mean'],std=TARGETSTATS['pr']['std']):
-        super().__init__()
-        assert 1<p<2,'Tweedie power p must satisfy 1 < p < 2'
-        self.p = p
-        self.register_buffer('mean',torch.tensor(mean,dtype=torch.float32))
-        self.register_buffer('std',torch.tensor(std,dtype=torch.float32))
-    def forward(self,output,target):
-        ypred = torch.expm1(output*self.std+self.mean).clamp(min=1e-6)
-        ytrue = torch.expm1(target*self.std+self.mean).clamp(min=0)
-        return (ypred.pow(2-self.p)/(2-self.p)-ytrue*ypred.pow(1-self.p)/(1-self.p)).mean()
+TARGETSTATS = {'tp':{'mean':0.3376164138317108,'std':0.5284096002578735}}
 
 class MainNN(torch.nn.Module):
 
@@ -122,7 +98,7 @@ class KernelNN(torch.nn.Module):
         self.nlocalvars = int(nlocalvars)
         nfeatures = self.nfieldvars+self.nlocalvars
         self.model = MainNN(nfeatures,mean,std)
-
+    
     def forward(self,fields,dlev,lf,mask=None):
         '''
         Purpose: Forward pass through KernelNN.
