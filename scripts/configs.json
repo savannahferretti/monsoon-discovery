@@ -61,8 +61,9 @@
     },
     "sr":{
       "runs":{
-        "sr_nonparametric_bl_lf":{"fieldvars":["bl"],"localvars":["lf"],"features_from":"nonparametric_bl_lf"},
-        "sr_gaussian_bl_lf":{"fieldvars":["bl"],"localvars":["lf"],"features_from":"gaussian_bl_lf"}
+        "sr_bl_lf":{"fieldvars":["bl"],"localvars":["lf"]},
+        "sr_cape_subsat_lf":{"fieldvars":["cape","subsat"],"localvars":["lf"]},
+        "sr_rh_thetae_thetaestar_lf_lhf_shf":{"fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"features_from":"baseline_rh_thetae_thetaestar_lf_lhf_shf"}
       }
     }
   }
