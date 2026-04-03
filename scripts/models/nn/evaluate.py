@@ -108,7 +108,6 @@ if __name__=='__main__':
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
         allpreds   = []
         allweights = []
-        allfeats   = []
         for seedidx,seed in enumerate(seeds):
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             model = load(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
@@ -120,7 +119,6 @@ if __name__=='__main__':
             allpreds.append(writer.predictions_to_array(preds,valid,refda))
             if haskernel:
                 allweights.append(inferencer.extract_weights())
-                allfeats.append(writer.features_to_array(feats,valid,refda))
             del model,inferencer
         else:
             logger.info(f'   Saving predictions for `{name}`...')
@@ -136,8 +134,3 @@ if __name__=='__main__':
                 refds.close()
                 writer.save(name,ds,'weights',split,config.weightsdir)
                 del stacked,ds
-                logger.info(f'   Saving kernel-integrated features for `{name}`...')
-                featstack = np.stack(allfeats,axis=-1)
-                ds = writer.features_to_dataset(featstack,fieldvars,refda)
-                writer.save(name,ds,'features',split,config.featsdir)
-                del featstack,ds
