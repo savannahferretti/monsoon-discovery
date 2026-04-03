@@ -5,7 +5,6 @@ import torch
 import logging
 import argparse
 import numpy as np
-import xarray as xr
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
 from scripts.models.nn.classes.factory import build_model
@@ -106,8 +105,7 @@ if __name__=='__main__':
             cachedtargetvar = targetvar
         dataset    = FieldDataset(fields,local,pr,dlev,mask=mask)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
-        allpreds   = []
-        allweights = []
+        allpreds = []
         for seedidx,seed in enumerate(seeds):
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             model = load(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
@@ -117,8 +115,6 @@ if __name__=='__main__':
             inferencer = Inferencer(model,dataloader,device)
             preds,feats = inferencer.predict(haskernel,is_hurdle=is_hurdle)
             allpreds.append(writer.predictions_to_array(preds,valid,refda))
-            if haskernel:
-                allweights.append(inferencer.extract_weights())
             del model,inferencer
         else:
             logger.info(f'   Saving predictions for `{name}`...')
@@ -126,11 +122,3 @@ if __name__=='__main__':
             ds = writer.predictions_to_dataset(predstack,refda)
             writer.save(name,ds,'predictions',split,config.predsdir)
             del predstack,ds
-            if haskernel:
-                logger.info(f'   Saving kernel weights for `{name}`...')
-                stacked = np.stack(allweights,axis=-1)
-                refds = xr.open_dataset(os.path.join(config.splitsdir,f'norm_{split}.h5'),engine='h5netcdf')
-                ds = writer.weights_to_dataset([stacked],fieldvars,refds)
-                refds.close()
-                writer.save(name,ds,'weights',split,config.weightsdir)
-                del stacked,ds
