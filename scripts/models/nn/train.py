@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
+from scripts.data.classes import PredictionWriter
 from scripts.models.nn.classes.factory import build_model
 from scripts.models.nn.classes.dataset import FieldDataset,load_split
 from scripts.models.nn.classes.trainer import Trainer
@@ -113,12 +114,8 @@ if __name__=='__main__':
                     model.kernel.get_weights(dlev.to(device),device)
                 weights = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
                 refds = xr.open_dataset(os.path.join(config.splitsdir,'norm_train.h5'),engine='h5netcdf')
-                coords = {'field':fieldvars}
-                coords['lev'] = refds.coords['lev'].values if 'lev' in refds.coords else np.arange(weights.shape[1])
+                ds = PredictionWriter.weights_to_dataset([weights[...,np.newaxis]],fieldvars,refds)
                 refds.close()
-                da = xr.DataArray(weights,dims=('field','lev'),coords=coords)
-                da.attrs = dict(long_name='Normalized kernel weights',units='N/A')
-                ds = da.to_dataset(name='weights')
                 os.makedirs(config.weightsdir,exist_ok=True)
                 wpath = os.path.join(config.weightsdir,f'{runid}_weights.nc')
                 ds.to_netcdf(wpath,engine='h5netcdf')
