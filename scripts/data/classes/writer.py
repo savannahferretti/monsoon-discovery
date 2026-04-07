@@ -106,14 +106,14 @@ class PredictionWriter:
         - xr.Dataset: Dataset with normalized kernel weight components
         '''
         coords = {'field':fieldvars}
-        if 'lev' in refds.coords:
-            coords['lev'] = refds.coords['lev'].values
+        if 'sig' in refds.coords:
+            coords['sig'] = refds.coords['sig'].values
         else:
-            coords['lev'] = np.arange(components[0].shape[1])
+            coords['sig'] = np.arange(components[0].shape[1])
         coords['seed'] = np.arange(components[0].shape[-1])
         ds = xr.Dataset()
         for i,comp in enumerate(components):
-            da = xr.DataArray(comp,dims=('field','lev','seed'),coords=coords)
+            da = xr.DataArray(comp,dims=('field','sig','seed'),coords=coords)
             da.attrs = dict(long_name=f'Normalized kernel weights (component {i+1})',units='N/A')
             ds[f'k{i+1}'] = da
         return ds

@@ -37,13 +37,12 @@ class Inferencer:
             for batch in self.dataloader:
                 fields = batch['fields'].to(self.device,non_blocking=True)
                 local  = batch['local'].to(self.device,non_blocking=True)
-                mask   = batch['mask'].to(self.device,non_blocking=True) if 'mask' in batch else None
                 if haskernel:
-                    dlev   = batch['dlev'][0].to(self.device,non_blocking=True)
-                    output = self.model(fields,dlev,local,mask=mask)
+                    dsig   = batch['dsig'][0].to(self.device,non_blocking=True)
+                    output = self.model(fields,dsig,local)
                     featslist.append(self.model.kernel.features.detach().cpu().numpy())
                 else:
-                    output = self.model(fields,local,mask=mask)
+                    output = self.model(fields,local)
                 if is_hurdle:
                     logit,amount = output
                     output = self.model.predict_expected(logit,amount)

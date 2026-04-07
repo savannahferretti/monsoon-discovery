@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from datetime import datetime
+from scipy.interpolate import interp1d
 
 logger = logging.getLogger(__name__)
 
@@ -267,20 +268,70 @@ class DataCalculator:
         bl      = (g/(kappal*thetae0))*((wb*cape)-(wl*subsat))
         return cape,subsat,bl
 
-    def calc_dlev(self,refda):
+    def calc_dsig(self,siglevels):
         '''
-        Purpose: Compute quadrature weights for numerical integration over a the 'lev' dimension;
-        weights Δp (hPa) represent vertical thickness. Spacing between adjacent grid points is estimated 
+        Purpose: Compute quadrature weights for numerical integration over the 'sig' dimension;
+        weights Δσ represent sigma thickness. Spacing between adjacent grid points is estimated
         using centered finite differences.
         Args:
-        - refda (xr.DataArray): reference DataArray with'lev' dimension
+        - siglevels (np.ndarray): 1D array of sigma levels
         Returns:
-        - xr.DataArray: quadrature weights for Δp (hPa)
+        - xr.DataArray: quadrature weights for Δσ
         '''
-        levs  = refda.lev.values
-        dlevvalues = np.abs(np.concatenate([[levs[1]-levs[0]],0.5*(levs[2:]-levs[:-2]),[levs[-1]-levs[-2]]]))
-        dlev  = xr.DataArray(dlevvalues.astype(np.float32),dims=('lev',),coords={'lev':refda.lev})
-        return dlev
+        sigs = np.asarray(siglevels,dtype=np.float32)
+        dsigvalues = np.abs(np.concatenate([[sigs[1]-sigs[0]],0.5*(sigs[2:]-sigs[:-2]),[sigs[-1]-sigs[-2]]]))
+        dsig = xr.DataArray(dsigvalues.astype(np.float32),dims=('sig',),coords={'sig':sigs})
+        return dsig
+
+    def interpolate_to_sigma(self,da,ps,siglevels):
+        '''
+        Purpose: Interpolate a DataArray from pressure levels to a uniform sigma grid.
+        For each (lat, lon, time), computes σ_k = p_k / p_s at existing pressure levels,
+        then linearly interpolates onto the target sigma grid. Levels below the surface
+        (σ > 1) are excluded before interpolation.
+        Args:
+        - da (xr.DataArray): input DataArray with 'lev' dimension (pressure levels in hPa)
+        - ps (xr.DataArray): surface pressure DataArray (hPa) with dims (lat, lon, time)
+        - siglevels (np.ndarray): 1D array of target sigma levels (ascending, e.g. [0.5, 0.55, ..., 1.0])
+        Returns:
+        - xr.DataArray: interpolated DataArray with 'sig' dimension replacing 'lev'
+        '''
+        da  = da.load()
+        ps  = ps.load()
+        siglevels = np.asarray(siglevels,dtype=np.float64)
+        plevs     = da.lev.values.astype(np.float64)
+        nlat,nlon,nlev,ntime = da.sizes['lat'],da.sizes['lon'],da.sizes['lev'],da.sizes['time']
+        nsig = len(siglevels)
+        data   = da.transpose('lat','lon','lev','time').values
+        psvals = ps.transpose('lat','lon','time').values
+        result = np.full((nlat,nlon,nsig,ntime),np.nan,dtype=np.float32)
+        for i in range(nlat):
+            for j in range(nlon):
+                for k in range(ntime):
+                    psval = psvals[i,j,k]
+                    if np.isnan(psval) or psval<=0:
+                        continue
+                    sigma_k = plevs/psval
+                    valid   = sigma_k<=1.0+1e-6
+                    if valid.sum()<2:
+                        continue
+                    sig_valid  = sigma_k[valid]
+                    data_valid = data[i,j,valid,k]
+                    finite     = np.isfinite(data_valid)
+                    if finite.sum()<2:
+                        continue
+                    sig_valid  = sig_valid[finite]
+                    data_valid = data_valid[finite]
+                    f = interp1d(sig_valid,data_valid,kind='linear',bounds_error=False,fill_value='extrapolate')
+                    result[i,j,:,k] = f(siglevels).astype(np.float32)
+        sigcoord = np.asarray(siglevels,dtype=np.float32)
+        out = xr.DataArray(
+            result,
+            dims=('lat','lon','sig','time'),
+            coords={'lat':da.lat,'lon':da.lon,'sig':sigcoord,'time':da.time},
+            name=da.name)
+        out.attrs = da.attrs
+        return out
 
     def create_dataset(self,da,shortname,longname,units):
         '''
@@ -293,7 +344,7 @@ class DataCalculator:
         Returns:
         - xr.Dataset: Dataset containing the variable and metadata
         '''
-        dims = [dim for dim in ('lat','lon','lev','time') if dim in da.dims]
+        dims = [dim for dim in ('lat','lon','sig','time') if dim in da.dims]
         da = da.transpose(*dims)
         ds = da.to_dataset(name=shortname)
         ds[shortname].attrs = dict(long_name=longname,units=units)
@@ -301,8 +352,8 @@ class DataCalculator:
             ds.lat.attrs  = dict(long_name='Latitude',units='°N')
         if 'lon' in ds.coords:
             ds.lon.attrs  = dict(long_name='Longitude',units='°E')
-        if 'lev' in ds.coords:
-            ds.lev.attrs  = dict(long_name='Pressure level',units='hPa')
+        if 'sig' in ds.coords:
+            ds.sig.attrs  = dict(long_name='Sigma level',units='0-1')
         if 'time' in ds.coords:
             ds.time.attrs = dict(long_name='Time')
         ds.attrs = dict(history=f'Created on {datetime.today().strftime("%Y-%m-%d")} by {self.author} ({self.email})')

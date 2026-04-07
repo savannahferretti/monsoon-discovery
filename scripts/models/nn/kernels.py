@@ -5,39 +5,34 @@ import torch
 class KernelModule:
 
     @staticmethod
-    def normalize(kernel,dlev,epsilon=1e-6):
+    def normalize(kernel,dsig,epsilon=1e-6):
         '''
-        Purpose: Normalize a 1D vertical kernel so that sum(k * dlev) = 1 for each field over the full column.
+        Purpose: Normalize a 1D vertical kernel so that sum(k * dsig) = 1 for each field over the full column.
         Args:
         - kernel (torch.Tensor): unnormalized kernel with shape (nfieldvars, nlevs)
-        - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         - epsilon (float): stabilizer to avoid divide-by-zero (defaults to 1e-6)
         Returns:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
-        kernelsum = (kernel*dlev.unsqueeze(0)).sum(dim=1)
+        kernelsum = (kernel*dsig.unsqueeze(0)).sum(dim=1)
         weights   = kernel/(kernelsum.unsqueeze(1)+epsilon)
-        checksum  = (weights*dlev.unsqueeze(0)).sum(dim=1)
+        checksum  = (weights*dsig.unsqueeze(0)).sum(dim=1)
         assert torch.allclose(checksum,torch.ones_like(checksum),atol=1e-2),f'Kernel normalization failed, weights sum to {checksum.mean().item():.6f} instead of 1.0'
         return weights
 
     @staticmethod
-    def integrate(fields,weights,dlev,mask=None):
+    def integrate(fields,weights,dsig):
         '''
         Purpose: Integrate predictor fields using normalized kernel weights over the vertical dimension.
-            When a surface validity mask is provided, sub-surface levels are zeroed out so the effective
-            integral is less than 1 at high-elevation grid cells.
         Args:
         - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
         - weights (torch.Tensor): normalized kernel weights with shape (nfieldvars, nlevs)
-        - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
-        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs) or None
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
-        weighted = fields*weights.unsqueeze(0)*dlev.unsqueeze(0).unsqueeze(0)
-        if mask is not None:
-            weighted = weighted*mask.unsqueeze(1)
+        weighted = fields*weights.unsqueeze(0)*dsig.unsqueeze(0).unsqueeze(0)
         return weighted.sum(dim=2)
 
 
@@ -59,32 +54,31 @@ class NonparametricKernelLayer(torch.nn.Module):
         raw = raw+torch.randn_like(raw)*0.2
         self.raw = torch.nn.Parameter(raw)
 
-    def get_weights(self,dlev,device):
+    def get_weights(self,dsig,device):
         '''
         Purpose: Obtain normalized non-parametric kernel weights.
         Args:
-        - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         - device (str | torch.device): device to use
         Returns:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
-        dlev      = dlev.to(device)
+        dsig      = dsig.to(device)
         self.raw  = self.raw.to(device)
-        self.norm = KernelModule.normalize(self.raw,dlev)
+        self.norm = KernelModule.normalize(self.raw,dsig)
         return self.norm
 
-    def forward(self,fields,dlev,mask=None):
+    def forward(self,fields,dsig):
         '''
         Purpose: Apply non-parametric kernels to a batch of vertical profiles.
         Args:
         - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
-        - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
-        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs), or None
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
-        norm  = self.get_weights(dlev,fields.device)
-        feats = KernelModule.integrate(fields,norm,dlev,mask=mask)
+        norm  = self.get_weights(dsig,fields.device)
+        feats = KernelModule.integrate(fields,norm,dsig)
         self.features = feats
         return feats
 
@@ -163,32 +157,31 @@ class ParametricKernelLayer(torch.nn.Module):
             raise ValueError(f'Unknown kernel type `{kerneltype}`; must be one of {list(self.kerneltypes.keys())}')
         self.function = self.kerneltypes[kerneltype](self.nfieldvars)
 
-    def get_weights(self,dlev,device):
+    def get_weights(self,dsig,device):
         '''
         Purpose: Obtain normalized parametric kernel weights.
         Args:
-        - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         - device (str | torch.device): device to use
         Returns:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
-        dlev   = dlev.to(device)
-        nlevs  = dlev.numel()
+        dsig   = dsig.to(device)
+        nlevs  = dsig.numel()
         kernel = self.function(nlevs,device)
-        self.norm = KernelModule.normalize(kernel,dlev)
+        self.norm = KernelModule.normalize(kernel,dsig)
         return self.norm
 
-    def forward(self,fields,dlev,mask=None):
+    def forward(self,fields,dsig):
         '''
         Purpose: Apply parametric kernel to a batch of vertical profiles.
         Args:
         - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
-        - dlev (torch.Tensor): vertical thickness weights with shape (nlevs,)
-        - mask (torch.Tensor | None): surface validity mask with shape (nbatch, nlevs), or None
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
         '''
-        norm  = self.get_weights(dlev,fields.device)
-        feats = KernelModule.integrate(fields,norm,dlev,mask=mask)
+        norm  = self.get_weights(dsig,fields.device)
+        feats = KernelModule.integrate(fields,norm,dsig)
         self.features = feats
         return feats

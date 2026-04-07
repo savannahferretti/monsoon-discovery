@@ -40,7 +40,7 @@ class DataSplitter:
         datavars = {}
         for filepath in filepaths:
             da   = xr.open_dataarray(filepath,engine='h5netcdf')
-            dims = tuple(dim for dim in ('lat','lon','lev','time') if dim in da.dims)
+            dims = tuple(dim for dim in ('lat','lon','sig','time') if dim in da.dims)
             da   = da.transpose(*dims) if dims else da
             datavars[da.name] = da
         ds = xr.Dataset(datavars)
@@ -57,7 +57,7 @@ class DataSplitter:
         '''
         stats = {}
         for varname,da in trainds.data_vars.items():
-            if varname in ('ps','lf','dlev','surfmask'):
+            if varname in ('ps','lf','dsig'):
                 continue
             elif varname in ('pr','tp'):
                 arr = np.log1p(da.values)
@@ -84,7 +84,7 @@ class DataSplitter:
         '''
         datavars = {}
         for varname,da in ds.data_vars.items():
-            if varname in ('ps','lf','dlev','surfmask'):
+            if varname in ('ps','lf','dsig'):
                 datavars[varname] = da
                 continue
             mean = stats[f'{varname}_mean']

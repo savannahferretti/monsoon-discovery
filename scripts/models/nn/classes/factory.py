@@ -16,14 +16,13 @@ def build_model(name,runconfig,nlevs):
     kind       = runconfig['kind']
     nfieldvars = len(runconfig['fieldvars'])
     nlocalvars = len(runconfig.get('localvars',[]))
-    hasmask    = nlevs>1
     targetvar  = runconfig.get('targetvar','pr')
     mean       = TARGETSTATS[targetvar]['mean']
     std        = TARGETSTATS[targetvar]['std']
     if kind=='baseline':
-        model = BaselineNN(nfieldvars,nlevs,nlocalvars,hasmask=hasmask,mean=mean,std=std)
+        model = BaselineNN(nfieldvars,nlevs,nlocalvars,mean=mean,std=std)
     elif kind=='hurdle':
-        model = HurdleBaselineNN(nfieldvars,nlevs,nlocalvars,hasmask=hasmask,mean=mean,std=std)
+        model = HurdleBaselineNN(nfieldvars,nlevs,nlocalvars,mean=mean,std=std)
     elif kind=='nonparametric':
         kernel = NonparametricKernelLayer(nfieldvars,nlevs)
         model  = KernelNN(kernel,nfieldvars,nlocalvars,mean=mean,std=std)

@@ -65,14 +65,14 @@ if __name__=='__main__':
         cachekey   = (tuple(fieldvars),tuple(localvars),targetvar)
         if cachekey!=cachedkey:
             logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}, targetvar={targetvar}...')
-            trainfields,trainlocal,trainpr,dlev,nlevs,trainmask,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
-            validfields,validlocal,validpr,_,_,validmask,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            trainfields,trainlocal,trainpr,dsig,nlevs,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            validfields,validlocal,validpr,_,_,_,_          = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
             cachedkey  = cachekey
-            cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dlev,nlevs,trainmask,validmask)
+            cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dsig,nlevs)
         else:
-            trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dlev,nlevs,trainmask,validmask = cacheddata
-        traindataset = FieldDataset(trainfields,trainlocal,trainpr,dlev,mask=trainmask)
-        validdataset = FieldDataset(validfields,validlocal,validpr,dlev,mask=validmask)
+            trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dsig,nlevs = cacheddata
+        traindataset = FieldDataset(trainfields,trainlocal,trainpr,dsig)
+        validdataset = FieldDataset(validfields,validlocal,validpr,dsig)
         trainloader = torch.utils.data.DataLoader(traindataset,batch_size=nn['batchsize'],shuffle=True,num_workers=nn['workers'],pin_memory=True)
         validloader = torch.utils.data.DataLoader(validdataset,batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
         for seed in seeds:
@@ -111,7 +111,7 @@ if __name__=='__main__':
                 logger.info(f'   Saving kernel weights for `{runid}`...')
                 model.eval()
                 with torch.no_grad():
-                    model.kernel.get_weights(dlev.to(device),device)
+                    model.kernel.get_weights(dsig.to(device),device)
                 weights = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
                 refds = xr.open_dataset(os.path.join(config.splitsdir,'norm_train.h5'),engine='h5netcdf')
                 ds = PredictionWriter.weights_to_dataset([weights[...,np.newaxis]],fieldvars,refds)

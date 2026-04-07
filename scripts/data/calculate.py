@@ -60,10 +60,15 @@ if __name__=='__main__':
     logger.info('Calculating BL terms...')
     wb,wl          = calculator.calc_weights(ps,pbltop,lfttop)
     cape,subsat,bl = calculator.calc_bl_terms(thetaeb,thetael,thetaelstar,wb,wl)
-    logger.info('Calculating quadrature weights...')
-    dlev = calculator.calc_dlev(t)
-    logger.info('Calculating surface mask...')
-    surfmask = xr.where(p<=ps,1.0,0.0).astype(np.float32)
+    logger.info('Interpolating profile variables to sigma coordinates...')
+    siglevels = np.arange(0.5,1.05,0.05)
+    t          = calculator.interpolate_to_sigma(t,ps,siglevels)
+    q          = calculator.interpolate_to_sigma(q,ps,siglevels)
+    rh         = calculator.interpolate_to_sigma(rh,ps,siglevels)
+    thetae     = calculator.interpolate_to_sigma(thetae,ps,siglevels)
+    thetaestar = calculator.interpolate_to_sigma(thetaestar,ps,siglevels)
+    logger.info('Calculating sigma quadrature weights...')
+    dsig = calculator.calc_dsig(siglevels)
     logger.info('Creating datasets...')
     dslist = [
         calculator.create_dataset(t,'t','Air temperature','K'),
@@ -80,8 +85,7 @@ if __name__=='__main__':
         calculator.create_dataset(shf,'shf','Mean surface sensible heat flux','W/m²'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
         calculator.create_dataset(tp,'tp','Total accumulated precipitation','mm'),
-        calculator.create_dataset(dlev,'dlev','Vertical thickness weights','hPa'),
-        calculator.create_dataset(surfmask,'surfmask','Binary surface validity mask','0-1')]
+        calculator.create_dataset(dsig,'dsig','Sigma thickness weights','0-1')]
     logger.info('Saving datasets...')
     for ds in dslist:
         calculator.save(ds)

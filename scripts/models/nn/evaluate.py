@@ -95,15 +95,15 @@ if __name__=='__main__':
         fieldkey  = (tuple(fieldvars),tuple(localvars),targetvar)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}, targetvar={targetvar}...')
-            fields,local,pr,dlev,nlevs,mask,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            fields,local,pr,dsig,nlevs,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar)
             cachedvars = fieldkey
-            cacheddata = (fields,local,pr,dlev,nlevs,mask,valid,refda)
+            cacheddata = (fields,local,pr,dsig,nlevs,valid,refda)
         else:
-            fields,local,pr,dlev,nlevs,mask,valid,refda = cacheddata
+            fields,local,pr,dsig,nlevs,valid,refda = cacheddata
         if targetvar!=cachedtargetvar:
             writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
             cachedtargetvar = targetvar
-        dataset    = FieldDataset(fields,local,pr,dlev,mask=mask)
+        dataset    = FieldDataset(fields,local,pr,dsig)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
         allpreds = []
         for seedidx,seed in enumerate(seeds):

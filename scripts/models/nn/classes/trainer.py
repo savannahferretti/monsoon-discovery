@@ -81,7 +81,7 @@ class Trainer:
         '''
         Purpose: Run a forward pass on a batch, dispatching to baseline or kernel model interface.
         Args:
-        - batch (dict): batch dictionary with keys 'fields', 'local', 'target', and optionally 'dlev' and 'mask'
+        - batch (dict): batch dictionary with keys 'fields', 'local', 'target', and optionally 'dsig'
         - haskernel (bool): whether model has integration kernel
         Returns:
         - tuple[torch.Tensor, torch.Tensor]: (predictions, targets)
@@ -89,12 +89,11 @@ class Trainer:
         fields = batch['fields'].to(self.device,non_blocking=True)
         local  = batch['local'].to(self.device,non_blocking=True)
         target = batch['target'].to(self.device,non_blocking=True)
-        mask   = batch['mask'].to(self.device,non_blocking=True) if 'mask' in batch else None
         if haskernel:
-            dlev   = batch['dlev'][0].to(self.device,non_blocking=True)
-            output = self.model(fields,dlev,local,mask=mask)
+            dsig   = batch['dsig'][0].to(self.device,non_blocking=True)
+            output = self.model(fields,dsig,local)
         else:
-            output = self.model(fields,local,mask=mask)
+            output = self.model(fields,local)
         return output,target
 
     def train_epoch(self,haskernel):
