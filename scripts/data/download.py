@@ -31,6 +31,7 @@ if __name__=='__main__':
     tdata   = era5.temperature
     qdata   = era5.specific_humidity
     lfdata  = era5.land_sea_mask
+    sedata  = era5.geopotential_at_surface/9.81
     lhfdata = era5.mean_surface_latent_heat_flux
     shfdata = era5.mean_surface_sensible_heat_flux
     tpdata  = era5.total_precipitation*1000
@@ -42,6 +43,7 @@ if __name__=='__main__':
         downloader.process(tdata,'t','ERA5 air temperature','K',radius=4),
         downloader.process(qdata,'q','ERA5 specific humidity','kg/kg',radius=4),
         downloader.process(lfdata,'lf','ERA5 land fraction','0-1',radius=4),
+        downloader.process(sedata,'se','ERA5 surface elevation','m',radius=4),
         downloader.process(lhfdata,'lhf','ERA5 mean surface latent heat flux','W/m²',radius=4),
         downloader.process(shfdata,'shf','ERA5 mean surface sensible heat flux','W/m²',radius=4),
         downloader.process(tpdata,'tp','ERA5 total accumulated precipitation','mm',radius=4),

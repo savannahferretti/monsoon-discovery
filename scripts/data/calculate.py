@@ -25,6 +25,7 @@ if __name__=='__main__':
     t   = calculator.retrieve('ERA5_air_temperature')
     q   = calculator.retrieve('ERA5_specific_humidity')
     lf  = calculator.retrieve('ERA5_land_fraction')
+    se  = calculator.retrieve('ERA5_surface_elevation')
     lhf = calculator.retrieve('ERA5_mean_surface_latent_heat_flux')
     shf = calculator.retrieve('ERA5_mean_surface_sensible_heat_flux')
     tp  = calculator.retrieve('ERA5_total_accumulated_precipitation')
@@ -34,6 +35,7 @@ if __name__=='__main__':
     t   = calculator.regrid(t).load()
     q   = calculator.regrid(q).load()
     lf  = calculator.regrid(lf).load()
+    se  = calculator.regrid(se).load()
     lhf = calculator.regrid(lhf).load()
     shf = calculator.regrid(shf).load()
     tp  = calculator.regrid(tp)
@@ -71,8 +73,6 @@ if __name__=='__main__':
     dsig = calculator.calc_dsig(siglevels)
     logger.info('Creating datasets...')
     dslist = [
-        calculator.create_dataset(t,'t','Air temperature','K'),
-        calculator.create_dataset(q,'q','Specific humidity','kg/kg'),
         calculator.create_dataset(rh,'rh','Relative humidity','%'),
         calculator.create_dataset(thetae,'thetae','Equivalent potential temperature','K'),
         calculator.create_dataset(thetaestar,'thetaestar','Saturated equivalent potential temperature','K'),
@@ -81,6 +81,7 @@ if __name__=='__main__':
         calculator.create_dataset(subsat,'subsat','Lower free-tropospheric subsaturation','K'),
         calculator.create_dataset(ps,'ps','Surface pressure','hPa'),
         calculator.create_dataset(lf,'lf','Land fraction','0-1'),
+        calculator.create_dataset(se,'se','Surface elevation','m'),
         calculator.create_dataset(lhf,'lhf','Mean surface latent heat flux','W/m²'),
         calculator.create_dataset(shf,'shf','Mean surface sensible heat flux','W/m²'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
