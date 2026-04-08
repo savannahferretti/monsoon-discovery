@@ -6,7 +6,7 @@ This repository contains the code used to reproduce the analyses in Ferretti et 
 **Authors & Affiliations:**  
 Savannah L. Ferretti<sup>1</sup>, Tom Beucler<sup>2</sup>, Michael S. Pritchard<sup>3</sup>, & Jane W. Baldwin<sup>1,4</sup>  
 <sup>1</sup>University of California Irvine, Irvine, CA, United States  
-<sup>2</sup>University of Lausanne, Lausanne, Switzerland  
+<sup>2</sup>University of Lausanne, Lausanne, VD, Switzerland  
 <sup>3</sup>NVIDIA Corporation, Santa Clara, CA, United States  
 <sup>4</sup>Lamont-Doherty Earth Observatory, Palisades, NY, United States  
 
