@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from scripts.models.nn.architectures import BaselineNN,KernelNN,TARGETSTATS
-from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
+from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer,LFConditionedKernelLayer
 
 def build_model(name,runconfig,nlevs):
     '''
@@ -26,6 +26,10 @@ def build_model(name,runconfig,nlevs):
     elif kind=='nonparametric':
         kernel = NonparametricKernelLayer(nfieldvars,nlevs)
         model  = KernelNN(kernel,nfieldvars,nlocalvars,mean=mean,std=std)
+    elif kind=='lfconditioned':
+        lf_idx = runconfig['localvars'].index('lf')
+        kernel = LFConditionedKernelLayer(nfieldvars,nlevs)
+        model  = KernelNN(kernel,nfieldvars,nlocalvars,mean=mean,std=std,lf_idx=lf_idx)
     elif kind=='parametric':
         kerneltype = runconfig['kernel']
         kernel = ParametricKernelLayer(nfieldvars,kerneltype)

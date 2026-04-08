@@ -92,10 +92,12 @@ if __name__=='__main__':
         fieldvars = runconfig['fieldvars']
         localvars = runconfig.get('localvars',[])
         targetvar = runconfig.get('targetvar','pr')
-        fieldkey  = (tuple(fieldvars),tuple(localvars),targetvar)
+        subset    = runconfig.get('subset')
+        subsetkey = tuple(sorted(subset.items())) if subset else None
+        fieldkey  = (tuple(fieldvars),tuple(localvars),targetvar,subsetkey)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}, targetvar={targetvar}...')
-            fields,local,pr,dsig,nlevs,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            fields,local,pr,dsig,nlevs,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
             cachedvars = fieldkey
             cacheddata = (fields,local,pr,dsig,nlevs,valid,refda)
         else:

@@ -33,7 +33,7 @@ class FieldDataset(torch.utils.data.Dataset):
             batch['dsig'] = self.dsig
         return batch
 
-def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr'):
+def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr',subset=None):
     '''
     Purpose: Load a normalized data split and return tensors shaped for NN training/inference.
         Each sample corresponds to a single (lat, lon, time) grid cell and timestep.
@@ -45,6 +45,8 @@ def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr'):
     - localvars (list[str]): local input variable names (e.g. ['lf','shf','lhf'])
     - splitsdir (str): directory containing normalized split HDF5 files
     - targetvar (str): target variable name ('pr' or 'tp') — must match run config
+    - subset (dict | None): optional data subset filter with keys 'var', 'op', 'val'
+        (e.g. {'var':'lf','op':'>=','val':0.5} for land-only samples)
     Returns:
     - tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, np.ndarray, xr.DataArray]:
         (fields, local, target, dsig, nlevs, valid, refda) where:
@@ -92,6 +94,16 @@ def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr'):
     else:
         local = np.empty((ntotal,0),dtype=np.float32)
     valid = np.isfinite(fields).all(axis=(1,2))&np.isfinite(local).all(axis=1)&np.isfinite(pr)
+    if subset:
+        subvar = ds[subset['var']]
+        if 'time' in subvar.dims:
+            subarr = subvar.transpose('time','lat','lon').values.reshape(-1)
+        else:
+            subarr = np.tile(subvar.values,(ntime,1,1)).reshape(-1)
+        if subset['op']=='>=':
+            valid = valid&(subarr>=subset['val'])
+        elif subset['op']=='<':
+            valid = valid&(subarr<subset['val'])
     refda = ds[targetvar].transpose('time','lat','lon')
     fields = torch.from_numpy(fields[valid].astype(np.float32))
     local  = torch.from_numpy(local[valid].astype(np.float32))

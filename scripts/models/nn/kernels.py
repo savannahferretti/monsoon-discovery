@@ -83,6 +83,69 @@ class NonparametricKernelLayer(torch.nn.Module):
         return feats
 
 
+class LFConditionedKernelLayer(torch.nn.Module):
+
+    def __init__(self,nfieldvars,nlevs):
+        '''
+        Purpose: Initialize a land-fraction-conditioned vertical kernel. A small MLP maps
+        land fraction to sample-specific kernel weights, enabling a smooth transition between
+        ocean-like and land-like vertical weighting.
+        Args:
+        - nfieldvars (int): number of predictor fields
+        - nlevs (int): number of vertical levels
+        '''
+        super().__init__()
+        self.nfieldvars = int(nfieldvars)
+        self.nlevs      = int(nlevs)
+        self.norm        = None
+        self.features    = None
+        nout = self.nfieldvars*self.nlevs
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(1,16),
+            torch.nn.GELU(),
+            torch.nn.Linear(16,32),
+            torch.nn.GELU(),
+            torch.nn.Linear(32,nout),
+            torch.nn.Softplus())
+        torch.nn.init.zeros_(self.mlp[4].weight)
+        torch.nn.init.ones_(self.mlp[4].bias)
+
+    def get_weights(self,dsig,device,lf=None):
+        '''
+        Purpose: Obtain normalized kernel weights conditioned on land fraction. When lf is None
+        (e.g. for weight extraction), evaluates at lf=0 (ocean) and lf=1 (land) endpoints.
+        Args:
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
+        - device (str | torch.device): device to use
+        - lf (torch.Tensor | None): land fraction with shape (nbatch, 1), or None for endpoints
+        Returns:
+        - torch.Tensor: normalized kernel weights with shape (nbatch, nfieldvars, nlevs) or (2, nfieldvars, nlevs)
+        '''
+        dsig = dsig.to(device)
+        if lf is None:
+            lf = torch.tensor([[0.0],[1.0]],device=device)
+        raw       = self.mlp(lf).reshape(-1,self.nfieldvars,self.nlevs)
+        kernelsum = (raw*dsig.unsqueeze(0).unsqueeze(0)).sum(dim=2,keepdim=True)
+        self.norm = raw/(kernelsum+1e-6)
+        return self.norm
+
+    def forward(self,fields,dsig,lf):
+        '''
+        Purpose: Apply land-fraction-conditioned kernels to a batch of vertical profiles.
+        Args:
+        - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
+        - lf (torch.Tensor): land fraction with shape (nbatch, 1)
+        Returns:
+        - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
+        '''
+        weights  = self.get_weights(dsig,fields.device,lf)
+        weighted = fields*weights*dsig.unsqueeze(0).unsqueeze(0)
+        feats    = weighted.sum(dim=2)
+        self.features = feats
+        return feats
+
+
 class ParametricKernelLayer(torch.nn.Module):
 
     class GaussianKernel(torch.nn.Module):

@@ -36,6 +36,8 @@ if __name__=='__main__':
     q   = calculator.regrid(q).load()
     lf  = calculator.regrid(lf).load()
     se  = calculator.regrid(se).load()
+    if 'time' in se.dims:
+        se = se.mean(dim='time')
     lhf = calculator.regrid(lhf).load()
     shf = calculator.regrid(shf).load()
     tp  = calculator.regrid(tp)

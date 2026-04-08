@@ -62,11 +62,13 @@ if __name__=='__main__':
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
         targetvar  = runconfig.get('targetvar','pr')
-        cachekey   = (tuple(fieldvars),tuple(localvars),targetvar)
+        subset     = runconfig.get('subset')
+        subsetkey  = tuple(sorted(subset.items())) if subset else None
+        cachekey   = (tuple(fieldvars),tuple(localvars),targetvar,subsetkey)
         if cachekey!=cachedkey:
             logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}, targetvar={targetvar}...')
-            trainfields,trainlocal,trainpr,dsig,nlevs,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
-            validfields,validlocal,validpr,_,_,_,_          = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            trainfields,trainlocal,trainpr,dsig,nlevs,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
+            validfields,validlocal,validpr,_,_,_,_          = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
             cachedkey  = cachekey
             cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dsig,nlevs)
         else:
@@ -114,7 +116,11 @@ if __name__=='__main__':
                     model.kernel.get_weights(dsig.to(device),device)
                 weights = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
                 refds = xr.open_dataset(os.path.join(config.splitsdir,'norm_train.h5'),engine='h5netcdf')
-                ds = PredictionWriter.weights_to_dataset([weights[...,np.newaxis]],fieldvars,refds)
+                if weights.ndim==3:
+                    components = [weights[i][...,np.newaxis] for i in range(weights.shape[0])]
+                else:
+                    components = [weights[...,np.newaxis]]
+                ds = PredictionWriter.weights_to_dataset(components,fieldvars,refds)
                 refds.close()
                 os.makedirs(config.weightsdir,exist_ok=True)
                 wpath = os.path.join(config.weightsdir,f'{runid}_weights.nc')

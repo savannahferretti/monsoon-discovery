@@ -4,7 +4,7 @@ import os
 import json
 import torch
 import torch.nn.functional as F
-from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
+from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer,LFConditionedKernelLayer
 
 def _load_targetstats():
     statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
@@ -85,23 +85,25 @@ class BaselineNN(torch.nn.Module):
 
 class KernelNN(torch.nn.Module):
 
-    def __init__(self,kernel,nfieldvars,nlocalvars,mean=TARGETSTATS['tp']['mean'],std=TARGETSTATS['tp']['std']):
+    def __init__(self,kernel,nfieldvars,nlocalvars,mean=TARGETSTATS['tp']['mean'],std=TARGETSTATS['tp']['std'],lf_idx=None):
         '''
         Purpose: Initialize a kernel-based neural network that integrates over the vertical dimension.
         Args:
-        - kernel (torch.nn.Module): instance of NonparametricKernelLayer or ParametricKernelLayer
+        - kernel (torch.nn.Module): instance of NonparametricKernelLayer, ParametricKernelLayer, or LFConditionedKernelLayer
         - nfieldvars (int): number of predictor field variables
         - nlocalvars (int): number of local input variables (e.g. land fraction, heat fluxes)
         - mean (float): target variable log1p mean (from training stats)
         - std (float): target variable log1p std (from training stats)
+        - lf_idx (int | None): index of land fraction in local variables (required for LFConditionedKernelLayer)
         '''
         super().__init__()
         self.kernel     = kernel
         self.nfieldvars = int(nfieldvars)
         self.nlocalvars = int(nlocalvars)
+        self.lf_idx     = lf_idx
         nfeatures = self.nfieldvars+self.nlocalvars
         self.model = MainNN(nfeatures,mean,std)
-    
+
     def forward(self,fields,dsig,lf):
         '''
         Purpose: Forward pass through KernelNN.
@@ -112,6 +114,9 @@ class KernelNN(torch.nn.Module):
         Returns:
         - torch.Tensor: predictions with shape (nbatch,)
         '''
-        features = self.kernel(fields,dsig)
+        if self.lf_idx is not None:
+            features = self.kernel(fields,dsig,lf[:,self.lf_idx:self.lf_idx+1])
+        else:
+            features = self.kernel(fields,dsig)
         X = torch.cat([features,lf],dim=1)
         return self.model(X)
