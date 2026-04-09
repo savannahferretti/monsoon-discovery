@@ -31,7 +31,7 @@ if __name__=='__main__':
     tdata   = era5.temperature
     qdata   = era5.specific_humidity
     lfdata  = era5.land_sea_mask
-    sedata  = era5.geopotential_at_surface/9.81
+    sedata  = (era5.geopotential_at_surface/9.81).isel(time=0).drop_vars('time')
     lhfdata = era5.mean_surface_latent_heat_flux
     shfdata = era5.mean_surface_sensible_heat_flux
     tpdata  = era5.total_precipitation*1000
