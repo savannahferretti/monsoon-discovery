@@ -146,6 +146,68 @@ class LFConditionedKernelLayer(torch.nn.Module):
         return feats
 
 
+class LFThresholdKernelLayer(torch.nn.Module):
+
+    def __init__(self,nfieldvars,nlevs,threshold=0.5):
+        '''
+        Purpose: Initialize a threshold-gated dual kernel. Maintains separate ocean and land
+        kernels; each sample is routed to one or the other based on whether land fraction
+        exceeds a fixed threshold. Gradients flow only to the selected kernel per sample.
+        Args:
+        - nfieldvars (int): number of predictor fields
+        - nlevs (int): number of vertical levels
+        - threshold (float): land fraction cutoff (>= threshold → land kernel)
+        '''
+        super().__init__()
+        self.nfieldvars = int(nfieldvars)
+        self.nlevs      = int(nlevs)
+        self.threshold  = float(threshold)
+        self.norm       = None
+        self.features   = None
+        raw_ocean = torch.ones(self.nfieldvars,self.nlevs)+torch.randn(self.nfieldvars,self.nlevs)*0.2
+        raw_land  = torch.ones(self.nfieldvars,self.nlevs)+torch.randn(self.nfieldvars,self.nlevs)*0.2
+        self.raw_ocean = torch.nn.Parameter(raw_ocean)
+        self.raw_land  = torch.nn.Parameter(raw_land)
+
+    def get_weights(self,dsig,device,lf=None):
+        '''
+        Purpose: Obtain normalized kernel weights. When lf is provided, selects ocean or land
+        kernel per sample via hard threshold. When lf is None (weight extraction), returns
+        both endpoint kernels stacked as (2, nfieldvars, nlevs).
+        Args:
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
+        - device (str | torch.device): device to use
+        - lf (torch.Tensor | None): land fraction with shape (nbatch, 1), or None for both kernels
+        Returns:
+        - torch.Tensor: kernel weights with shape (nbatch, nfieldvars, nlevs) or (2, nfieldvars, nlevs)
+        '''
+        dsig       = dsig.to(device)
+        norm_ocean = KernelModule.normalize(self.raw_ocean.to(device),dsig)
+        norm_land  = KernelModule.normalize(self.raw_land.to(device),dsig)
+        self.norm  = torch.stack([norm_ocean,norm_land],dim=0)
+        if lf is None:
+            return self.norm
+        is_land = (lf>=self.threshold).unsqueeze(-1)
+        weights = torch.where(is_land,norm_land.unsqueeze(0),norm_ocean.unsqueeze(0))
+        return weights
+
+    def forward(self,fields,dsig,lf):
+        '''
+        Purpose: Apply threshold-gated kernels to a batch of vertical profiles.
+        Args:
+        - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
+        - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
+        - lf (torch.Tensor): land fraction with shape (nbatch, 1)
+        Returns:
+        - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
+        '''
+        weights  = self.get_weights(dsig,fields.device,lf)
+        weighted = fields*weights*dsig.unsqueeze(0).unsqueeze(0)
+        feats    = weighted.sum(dim=2)
+        self.features = feats
+        return feats
+
+
 class ParametricKernelLayer(torch.nn.Module):
 
     class GaussianKernel(torch.nn.Module):
