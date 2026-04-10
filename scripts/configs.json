@@ -54,9 +54,7 @@
         "nonparametric_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"targetvar":"tp"},
         "nonparametric_rh_thetae_thetaestar_se_lf_lhf_shf":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],"localvars":["se","lf","lhf","shf"],"targetvar":"tp"},
         "lfconditioned_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"lfconditioned","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"targetvar":"tp"},
-        "lfconditioned_rh_thetae_thetaestar_se_lf_lhf_shf":{"kind":"lfconditioned","fieldvars":["rh","thetae","thetaestar"],"localvars":["se","lf","lhf","shf"],"targetvar":"tp"},
-        "lfthreshold_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"lfthreshold","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"targetvar":"tp"},
-        "lfthreshold_rh_thetae_thetaestar_se_lf_lhf_shf":{"kind":"lfthreshold","fieldvars":["rh","thetae","thetaestar"],"localvars":["se","lf","lhf","shf"],"targetvar":"tp"}
+        "lfthreshold_rh_thetae_thetaestar_lf_lhf_shf":{"kind":"lfthreshold","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"targetvar":"tp"}
       }
     },
     "sr":{

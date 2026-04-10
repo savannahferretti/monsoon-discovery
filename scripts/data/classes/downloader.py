@@ -144,10 +144,10 @@ class DataDownloader:
         if 'time' in ds.coords:
             ds.time.attrs = dict(long_name='Time')
         ds.attrs = dict(history=f'Created on {datetime.today().strftime("%Y-%m-%d")} by {self.author} ({self.email})')
-        logger.info(f'   {longname} size: {ds.nbytes*1e-9:.3f} GB')
+        logger.info(f'   {longname} size: {ds.nbytes*1e-9:.6f} GB')
         return ds
 
-    def process(self,da,shortname,longname,units,radius=0):
+    def process(self,da,shortname,longname,units,radius=0,static=False):
         '''
         Purpose: Apply standardize(), subset(), and create_dataset() in sequence.
         Args:
@@ -156,11 +156,14 @@ class DataDownloader:
         - longname (str): variable description
         - units (str): variable units
         - radius (int): grid cells beyond domain bounds (defaults to 0)
+        - static (bool): if True, collapse time dimension via mean
         Returns:
         - xr.Dataset: processed Dataset
         '''
         da = self.standardize(da)
         da = self.subset(da,radius)
+        if static and 'time' in da.dims:
+            da = da.mean(dim='time')
         ds = self.create_dataset(da,shortname,longname,units)
         return ds
 
