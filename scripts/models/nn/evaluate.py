@@ -122,5 +122,5 @@ if __name__=='__main__':
             logger.info(f'   Saving predictions for `{name}`...')
             predstack = np.stack(allpreds,axis=-1)
             ds = writer.predictions_to_dataset(predstack,refda)
-            writer.save(name,ds,'predictions',split,config.predsdir)
+            writer.save(ds,name,'predictions',split,config.predsdir)
             del predstack,ds

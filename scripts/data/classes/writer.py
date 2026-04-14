@@ -8,20 +8,27 @@ import xarray as xr
 
 logger = logging.getLogger(__name__)
 
+TARGETMETA = {
+    'pr':{'longname':'Predicted precipitation rate','units':'mm/hr'},
+    'tp':{'longname':'Predicted total precipitation','units':'mm'}}
+
 class PredictionWriter:
 
     def __init__(self,statsdir,targetvar='pr'):
         '''
-        Purpose: Initialize PredictionWriter with denormalization statistics.
+        Purpose: Initialize PredictionWriter with denormalization statistics and target metadata.
         Args:
         - statsdir (str): directory containing stats.json
-        - targetvar (str): target variable name
+        - targetvar (str): target variable name ('pr' | 'tp')
         '''
         filepath = os.path.join(statsdir,'stats.json')
         with open(filepath,'r',encoding='utf-8') as f:
             stats = json.load(f)
-        self.mean = stats[f'{targetvar}_mean']
-        self.std  = stats[f'{targetvar}_std']
+        self.targetvar = targetvar
+        self.mean      = stats[f'{targetvar}_mean']
+        self.std       = stats[f'{targetvar}_std']
+        self.longname  = TARGETMETA[targetvar]['longname']
+        self.units     = TARGETMETA[targetvar]['units']
 
     def predictions_to_array(self,preds,valid,refda):
         '''
@@ -46,13 +53,13 @@ class PredictionWriter:
         - predstack (np.ndarray): predictions with shape (time, lat, lon, nseed)
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         Returns:
-        - xr.Dataset: Dataset with precipitation predictions in mm/hr
+        - xr.Dataset: Dataset with predictions of the target variable in native units
         '''
         dims   = ('time','lat','lon','seed')
         coords = {dim:refda.coords[dim].values for dim in refda.dims}
         coords['seed'] = np.arange(predstack.shape[-1])
-        da = xr.DataArray(predstack,dims=dims,coords=coords,name='tp')
-        da.attrs = dict(long_name='Predicted precipitation',units='mm')
+        da = xr.DataArray(predstack,dims=dims,coords=coords,name=self.targetvar,
+                          attrs=dict(long_name=self.longname,units=self.units))
         return da.to_dataset()
 
     def features_to_array(self,feats,valid,refda):
@@ -89,8 +96,8 @@ class PredictionWriter:
         coords['seed'] = np.arange(featstack.shape[-1])
         ds = xr.Dataset()
         for i,var in enumerate(fieldvars):
-            da = xr.DataArray(featstack[:,:,:,i,:],dims=('time','lat','lon','seed'),coords=coords,name=var)
-            da.attrs = dict(long_name=f'Kernel-integrated {var}',units='N/A')
+            da = xr.DataArray(featstack[:,:,:,i,:],dims=('time','lat','lon','seed'),coords=coords,name=var,
+                              attrs=dict(long_name=f'Kernel-integrated {var}',units='N/A'))
             ds[var] = da
         return ds
 
@@ -101,33 +108,30 @@ class PredictionWriter:
         Args:
         - components (list[np.ndarray]): list of component arrays, each with shape (nfieldvars, nlevs, nseed)
         - fieldvars (list[str]): predictor field variable names
-        - refds (xr.Dataset): reference Dataset for lev coordinates
+        - refds (xr.Dataset): reference Dataset for sig coordinates
         Returns:
         - xr.Dataset: Dataset with normalized kernel weight components
         '''
         coords = {'field':fieldvars}
-        if 'sig' in refds.coords:
-            coords['sig'] = refds.coords['sig'].values
-        else:
-            coords['sig'] = np.arange(components[0].shape[1])
+        coords['sig']  = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(components[0].shape[1])
         coords['seed'] = np.arange(components[0].shape[-1])
         ds = xr.Dataset()
         for i,comp in enumerate(components):
-            da = xr.DataArray(comp,dims=('field','sig','seed'),coords=coords)
-            da.attrs = dict(long_name=f'Normalized kernel weights (component {i+1})',units='N/A')
+            da = xr.DataArray(comp,dims=('field','sig','seed'),coords=coords,
+                              attrs=dict(long_name=f'Normalized kernel weights (component {i+1})',units='N/A'))
             ds[f'k{i+1}'] = da
         return ds
 
-    @staticmethod
-    def save(name,ds,kind,split,savedir):
+    def save(self,ds,name,kind,split,savedir,timechunksize=736):
         '''
         Purpose: Save an xr.Dataset to NetCDF and verify by reopening.
         Args:
-        - name (str): run name
         - ds (xr.Dataset): Dataset to save
-        - kind (str): predictions | weights | features
-        - split (str): train | valid | test
+        - name (str): run name
+        - kind (str): 'predictions' | 'features' | 'weights'
+        - split (str): 'train' | 'valid' | 'test'
         - savedir (str): output directory
+        - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks on 3-hourly data)
         Returns:
         - bool: True if save successful, False otherwise
         '''
@@ -135,8 +139,15 @@ class PredictionWriter:
         filename = f'{name}_{split}_{kind}.nc'
         filepath = os.path.join(savedir,filename)
         logger.info(f'   Attempting to save {filename}...')
+        ds.load()
+        encoding = {}
+        for varname,da in ds.data_vars.items():
+            chunks = []
+            for dim,size in zip(da.dims,da.shape):
+                chunks.append(min(timechunksize,size) if dim=='time' else size)
+            encoding[varname] = {'chunksizes':tuple(chunks)}
         try:
-            ds.to_netcdf(filepath,engine='h5netcdf')
+            ds.to_netcdf(filepath,engine='h5netcdf',encoding=encoding)
             xr.open_dataset(filepath,engine='h5netcdf').close()
             logger.info('      File write successful')
             return True
