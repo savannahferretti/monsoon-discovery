@@ -22,7 +22,6 @@ class DataCalculator:
         - savedir (str): directory to save output files
         - latrange (tuple[float,float]): latitude range
         - lonrange (tuple[float,float]): longitude range
-        - regridders (tuple[float,float]): longitude range
         '''
         self.author   = author
         self.email    = email
@@ -30,7 +29,6 @@ class DataCalculator:
         self.savedir  = savedir
         self.latrange = latrange
         self.lonrange = lonrange
-        self.regridders = {}
 
     def retrieve(self,longname):
         '''
@@ -247,7 +245,7 @@ class DataCalculator:
         wl = 1.0-wb
         return wb,wl
     
-    def calc_bl_terms(self,thetaeb,thetael,thetaelsat,wb,wl):
+    def calc_bl_terms(self,thetaeb,thetael,thetaeltar,wb,wl):
         '''
         Purpose: Calculate CAPEL, SUBSATL, and BL following Eq. 1 from Ahmed F and Neelin JD. 2021. Geophys. Res. Lett.
         Args:
@@ -262,24 +260,23 @@ class DataCalculator:
         g       = 9.81
         kappal  = 3.0
         thetae0 = 340.0
-        cape    = ((thetaeb-thetaelsat)/thetaelsat)*thetae0
-        subsat  = ((thetaelsat-thetael)/thetaelsat)*thetae0
+        cape    = ((thetaeb-thetaelstar)/thetaelstar)*thetae0
+        subsat  = ((thetaelstar-thetael)/thetaelstar)*thetae0
         bl      = (g/(kappal*thetae0))*((wb*cape)-(wl*subsat))
         return cape,subsat,bl
 
-    def calc_dsig(self,siglevels):
+    def calc_dsig(self,sigs):
         '''
-        Purpose: Compute quadrature weights for numerical integration over the 'sig' dimension;
-        weights Δσ represent sigma thickness. Spacing between adjacent grid points is estimated
-        using centered finite differences.
+        Purpose: Compute quadrature weights for numerical integration over the 'sig' dimension; weights Δσ represent 
+        sigma thickness. Spacing between adjacent grid points is estimated using centered finite differences.
         Args:
-        - siglevels (np.ndarray): 1D array of sigma levels
+        - sigs (np.ndarray): 1D array of ascending sigma levels (e.g., [0.5, 0.55, ..., 1.0])
         Returns:
         - xr.DataArray: quadrature weights for Δσ
         '''
-        sigs = np.asarray(siglevels,dtype=np.float32)
-        dsigvalues = np.abs(np.concatenate([[sigs[1]-sigs[0]],0.5*(sigs[2:]-sigs[:-2]),[sigs[-1]-sigs[-2]]]))
-        dsig = xr.DataArray(dsigvalues,dims=('sig',),coords={'sig':sigs})
+        sigs   = np.asarray(siglevels,dtype=np.float32)
+        values = np.abs(np.concatenate([[sigs[1]-sigs[0]],0.5*(sigs[2:]-sigs[:-2]),[sigs[-1]-sigs[-2]]]))
+        dsig   = xr.DataArray(values,dims=('sig',),coords={'sig':sigs})
         return dsig
 
     def interpolate_to_sigma(self,da,ps,sigs):
@@ -290,17 +287,17 @@ class DataCalculator:
         Args:
         - da (xr.DataArray): input DataArray containing 'lev'
         - ps (xr.DataArray): surface pressure DataArray (hPa)
-        - sigs (np.ndarray): 1D array of ascending target sigma levels (e.g., [0.5, 0.55, ..., 1.0])
+        - sigs (np.ndarray): 1D array of ascending sigma levels (e.g., [0.5, 0.55, ..., 1.0])
         Returns:
         - xr.DataArray: interpolated DataArray with 'sig'
         '''
         da   = da.transpose('lat','lon','lev','time').load()
         ps   = ps.transpose('lat','lon','time').load()
         levs = da.lev.values
-        ptarget = sigs[None,None,:,None]*ps.values[:,:,None,:]
-        upper   = np.clip(np.searchsorted(levs,ptarget,side='right'),1,len(levs)-1)
-        lower   = upper-1
-        weight  = (ptarget-levs[lower])/(levs[upper]-levs[lower])
+        ptarget  = sigs[None,None,:,None]*ps.values[:,:,None,:]
+        upper    = np.clip(np.searchsorted(levs,ptarget,side='right'),1,len(levs)-1)
+        lower    = upper-1
+        weight   = (ptarget-levs[lower])/(levs[upper]-levs[lower])
         result   = (1.0-weight)*np.take_along_axis(da.values,lower,axis=2)+weight*np.take_along_axis(da.values,upper,axis=2)
         result   = np.where(np.isfinite(ptarget)&(ptarget>0),result,np.nan).astype(np.float32)
         interped = xr.DataArray(result,dims=('lat','lon','sig','time'),
@@ -332,7 +329,7 @@ class DataCalculator:
         if 'time' in ds.coords:
             ds.time.attrs = dict(long_name='Time')
         ds.attrs = dict(history=f'Created on {datetime.today().strftime("%Y-%m-%d")} by {self.author} ({self.email})')
-        logger.info(f'   {longname} size: {ds.nbytes*1e-9:.3f} GB')
+        logger.info(f'   {longname} size: {ds.nbytes*1e-9:.6f} GB')
         return ds
 
     def save(self,ds,timechunksize=736):

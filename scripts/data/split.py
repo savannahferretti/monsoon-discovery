@@ -21,13 +21,13 @@ if __name__=='__main__':
     splits = [
         ('train',splitter.trainrange),
         ('valid',splitter.validrange),
-        ('test', splitter.testrange)]
+        ('test',splitter.testrange)]
     logger.info('Creating and saving regular and normalized data splits...')
     trainstats = None
-    for splitname, splitrange in splits:
+    for splitname,splitrange in splits:
         splitds = splitter.split(splitrange)
         splitter.save(splitds,splitname)
-        if splitname == 'train':
+        if splitname=='train':
             trainstats = splitter.calc_stats(splitds)
         normds = splitter.normalize(splitds,trainstats)
         splitter.save(normds,f'norm_{splitname}')
