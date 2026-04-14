@@ -82,25 +82,22 @@ class PredictionWriter:
         return ds
 
     @staticmethod
-    def weights_to_dataset(components,fieldvars,refds):
+    def weights_to_dataset(weights,fieldvars,refds):
         '''
-        Purpose: Wrap kernel weight component arrays into an xr.Dataset with a seed dimension.
+        Purpose: Wrap a kernel weight array into an xr.Dataset with a seed dimension.
         Args:
-        - components (list[np.ndarray]): list of component arrays, each with shape (nfieldvars, nlevs, nseed)
+        - weights (np.ndarray): normalized kernel weights with shape (nfieldvars, nlevs, nseed)
         - fieldvars (list[str]): predictor field variable names
         - refds (xr.Dataset): reference Dataset for sig coordinates
         Returns:
-        - xr.Dataset: Dataset with normalized kernel weight components
+        - xr.Dataset: Dataset with normalized kernel weights
         '''
         coords = {'field':fieldvars}
-        coords['sig']  = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(components[0].shape[1])
-        coords['seed'] = np.arange(components[0].shape[-1])
-        ds = xr.Dataset()
-        for i,comp in enumerate(components):
-            da = xr.DataArray(comp,dims=('field','sig','seed'),coords=coords,
-                              attrs=dict(long_name=f'Normalized kernel weights (component {i+1})',units='N/A'))
-            ds[f'k{i+1}'] = da
-        return ds
+        coords['sig']  = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(weights.shape[1])
+        coords['seed'] = np.arange(weights.shape[-1])
+        da = xr.DataArray(weights,dims=('field','sig','seed'),coords=coords,
+                          attrs=dict(long_name='Normalized kernel weights',units='N/A'))
+        return da.to_dataset(name='k')
 
     def save(self,ds,name,kind,split,savedir,timechunksize=736):
         '''

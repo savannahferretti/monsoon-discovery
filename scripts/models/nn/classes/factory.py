@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
+from scripts.utils import Config
 from scripts.models.nn.architectures import BaselineNN,KernelNN,TARGETSTATS
-from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer,LFConditionedKernelLayer,LFThresholdKernelLayer
+from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
 def build_model(name,runconfig,nlevs):
     '''
@@ -16,25 +17,14 @@ def build_model(name,runconfig,nlevs):
     kind       = runconfig['kind']
     nfieldvars = len(runconfig['fieldvars'])
     nlocalvars = len(runconfig.get('localvars',[]))
-    targetvar  = runconfig.get('targetvar','pr')
+    targetvar  = Config().targetvar
     mean       = TARGETSTATS[targetvar]['mean']
     std        = TARGETSTATS[targetvar]['std']
     if kind=='baseline':
         model = BaselineNN(nfieldvars,nlevs,nlocalvars,mean=mean,std=std)
-    elif kind=='hurdle':
-        model = HurdleBaselineNN(nfieldvars,nlevs,nlocalvars,mean=mean,std=std)
     elif kind=='nonparametric':
         kernel = NonparametricKernelLayer(nfieldvars,nlevs)
         model  = KernelNN(kernel,nfieldvars,nlocalvars,mean=mean,std=std)
-    elif kind=='lfconditioned':
-        lf_idx = runconfig['localvars'].index('lf')
-        kernel = LFConditionedKernelLayer(nfieldvars,nlevs)
-        model  = KernelNN(kernel,nfieldvars,nlocalvars,mean=mean,std=std,lf_idx=lf_idx)
-    elif kind=='lfthreshold':
-        lf_idx    = runconfig['localvars'].index('lf')
-        threshold = runconfig.get('lfthreshold',0.5)
-        kernel = LFThresholdKernelLayer(nfieldvars,nlevs,threshold)
-        model  = KernelNN(kernel,nfieldvars,nlocalvars,mean=mean,std=std,lf_idx=lf_idx)
     elif kind=='parametric':
         kerneltype = runconfig['kernel']
         kernel = ParametricKernelLayer(nfieldvars,kerneltype)

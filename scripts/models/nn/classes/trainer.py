@@ -151,7 +151,7 @@ class Trainer:
                     loss = self.criterion(outputvalues,targetvalues)
                 totalloss += loss.detach()*targetvalues.numel()
         return (totalloss/len(self.validloader.dataset)).item()
-        
+
     def fit(self,name):
         '''
         Purpose: Train model with early stopping and learning rate scheduling.

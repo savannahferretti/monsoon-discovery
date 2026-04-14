@@ -23,12 +23,13 @@ class DataCalculator:
         - latrange (tuple[float,float]): latitude range
         - lonrange (tuple[float,float]): longitude range
         '''
-        self.author   = author
-        self.email    = email
-        self.filedir  = filedir
-        self.savedir  = savedir
-        self.latrange = latrange
-        self.lonrange = lonrange
+        self.author     = author
+        self.email      = email
+        self.filedir    = filedir
+        self.savedir    = savedir
+        self.latrange   = latrange
+        self.lonrange   = lonrange
+        self.regridders = {}
 
     def retrieve(self,longname):
         '''
@@ -245,7 +246,7 @@ class DataCalculator:
         wl = 1.0-wb
         return wb,wl
 
-    def calc_bl_terms(self,thetaeb,thetael,thetaeltar,wb,wl):
+    def calc_bl_terms(self,thetaeb,thetael,thetaelstar,wb,wl):
         '''
         Purpose: Calculate CAPEL, SUBSATL, and BL following Eq. 1 from Ahmed F and Neelin JD. 2021. Geophys. Res. Lett.
         Args:
@@ -274,7 +275,7 @@ class DataCalculator:
         Returns:
         - xr.DataArray: quadrature weights for Δσ
         '''
-        sigs   = np.asarray(siglevels,dtype=np.float32)
+        sigs   = np.asarray(sigs,dtype=np.float32)
         values = np.abs(np.concatenate([[sigs[1]-sigs[0]],0.5*(sigs[2:]-sigs[:-2]),[sigs[-1]-sigs[-2]]]))
         dsig   = xr.DataArray(values,dims=('sig',),coords={'sig':sigs})
         return dsig

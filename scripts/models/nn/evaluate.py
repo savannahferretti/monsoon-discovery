@@ -70,17 +70,17 @@ def load(name,runconfig,nlevs,modeldir,seed,device):
     return model.to(device)
 
 if __name__=='__main__':
-    config = Config()
-    nn     = config.nn
-    runs   = nn['runs']
-    seeds  = nn['seeds']
+    config    = Config()
+    nn        = config.nn
+    runs      = nn['runs']
+    seeds     = nn['seeds']
+    targetvar = config.targetvar
     logger.info('Spinning up...')
     device = setup(seeds[0])
     selectedruns,split = parse()
     cachedvars = None
     cacheddata = None
-    cachedtargetvar = None
-    writer = None
+    writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
@@ -91,10 +91,9 @@ if __name__=='__main__':
         is_hurdle = runconfig['kind']=='hurdle'
         fieldvars = runconfig['fieldvars']
         localvars = runconfig.get('localvars',[])
-        targetvar = runconfig.get('targetvar','pr')
         subset    = runconfig.get('subset')
         subsetkey = tuple(sorted(subset.items())) if subset else None
-        fieldkey  = (tuple(fieldvars),tuple(localvars),targetvar,subsetkey)
+        fieldkey  = (tuple(fieldvars),tuple(localvars),subsetkey)
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}, targetvar={targetvar}...')
             fields,local,pr,dsig,nlevs,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
@@ -102,9 +101,6 @@ if __name__=='__main__':
             cacheddata = (fields,local,pr,dsig,nlevs,valid,refda)
         else:
             fields,local,pr,dsig,nlevs,valid,refda = cacheddata
-        if targetvar!=cachedtargetvar:
-            writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
-            cachedtargetvar = targetvar
         dataset    = FieldDataset(fields,local,pr,dsig)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
         allpreds = []

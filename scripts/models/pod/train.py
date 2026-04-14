@@ -20,79 +20,55 @@ def load(splitsdir,inputvar,targetvar):
     - inputvar (str): input variable name
     - targetvar (str): target variable name
     Returns:
-    - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: input/target/land fraction DataArrays
+    - tuple[xr.DataArray,xr.DataArray]: input and target DataArrays
     '''
     dslist = []
     for splitname in ('train','valid'):
         filepath = os.path.join(splitsdir,f'{splitname}.h5')
-        ds = xr.open_dataset(filepath,engine='h5netcdf')[[inputvar,targetvar,'lf']]
+        ds = xr.open_dataset(filepath,engine='h5netcdf')[[inputvar,targetvar]]
         dslist.append(ds)
-    lf = dslist[0]['lf'].load()
     trainds = xr.concat(dslist,dim='time')
     x = trainds[inputvar].load()
     y = trainds[targetvar].load()
-    return x,y,lf
+    return x,y
 
-def fit(withlf,x,y,lf,landthresh,bins,fitparams):
+def fit(x,y,bins,fitparams):
     '''
-    Purpose: Fit ramp model(s) to training data and return model with diagnostic data.
+    Purpose: Fit a ramp model to training data and return the model with diagnostic data.
     Args:
-    - withlf (bool): False for a single ramp fit, True for separate land/ocean ramp fits
     - x (xr.DataArray): input data
     - y (xr.DataArray): target data
-    - lf (xr.DataArray): land fraction data
-    - landthresh (float): threshold for land/ocean classification
     - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
     - fitparams (dict): fit parameters with keys 'ymin', 'ymax'
     Returns:
     - tuple[RampPOD,dict]: trained RampPOD instance and diagnostics dictionary with binning data
     '''
-    binedges   = np.arange(bins['min'],bins['max']+bins['width'],bins['width'])
-    bincenters = 0.5*(binedges[:-1]+binedges[1:])
+    binedges     = np.arange(bins['min'],bins['max']+bins['width'],bins['width'])
+    bincenters   = 0.5*(binedges[:-1]+binedges[1:])
     samplethresh = bins['minsample']
     ymin = fitparams['ymin']
     ymax = fitparams['ymax']
-    def ramp(x,y):
-        binidxs = np.digitize(x,binedges)-1
-        inrange = (binidxs>=0)&(binidxs<bincenters.size)
-        counts = np.bincount(binidxs[inrange],minlength=bincenters.size).astype(np.int64)
-        sums   = np.bincount(binidxs[inrange],weights=y[inrange],minlength=bincenters.size).astype(np.float32)
-        with np.errstate(divide='ignore',invalid='ignore'):
-            ymeans = sums/counts
-        ymeans[counts<samplethresh] = np.nan
-        fitrange = np.isfinite(ymeans)&(ymeans>=ymin)&(ymeans<=ymax)
-        alpha,intercept = np.polyfit(bincenters[fitrange],ymeans[fitrange],1)
-        xcrit = -intercept/alpha
-        return float(alpha),float(xcrit),ymeans,fitrange
-    xflat = x.values.ravel()
-    yflat = y.values.ravel()
-    if not withlf:
-        finite  = np.isfinite(xflat)&np.isfinite(yflat)
-        results = ramp(xflat[finite],yflat[finite])
-        model   = RampPOD(withlf=False,landthresh=landthresh,alpha=results[0],xcrit=results[1])
-        diagnostics = {
-            'bincenters':bincenters,
-            'ymean':results[2],
-            'fitrange':results[3]}
-        return model,diagnostics
-    else:
-        lfvals = lf.values if lf.values.ndim==x.values.ndim else lf.values[...,np.newaxis]
-        lfflat = np.broadcast_to(lfvals,x.shape).ravel()
-        finite = np.isfinite(xflat)&np.isfinite(yflat)&np.isfinite(lfflat)
-        land   = finite&(lfflat>=landthresh)
-        ocean  = finite&(lfflat<landthresh)
-        landresults  = ramp(xflat[land],yflat[land])
-        oceanresults = ramp(xflat[ocean],yflat[ocean])
-        model = RampPOD(withlf=True,landthresh=landthresh,
-                        alphaland=landresults[0],xcritland=landresults[1],
-                        alphaocean=oceanresults[0],xcritocean=oceanresults[1])
-        diagnostics = {
-            'bincenters':bincenters,
-            'ymeanland':landresults[2],
-            'fitrangeland':landresults[3],
-            'ymeanocean':oceanresults[2],
-            'fitrangeocean':oceanresults[3]}
-        return model,diagnostics
+    xflat  = x.values.ravel()
+    yflat  = y.values.ravel()
+    finite = np.isfinite(xflat)&np.isfinite(yflat)
+    xflat  = xflat[finite]
+    yflat  = yflat[finite]
+    binidxs = np.digitize(xflat,binedges)-1
+    inrange = (binidxs>=0)&(binidxs<bincenters.size)
+    counts = np.bincount(binidxs[inrange],minlength=bincenters.size).astype(np.int64)
+    sums   = np.bincount(binidxs[inrange],weights=yflat[inrange],minlength=bincenters.size).astype(np.float32)
+    with np.errstate(divide='ignore',invalid='ignore'):
+        ymeans = sums/counts
+    ymeans[counts<samplethresh] = np.nan
+    fitrange = np.isfinite(ymeans)&(ymeans>=ymin)&(ymeans<=ymax)
+    alpha,intercept = np.polyfit(bincenters[fitrange],ymeans[fitrange],1)
+    xcrit = -intercept/alpha
+    model = RampPOD(alpha=float(alpha),xcrit=float(xcrit))
+    diagnostics = {
+        'bincenters':bincenters,
+        'ymean':ymeans,
+        'fitrange':fitrange}
+    return model,diagnostics
 
 def save(model,diagnostics,runname,modeldir):
     '''
@@ -110,28 +86,13 @@ def save(model,diagnostics,runname,modeldir):
     filepath = os.path.join(modeldir,filename)
     logger.info(f'      Attempting to save {filename}...')
     try:
-        if not model.withlf:
-            np.savez(filepath,
-                     withlf=np.array([False]),
-                     alpha=model.alpha,
-                     xcrit=model.xcrit,
-                     bincenters=diagnostics['bincenters'],
-                     ymean=diagnostics['ymean'],
-                     fitrange=diagnostics['fitrange'],
-                     nparams=np.int32(model.nparams))
-        else:
-            np.savez(filepath,
-                     withlf=np.array([True]),
-                     alphaland=model.alphaland,
-                     xcritland=model.xcritland,
-                     alphaocean=model.alphaocean,
-                     xcritocean=model.xcritocean,
-                     bincenters=diagnostics['bincenters'],
-                     ymeanland=diagnostics['ymeanland'],
-                     fitrangeland=diagnostics['fitrangeland'],
-                     ymeanocean=diagnostics['ymeanocean'],
-                     fitrangeocean=diagnostics['fitrangeocean'],
-                     nparams=np.int32(model.nparams))
+        np.savez(filepath,
+                 alpha=model.alpha,
+                 xcrit=model.xcrit,
+                 bincenters=diagnostics['bincenters'],
+                 ymean=diagnostics['ymean'],
+                 fitrange=diagnostics['fitrange'],
+                 nparams=np.int32(model.nparams))
         with np.load(filepath) as _:
             pass
         logger.info('         File write successful')
@@ -143,22 +104,21 @@ def save(model,diagnostics,runname,modeldir):
 if __name__=='__main__':
     config    = Config()
     pod       = config.pod
+    targetvar = config.targetvar
     modeldir  = os.path.join(config.modelsdir,'pod')
     logger.info('Training and saving ramp-fit POD models...')
     cachedvars = None
     cacheddata = None
     for runname,runconfig in pod['runs'].items():
-        withlf    = runconfig['withlf']
-        inputvar  = runconfig.get('inputvar')
-        targetvar = runconfig.get('targetvar')
+        inputvar = runconfig['inputvar']
         if (inputvar,targetvar)!=cachedvars:
             logger.info(f'Loading combined training and validation splits...')
-            x,y,lf = load(config.splitsdir,inputvar=inputvar,targetvar=targetvar)
+            x,y = load(config.splitsdir,inputvar=inputvar,targetvar=targetvar)
             cachedvars = (inputvar,targetvar)
-            cacheddata = (x,y,lf)
+            cacheddata = (x,y)
         else:
-            x,y,lf = cacheddata
+            x,y = cacheddata
         logger.info(f'   Training `{runname}`...')
-        model,diagnostics = fit(withlf,x,y,lf,pod['landthresh'],pod['bins'],pod['fit'])
+        model,diagnostics = fit(x,y,pod['bins'],pod['fit'])
         save(model,diagnostics,runname,modeldir)
         del model,diagnostics
