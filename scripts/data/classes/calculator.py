@@ -286,6 +286,7 @@ class DataCalculator:
         via piecewise-linear interpolation in pressure space. Columns with invalid surface pressures
         are masked.
         Args:
+<<<<<<< HEAD
         - da (xr.DataArray): input DataArray containing 'lev'
         - ps (xr.DataArray): surface pressure DataArray (hPa)
         - sigs (np.ndarray): 1D array of ascending sigma levels (e.g., [0.5, 0.55, ..., 1.0])
