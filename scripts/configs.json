@@ -25,8 +25,8 @@
     "testyears":[2018,2020]
   },
   "variables":{
-    "field":["bl","cape","subsat","t","q","rh","thetae","thetaestar"],
-    "local":["oro","lf","lhf","shf"],
+    "field":["bl","cape","subsat","rh","thetae","thetaestar"],
+    "local":["lf","sef"],
     "target":"tp"
   },
   "experiments":{
@@ -49,16 +49,15 @@
       "patience":4,
       "criterion":"MSELoss",
       "runs":{
-        "baseline_bl":         {"kind":"baseline","fieldvars":["bl"],        "localvars":[],"targetvar":"tp"},
-        "baseline_cape":       {"kind":"baseline","fieldvars":["cape"],      "localvars":[],"targetvar":"tp"},
-        "baseline_subsat":     {"kind":"baseline","fieldvars":["subsat"],    "localvars":[],"targetvar":"tp"},
-        "baseline_rh":         {"kind":"baseline","fieldvars":["rh"],        "localvars":[],"targetvar":"tp"},
-        "baseline_thetae":     {"kind":"baseline","fieldvars":["thetae"],    "localvars":[],"targetvar":"tp"},
-        "baseline_thetaestar": {"kind":"baseline","fieldvars":["thetaestar"],"localvars":[],"targetvar":"tp"},
-        "baseline_rh_lf":      {"kind":"baseline","fieldvars":["rh"],        "localvars":["lf"], "targetvar":"tp"},
-        "baseline_rh_lhf":     {"kind":"baseline","fieldvars":["rh"],        "localvars":["lhf"],"targetvar":"tp"},
-        "baseline_rh_shf":     {"kind":"baseline","fieldvars":["rh"],        "localvars":["shf"],"targetvar":"tp"},
-        "baseline_rh_oro":     {"kind":"baseline","fieldvars":["rh"],        "localvars":["oro"],"targetvar":"tp"}
+        "base_bl":{"kind":"baseline","fieldvars":["bl"],"localvars":[],"targetvar":"tp"},
+        "base_cape_subsat":{"kind":"baseline","fieldvars":["cape","subsat"],"localvars":[],"targetvar":"tp"},
+        "base_thetae_thetaestar":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":[],"targetvar":"tp"},
+        "base_thetae_thetaestar_lf":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":["lf"],"targetvar":"tp"},
+        "base_thetae_thetaestar_sef":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":["sef"],"targetvar":"tp"},
+        "base_rh":{"kind":"baseline","fieldvars":["rh"],"localvars":[],"targetvar":"tp"},
+        "base_rh_lf":{"kind":"baseline","fieldvars":["rh"],"localvars":["lf"],"targetvar":"tp"},
+        "base_rh_sef":{"kind":"baseline","fieldvars":["rh"],"localvars":["sef"],"targetvar":"tp"},
+        "base_all":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","sef"],"targetvar":"tp"}
       }
     },
     "sr":{
