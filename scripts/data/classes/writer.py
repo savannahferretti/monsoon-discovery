@@ -30,75 +30,55 @@ class PredictionWriter:
         self.longname  = TARGETMETA[targetvar]['longname']
         self.units     = TARGETMETA[targetvar]['units']
 
-    def predictions_to_array(self,preds,valid,refda):
+    def unflatten(self,flat,valid,refda):
         '''
-        Purpose: Place flat predictions back onto the 3D grid and denormalize and un-transform to native units.
+        Purpose: Place flat values back onto the (time, lat, lon) grid, filling invalid samples with NaN.
         Args:
-        - preds (np.ndarray): flat predictions with shape (nsamples,)
+        - flat (np.ndarray): flat values with shape (nsamples,)
         - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         Returns:
-        - np.ndarray: native-unit predictions on the full grid with shape (time, lat, lon)
+        - np.ndarray: gridded array with shape (time, lat, lon)
         '''
         arr = np.full(valid.shape,np.nan,dtype=np.float32)
-        arr[valid] = preds
-        arr = arr.reshape(refda.shape)
-        arr = np.expm1(arr*self.std+self.mean)
-        return arr
+        arr[valid] = flat
+        return arr.reshape(refda.shape)
 
-    def predictions_to_dataset(self,predstack,refda):
+    def predictions_to_dataset(self,predslist,valid,refda):
         '''
-        Purpose: Wrap a stacked prediction array into an xr.Dataset with a seed dimension.
+        Purpose: Unflatten, denormalize, and wrap a list of per-seed predictions into an xr.Dataset.
         Args:
-        - predstack (np.ndarray): predictions with shape (time, lat, lon, nseed)
+        - predslist (list[np.ndarray]): per-seed flat predictions, each with shape (nsamples,)
+        - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         Returns:
-        - xr.Dataset: Dataset with predictions of the target variable in native units
+        - xr.Dataset: Dataset with predictions in native units on a (time, lat, lon, seed) grid
         '''
-        dims   = ('time','lat','lon','seed')
+        predstack = np.stack([np.expm1(self.unflatten(preds,valid,refda)*self.std+self.mean) for preds in predslist],axis=-1)
         coords = {dim:refda.coords[dim].values for dim in refda.dims}
-        coords['seed'] = np.arange(predstack.shape[-1])
-        da = xr.DataArray(predstack,dims=dims,coords=coords,name=self.targetvar,
+        coords['seed'] = np.arange(len(predslist))
+        da = xr.DataArray(predstack,dims=('time','lat','lon','seed'),coords=coords,name=self.targetvar,
                           attrs=dict(long_name=self.longname,units=self.units))
         return da.to_dataset()
 
-    def features_to_array(self,feats,valid,refda):
+    def features_to_dataset(self,featslist,fieldvars,valid,refda):
         '''
-        Purpose: Place flat kernel-integrated features back onto the (time, lat, lon) grid per field variable.
+        Purpose: Unflatten and wrap a list of per-seed kernel-integrated features into an xr.Dataset.
         Args:
-        - feats (np.ndarray): features with shape (nsamples, nfieldvars)
-        - valid (np.ndarray): boolean array with shape (nlat*nlon*ntime,) indicating kept samples
-        - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
-        Returns:
-        - np.ndarray: features on the full grid with shape (time, lat, lon, nfieldvars)
-        '''
-        nfieldvars = feats.shape[1]
-        arrays = []
-        for i in range(nfieldvars):
-            arr = np.full(valid.shape,np.nan,dtype=np.float32)
-            arr[valid] = feats[:,i]
-            arr = arr.reshape(refda.shape)
-            arrays.append(arr)
-        return np.stack(arrays,axis=-1)
-
-    @staticmethod
-    def features_to_dataset(featstack,fieldvars,refda):
-        '''
-        Purpose: Wrap stacked feature arrays into an xr.Dataset with per-field DataArrays and a seed dimension.
-        Args:
-        - featstack (np.ndarray): features with shape (time, lat, lon, nfieldvars, nseed)
+        - featslist (list[np.ndarray]): per-seed features, each with shape (nsamples, nfieldvars)
         - fieldvars (list[str]): predictor field variable names
+        - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         Returns:
-        - xr.Dataset: Dataset with kernel-integrated features
+        - xr.Dataset: Dataset with a per-field DataArray on a (time, lat, lon, seed) grid
         '''
         coords = {dim:refda.coords[dim].values for dim in refda.dims}
-        coords['seed'] = np.arange(featstack.shape[-1])
+        coords['seed'] = np.arange(len(featslist))
         ds = xr.Dataset()
         for i,var in enumerate(fieldvars):
-            da = xr.DataArray(featstack[:,:,:,i,:],dims=('time','lat','lon','seed'),coords=coords,name=var,
-                              attrs=dict(long_name=f'Kernel-integrated {var}',units='N/A'))
-            ds[var] = da
+            featstack = np.stack([self.unflatten(feats[:,i],valid,refda) for feats in featslist],axis=-1)
+            ds[var] = xr.DataArray(featstack,dims=('time','lat','lon','seed'),coords=coords,name=var,
+                                   attrs=dict(long_name=f'Kernel-integrated {var}',units='N/A'))
         return ds
 
     @staticmethod

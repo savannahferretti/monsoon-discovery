@@ -32,7 +32,7 @@ class DataCalculator:
 
     def retrieve(self,longname):
         '''
-        Purpose: Lazily import in a NetCDF file as an xr.DataArray with ascending pressure levels, if applicable 
+        Purpose: Lazily import in a NetCDF file as an xr.DataArray with ascending pressure levels, if applicable
         (e.g., [500,550,600,...] hPa).
         Args:
         - longname (str): variable description
@@ -76,7 +76,7 @@ class DataCalculator:
             self.regridders[key] = xesmf.Regridder(da,targetgrid,method=method)
         da = self.regridders[key](da,keep_attrs=True)
         return da
-        
+
     def resample(self,da,method):
         '''
         Purpose: Coarsen an xr.DataArray to 3-hourly.
@@ -95,7 +95,7 @@ class DataCalculator:
 
     def calc_es(self,t):
         '''
-        Purpose: Calculate saturation vapor pressure (eₛ) using Eqs. 17 and 18 from Huang J. (2018), J. Appl. 
+        Purpose: Calculate saturation vapor pressure (eₛ) using Eqs. 17 and 18 from Huang J. (2018), J. Appl.
         Meteorol. Climatol.
         Args:
         - t (xr.DataArray): temperature DataArray (K)
@@ -110,7 +110,7 @@ class DataCalculator:
 
     def calc_qs(self,p,t):
         '''
-        Purpose: Calculate saturation specific humidity (qₛ) using Eq. 4 from Miller SFK. (2018), Atmos. 
+        Purpose: Calculate saturation specific humidity (qₛ) using Eq. 4 from Miller SFK. (2018), Atmos.
         Humidity Eq. Plymouth State Wea. Ctr.
         Args:
         - p (xr.DataArray): pressure DataArray (hPa)
@@ -142,8 +142,8 @@ class DataCalculator:
 
     def calc_thetae(self,p,t,q=None):
         '''
-        Purpose: Calculate (unsaturated or saturated) equivalent potential temperature (θₑ) using Eqs. 43 and 55 
-        from Bolton D. (1980), Mon. Wea. Rev.     
+        Purpose: Calculate (unsaturated or saturated) equivalent potential temperature (θₑ) using Eqs. 43 and 55
+        from Bolton D. (1980), Mon. Wea. Rev.
         Args:
         - p (xr.DataArray): pressure DataArray (hPa)
         - t (xr.DataArray): temperature DataArray (K)
@@ -165,7 +165,7 @@ class DataCalculator:
 
     def get_level_above(self,ptarget,levels,side):
         '''
-        Purpose: Find the pressure level immediately above a target pressure, i.e., the next smallest 
+        Purpose: Find the pressure level immediately above a target pressure, i.e., the next smallest
         pressure (higher altitude).
         Args:
         - ptarget (xr.DataArray or np.ndarray): target pressures
@@ -180,7 +180,7 @@ class DataCalculator:
 
     def get_level_below(self,ptarget,levels,side):
         '''
-        Purpose: Find the pressure level immediately below a target pressure, i.e., the next largest 
+        Purpose: Find the pressure level immediately below a target pressure, i.e., the next largest
         pressure (lower altitude).
         Args:
         - ptarget (xr.DataArray or np.ndarray): target pressures
@@ -195,7 +195,7 @@ class DataCalculator:
 
     def calc_layer_average(self,da,a,b):
         '''
-        Purpose: Calculate the pressure-weighted mean of an xr.DataArray between two pressure levels 'a' (bottom of layer) and 
+        Purpose: Calculate the pressure-weighted mean of an xr.DataArray between two pressure levels 'a' (bottom of layer) and
         'b' (top of layer), with `a > b`.
         Args:
         - da (xr.DataArray): input DataArray with 'lev' dimension
@@ -224,13 +224,13 @@ class DataCalculator:
         levabove   = levabove-(levbelow==levabove)
         upperintegral = (levbelow-b)*valueabove+(valuebelow-valueabove)*(levbelow-levabove)*(
             1-((b-levabove)/(levbelow-levabove))**2)/2+correction
-        upperintegral = upperintegral.fillna(0)  
+        upperintegral = upperintegral.fillna(0)
         layeraverage  = (lowerintegral+innerintegral+upperintegral)/(a-b)
         return layeraverage
-    
+
     def calc_weights(self,ps,pbltop,lfttop):
         '''
-        Purpose: Calculate weights for the boundary layer (PBL) and lower free troposphere (LFT) using Eqs. 5a and 5b from Adames AF, 
+        Purpose: Calculate weights for the boundary layer (PBL) and lower free troposphere (LFT) using Eqs. 5a and 5b from Adames AF,
         Ahmed F, and Neelin JD. 2021. J. Atmos. Sci.
         Args:
         - ps (xr.DataArray): surface pressure DataArray (hPa)
@@ -244,7 +244,7 @@ class DataCalculator:
         wb = (pblthickness/lftthickness)*np.log((pblthickness+lftthickness)/pblthickness)
         wl = 1.0-wb
         return wb,wl
-    
+
     def calc_bl_terms(self,thetaeb,thetael,thetaeltar,wb,wl):
         '''
         Purpose: Calculate CAPEL, SUBSATL, and BL following Eq. 1 from Ahmed F and Neelin JD. 2021. Geophys. Res. Lett.
@@ -267,7 +267,7 @@ class DataCalculator:
 
     def calc_dsig(self,sigs):
         '''
-        Purpose: Compute quadrature weights for numerical integration over the 'sig' dimension; weights Δσ represent 
+        Purpose: Compute quadrature weights for numerical integration over the 'sig' dimension; weights Δσ represent
         sigma thickness. Spacing between adjacent grid points is estimated using centered finite differences.
         Args:
         - sigs (np.ndarray): 1D array of ascending sigma levels (e.g., [0.5, 0.55, ..., 1.0])

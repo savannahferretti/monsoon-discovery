@@ -116,11 +116,10 @@ if __name__=='__main__':
                 break
             inferencer = Inferencer(model,dataloader,device)
             preds,feats = inferencer.predict(haskernel,is_hurdle=is_hurdle)
-            allpreds.append(writer.predictions_to_array(preds,valid,refda))
+            allpreds.append(preds)
             del model,inferencer
         else:
             logger.info(f'   Saving predictions for `{name}`...')
-            predstack = np.stack(allpreds,axis=-1)
-            ds = writer.predictions_to_dataset(predstack,refda)
+            ds = writer.predictions_to_dataset(allpreds,valid,refda)
             writer.save(ds,name,'predictions',split,config.predsdir)
-            del predstack,ds
+            del ds
