@@ -101,13 +101,13 @@ class DataSplitter:
         normds = xr.Dataset(datavars,coords=ds.coords)
         return normds
 
-    def save(self,ds,splitname,timechunksize=2208):
+    def save(self,ds,splitname,timechunksize=736):
         '''
         Purpose: Save an xr.Dataset to an HDF5 file and verify by reopening.
         Args:
         - ds (xr.Dataset): Dataset to save
         - splitname (str): 'train' | 'valid' | 'test'
-        - timechunksize (int): chunk size for time dimension (defaults to 2,208 for 3-month chunks)
+        - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks on 3-hourly data)
         Returns:
         - bool: True if save successful, False otherwise
         '''

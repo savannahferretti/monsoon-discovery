@@ -15,20 +15,20 @@ class PredictionWriter:
         Purpose: Initialize PredictionWriter with denormalization statistics.
         Args:
         - statsdir (str): directory containing stats.json
-        - targetvar (str): target variable name ('pr' or 'tp') — must match run config
+        - targetvar (str): target variable name
         '''
         filepath = os.path.join(statsdir,'stats.json')
         with open(filepath,'r',encoding='utf-8') as f:
             stats = json.load(f)
-        self.prmean = stats[f'{targetvar}_mean']
-        self.prstd  = stats[f'{targetvar}_std']
+        self.mean = stats[f'{targetvar}_mean']
+        self.std  = stats[f'{targetvar}_std']
 
     def predictions_to_array(self,preds,valid,refda):
         '''
-        Purpose: Place flat predictions back onto the 3D grid and denormalize and un-transform to native units (mm/hr).
+        Purpose: Place flat predictions back onto the 3D grid and denormalize and un-transform to native units.
         Args:
         - preds (np.ndarray): flat predictions with shape (nsamples,)
-        - valid (np.ndarray): boolean array with shape (nlat*nlon*ntime,) indicating kept samples
+        - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         Returns:
         - np.ndarray: native-unit predictions on the full grid with shape (time, lat, lon)
@@ -36,7 +36,7 @@ class PredictionWriter:
         arr = np.full(valid.shape,np.nan,dtype=np.float32)
         arr[valid] = preds
         arr = arr.reshape(refda.shape)
-        arr = np.expm1(arr*self.prstd+self.prmean)
+        arr = np.expm1(arr*self.std+self.mean)
         return arr
 
     def predictions_to_dataset(self,predstack,refda):

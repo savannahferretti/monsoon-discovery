@@ -172,7 +172,7 @@ class DataDownloader:
         Purpose: Save a Dataset to NetCDF and verify by reopening.
         Args:
         - ds (xr.Dataset): Dataset to save
-        - timechunksize (int): chunk size for time dimension (defaults to 2,208 for 3-month chunks)
+        - timechunksize (int): chunk size for time dimension (defaults to 2,208 for 3-month chunks on hourly data)
         Returns:
         - bool: True if save successful, False otherwise
         '''

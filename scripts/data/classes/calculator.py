@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from datetime import datetime
-from scipy.interpolate import interp1d
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class DataCalculator:
         Returns:
         - xr.DataArray: pressure DataArray
         '''
-        p = refda.lev.expand_dims({'lat':refda.lat,'lon':refda.lon,'time':refda.time}).transpose('lat','lon','lev','time')
+        p = refda.lev.expand_dims({'lat':refda.lat,'lon':refda.lon,'time':refda.time})
         return p
 
     def regrid(self,da):
@@ -280,58 +279,34 @@ class DataCalculator:
         '''
         sigs = np.asarray(siglevels,dtype=np.float32)
         dsigvalues = np.abs(np.concatenate([[sigs[1]-sigs[0]],0.5*(sigs[2:]-sigs[:-2]),[sigs[-1]-sigs[-2]]]))
-        dsig = xr.DataArray(dsigvalues.astype(np.float32),dims=('sig',),coords={'sig':sigs})
+        dsig = xr.DataArray(dsigvalues,dims=('sig',),coords={'sig':sigs})
         return dsig
 
-    def interpolate_to_sigma(self,da,ps,siglevels):
+    def interpolate_to_sigma(self,da,ps,sigs):
         '''
-        Purpose: Interpolate a DataArray from pressure levels to a uniform sigma grid.
-        For each (lat, lon, time), computes σ_k = p_k / p_s at existing pressure levels,
-        then linearly interpolates onto the target sigma grid. Levels below the surface
-        (σ > 1) are excluded before interpolation.
+        Purpose: Interpolate an xr.DataArray from pressure levels onto a uniform sigma (σ = p/pₛ) grid
+        via piecewise-linear interpolation in pressure space. Columns with invalid surface pressures
+        are masked.
         Args:
-        - da (xr.DataArray): input DataArray with 'lev' dimension (pressure levels in hPa)
-        - ps (xr.DataArray): surface pressure DataArray (hPa) with dims (lat, lon, time)
-        - siglevels (np.ndarray): 1D array of target sigma levels (ascending, e.g. [0.5, 0.55, ..., 1.0])
+        - da (xr.DataArray): input DataArray containing 'lev'
+        - ps (xr.DataArray): surface pressure DataArray (hPa)
+        - sigs (np.ndarray): 1D array of ascending target sigma levels (e.g., [0.5, 0.55, ..., 1.0])
         Returns:
-        - xr.DataArray: interpolated DataArray with 'sig' dimension replacing 'lev'
+        - xr.DataArray: interpolated DataArray with 'sig'
         '''
-        da  = da.load()
-        ps  = ps.load()
-        siglevels = np.asarray(siglevels,dtype=np.float64)
-        plevs     = da.lev.values.astype(np.float64)
-        nlat,nlon,nlev,ntime = da.sizes['lat'],da.sizes['lon'],da.sizes['lev'],da.sizes['time']
-        nsig = len(siglevels)
-        data   = da.transpose('lat','lon','lev','time').values
-        psvals = ps.transpose('lat','lon','time').values
-        result = np.full((nlat,nlon,nsig,ntime),np.nan,dtype=np.float32)
-        for i in range(nlat):
-            for j in range(nlon):
-                for k in range(ntime):
-                    psval = psvals[i,j,k]
-                    if np.isnan(psval) or psval<=0:
-                        continue
-                    sigma_k = plevs/psval
-                    valid   = sigma_k<=1.0+1e-6
-                    if valid.sum()<2:
-                        continue
-                    sig_valid  = sigma_k[valid]
-                    data_valid = data[i,j,valid,k]
-                    finite     = np.isfinite(data_valid)
-                    if finite.sum()<2:
-                        continue
-                    sig_valid  = sig_valid[finite]
-                    data_valid = data_valid[finite]
-                    f = interp1d(sig_valid,data_valid,kind='linear',bounds_error=False,fill_value='extrapolate')
-                    result[i,j,:,k] = f(siglevels).astype(np.float32)
-        sigcoord = np.asarray(siglevels,dtype=np.float32)
-        out = xr.DataArray(
-            result,
-            dims=('lat','lon','sig','time'),
-            coords={'lat':da.lat,'lon':da.lon,'sig':sigcoord,'time':da.time},
-            name=da.name)
-        out.attrs = da.attrs
-        return out
+        da   = da.transpose('lat','lon','lev','time').load()
+        ps   = ps.transpose('lat','lon','time').load()
+        levs = da.lev.values
+        ptarget = sigs[None,None,:,None]*ps.values[:,:,None,:]
+        upper   = np.clip(np.searchsorted(levs,ptarget,side='right'),1,len(levs)-1)
+        lower   = upper-1
+        weight  = (ptarget-levs[lower])/(levs[upper]-levs[lower])
+        result   = (1.0-weight)*np.take_along_axis(da.values,lower,axis=2)+weight*np.take_along_axis(da.values,upper,axis=2)
+        result   = np.where(np.isfinite(ptarget)&(ptarget>0),result,np.nan).astype(np.float32)
+        interped = xr.DataArray(result,dims=('lat','lon','sig','time'),
+                                coords={'lat':da.lat,'lon':da.lon,'sig':sigs,'time':da.time},
+                                name=da.name,attrs=da.attrs)
+        return interped
 
     def create_dataset(self,da,shortname,longname,units):
         '''
@@ -365,7 +340,7 @@ class DataCalculator:
         Purpose: Save an xr.Dataset to NetCDF and verify by reopening.
         Args:
         - ds (xr.Dataset): Dataset to save
-        - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks)
+        - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks on 3-hourly data)
         Returns:
         - bool: True if save successful, False otherwise
         '''
