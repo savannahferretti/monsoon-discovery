@@ -20,12 +20,11 @@ class Inferencer:
         self.dataloader = dataloader
         self.device     = device
 
-    def predict(self,haskernel,is_hurdle=False):
+    def predict(self,haskernel):
         '''
-        Purpose: Generate predictions for all samples in the dataloader. When haskernel is True, also collects kernel-integrated features from the kernel layer. When is_hurdle is True, combines classifier and regressor outputs into a single expected-value prediction.
+        Purpose: Generate predictions for all samples in the dataloader. When haskernel is True, also collects kernel-integrated features from the kernel layer.
         Args:
         - haskernel (bool): whether model has integration kernel
-        - is_hurdle (bool): whether model is a HurdleBaselineNN (defaults to False)
         Returns:
         - tuple[np.ndarray, np.ndarray | None]: predictions with shape (nsamples,) and
             kernel-integrated features with shape (nsamples, nfieldvars) or None for baseline models
@@ -43,20 +42,7 @@ class Inferencer:
                     featslist.append(self.model.kernel.features.detach().cpu().numpy())
                 else:
                     output = self.model(fields,local)
-                if is_hurdle:
-                    logit,amount = output
-                    output = self.model.predict_expected(logit,amount)
                 predslist.append(output.detach().cpu().numpy())
         preds = np.concatenate(predslist,axis=0).astype(np.float32)
         feats = np.concatenate(featslist,axis=0).astype(np.float32) if haskernel else None
         return preds,feats
-
-    def extract_weights(self):
-        '''
-        Purpose: Extract normalized kernel weights from the kernel layer.
-        Returns:
-        - np.ndarray: normalized kernel weights with shape (nfieldvars, nlevs)
-        '''
-        if self.model.kernel.norm is None:
-            raise RuntimeError('`model.kernel.norm` was not populated during forward pass')
-        return self.model.kernel.norm.detach().cpu().numpy().astype(np.float32)

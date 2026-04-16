@@ -87,8 +87,7 @@ if __name__=='__main__':
         if os.path.exists(os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')):
             logger.info(f'Skipping `{name}`, predictions already exist')
             continue
-        haskernel = runconfig['kind'] not in ('baseline','hurdle')
-        is_hurdle = runconfig['kind']=='hurdle'
+        haskernel = runconfig['kind'] != 'baseline'
         fieldvars = runconfig['fieldvars']
         localvars = runconfig.get('localvars',[])
         subset    = runconfig.get('subset')
@@ -112,7 +111,7 @@ if __name__=='__main__':
                 logger.error(f'   Failed to load model for seed {seed}, skipping...')
                 break
             inferencer = Inferencer(model,dataloader,device)
-            preds,feats = inferencer.predict(haskernel,is_hurdle=is_hurdle)
+            preds,feats = inferencer.predict(haskernel)
             allpreds.append(preds)
             if haskernel:
                 allfeats.append(feats)

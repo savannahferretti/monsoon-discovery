@@ -85,12 +85,8 @@ if __name__=='__main__':
             logger.info(f'Training `{runid}`...')
             device = setup(seed)
             model  = build_model(name,runconfig,nlevs).to(device)
-            criterion        = runconfig.get('criterion',nn['criterion'])
-            criterionkwargs  = runconfig.get('criterionkwargs',nn.get('criterionkwargs',{}))
-            if criterion=='TweedieLoss':
-                from scripts.models.nn.architectures import TARGETSTATS
-                stats = TARGETSTATS[targetvar]
-                criterionkwargs = {**criterionkwargs,'mean':stats['mean'],'std':stats['std']}
+            criterion       = runconfig.get('criterion',nn['criterion'])
+            criterionkwargs = runconfig.get('criterionkwargs',nn.get('criterionkwargs',{}))
             trainer = Trainer(
                 model=model,
                 trainloader=trainloader,
