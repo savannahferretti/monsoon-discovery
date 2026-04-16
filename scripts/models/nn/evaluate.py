@@ -121,8 +121,3 @@ if __name__=='__main__':
             ds = writer.predictions_to_dataset(allpreds,valid,refda)
             writer.save(ds,name,'predictions',split,config.predsdir)
             del ds
-            if haskernel:
-                logger.info(f'   Saving kernel features for `{name}`...')
-                fds = writer.features_to_dataset(allfeats,fieldvars,valid,refda)
-                writer.save(fds,name,'features',split,config.featsdir)
-                del fds

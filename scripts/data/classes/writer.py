@@ -61,26 +61,6 @@ class PredictionWriter:
                           attrs=dict(long_name=self.longname,units=self.units))
         return da.to_dataset()
 
-    def features_to_dataset(self,featslist,fieldvars,valid,refda):
-        '''
-        Purpose: Unflatten and wrap a list of per-seed kernel-integrated features into an xr.Dataset.
-        Args:
-        - featslist (list[np.ndarray]): per-seed features, each with shape (nsamples, nfieldvars)
-        - fieldvars (list[str]): predictor field variable names
-        - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
-        - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
-        Returns:
-        - xr.Dataset: Dataset with a per-field DataArray on a (time, lat, lon, seed) grid
-        '''
-        coords = {dim:refda.coords[dim].values for dim in refda.dims}
-        coords['seed'] = np.arange(len(featslist))
-        ds = xr.Dataset()
-        for i,var in enumerate(fieldvars):
-            featstack = np.stack([self.unflatten(feats[:,i],valid,refda) for feats in featslist],axis=-1)
-            ds[var] = xr.DataArray(featstack,dims=('time','lat','lon','seed'),coords=coords,name=var,
-                                   attrs=dict(long_name=f'Kernel-integrated {var}',units='N/A'))
-        return ds
-
     @staticmethod
     def weights_to_dataset(weights,fieldvars,refds):
         '''
