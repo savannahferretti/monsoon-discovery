@@ -60,7 +60,7 @@
     },
     "sr":{
       "runs":{
-        "sr_bl":{"fieldvars":["bl"],"localvars":["lf"]},
+        "sr_bl":{"fieldvars":["bl"],"localvars":[]},
         "sr_rh":{"fieldvars":["rh"],"localvars":[],"featsfrom":"base_rh"}
       }
     }
