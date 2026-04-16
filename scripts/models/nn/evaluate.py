@@ -104,6 +104,7 @@ if __name__=='__main__':
         dataset    = FieldDataset(fields,local,pr,dsig)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
         allpreds = []
+        allfeats = [] if haskernel else None
         for seedidx,seed in enumerate(seeds):
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             model = load(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
@@ -113,9 +114,16 @@ if __name__=='__main__':
             inferencer = Inferencer(model,dataloader,device)
             preds,feats = inferencer.predict(haskernel,is_hurdle=is_hurdle)
             allpreds.append(preds)
+            if haskernel:
+                allfeats.append(feats)
             del model,inferencer
         else:
             logger.info(f'   Saving predictions for `{name}`...')
             ds = writer.predictions_to_dataset(allpreds,valid,refda)
             writer.save(ds,name,'predictions',split,config.predsdir)
             del ds
+            if haskernel:
+                logger.info(f'   Saving kernel features for `{name}`...')
+                fds = writer.features_to_dataset(allfeats,fieldvars,valid,refda)
+                writer.save(fds,name,'features',split,config.featsdir)
+                del fds
