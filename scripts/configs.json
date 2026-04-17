@@ -60,7 +60,7 @@
         "base_all":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","sef"]},
         "base_all_v2":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
         "nonparam_all":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
-        "param_all":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]}
+        "param_gauss_all": {"kind":"parametric","kernel":"gaussian","fieldvars": ["rh", "thetae", "thetaestar"],"localvars": ["lf","shf","lhf"]}
       }
     },
     "sr":{
