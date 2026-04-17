@@ -52,10 +52,15 @@
         "base_thetae_thetaestar":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":[]},
         "base_thetae_thetaestar_lf":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":["lf"]},
         "base_thetae_thetaestar_sef":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":["sef"]},
+        "base_thetae_thetaestar_shf_lhf":{"kind":"baseline","fieldvars":["thetae","thetaestar"],"localvars":["shf","lhf"]},
         "base_rh":{"kind":"baseline","fieldvars":["rh"],"localvars":[]},
         "base_rh_lf":{"kind":"baseline","fieldvars":["rh"],"localvars":["lf"]},
         "base_rh_sef":{"kind":"baseline","fieldvars":["rh"],"localvars":["sef"]},
-        "base_all":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","sef"]}
+        "base_rh_shf_lhf":{"kind":"baseline","fieldvars":["rh"],"localvars":["shf","lhf"]},
+        "base_all":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","sef"]},
+        "base_all_v2":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
+        "nonparam_all":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
+        "param_all":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]}
       }
     },
     "sr":{
