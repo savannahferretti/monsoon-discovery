@@ -139,23 +139,77 @@ class ParametricKernelLayer(torch.nn.Module):
             kernel1D = torch.exp(-distance/tau[:,None])
             return kernel1D
 
-    kerneltypes = {'gaussian':GaussianKernel,'exponential':ExponentialKernel}
+    class MixtureGaussianKernel(torch.nn.Module):
 
-    def __init__(self,nfieldvars,kerneltype):
+        def __init__(self,nfieldvars):
+            '''
+            Purpose: Initialize a mixture-of-Gaussians kernel.
+            Args:
+            - nfieldvars (int): number of predictor fields
+            '''
+            super().__init__()
+            self.mu1     = torch.nn.Parameter(torch.full((int(nfieldvars),),-0.5))
+            self.mu2     = torch.nn.Parameter(torch.full((int(nfieldvars),), 0.5))
+            self.logstd1 = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
+            self.logstd2 = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
+            self.weight1 = torch.nn.Parameter(torch.ones(int(nfieldvars)))
+            self.weight2 = torch.nn.Parameter(torch.ones(int(nfieldvars)))
+
+        def get_components(self,nlevs,device):
+            '''
+            Purpose: Compute the two Gaussian components separately (for visualization).
+            Args:
+            - nlevs (int): number of vertical levels
+            - device (str | torch.device): device to use
+            Returns:
+            - tuple[torch.Tensor,torch.Tensor]: each component with shape (nfieldvars, nlevs)
+            '''
+            coord = torch.linspace(-1.0,1.0,steps=nlevs,device=device)
+            std1  = torch.exp(self.logstd1).clamp(min=0.1,max=2.0)
+            std2  = torch.exp(self.logstd2).clamp(min=0.1,max=2.0)
+            c1 = self.weight1[:,None]*torch.exp(-(coord[None,:]-self.mu1[:,None])**2/(2*std1[:,None]**2))
+            c2 = self.weight2[:,None]*torch.exp(-(coord[None,:]-self.mu2[:,None])**2/(2*std2[:,None]**2))
+            return c1,c2
+
+        def forward(self,nlevs,device):
+            '''
+            Purpose: Evaluate the mixture-of-Gaussians kernel over vertical levels.
+            Args:
+            - nlevs (int): number of vertical levels
+            - device (str | torch.device): device to use
+            Returns:
+            - torch.Tensor: mixture kernel values with shape (nfieldvars, nlevs)
+            '''
+            c1,c2 = self.get_components(nlevs,device)
+            return c1+c2+1e-8
+
+    kerneltypes = {'gaussian':GaussianKernel,'exponential':ExponentialKernel,'mixgaussian':MixtureGaussianKernel}
+
+    def __init__(self,nfieldvars,kernelspec):
         '''
-        Purpose: Initialize a parametric vertical kernel.
+        Purpose: Initialize a parametric vertical kernel, optionally with per-field kernel types.
         Args:
         - nfieldvars (int): number of predictor fields
-        - kerneltype (str): 'gaussian' | 'exponential'
+        - kernelspec (str | list[str]): a single kernel type for all fields, or a list of per-field
+          kernel types; valid types are 'gaussian' | 'exponential' | 'mixgaussian'
         '''
         super().__init__()
         self.nfieldvars = int(nfieldvars)
-        self.kerneltype = str(kerneltype)
+        self.kernelspec = kernelspec
         self.norm       = None
         self.features   = None
-        if kerneltype not in self.kerneltypes:
-            raise ValueError(f'Unknown kernel type `{kerneltype}`; must be one of {list(self.kerneltypes.keys())}')
-        self.function = self.kerneltypes[kerneltype](self.nfieldvars)
+        self.perfield   = isinstance(kernelspec,list)
+        if self.perfield:
+            if len(kernelspec)!=self.nfieldvars:
+                raise ValueError(f'Per-field kernel list must have length {self.nfieldvars}, got {len(kernelspec)}')
+            for ktype in kernelspec:
+                if ktype not in self.kerneltypes:
+                    raise ValueError(f'Unknown kernel type `{ktype}`; must be one of {list(self.kerneltypes.keys())}')
+            self.functions = torch.nn.ModuleList([self.kerneltypes[ktype](1) for ktype in kernelspec])
+        else:
+            if kernelspec not in self.kerneltypes:
+                raise ValueError(f'Unknown kernel type `{kernelspec}`; must be one of {list(self.kerneltypes.keys())}')
+            self.function = self.kerneltypes[kernelspec](self.nfieldvars)
 
     def get_weights(self,dsig,device):
         '''
@@ -166,9 +220,12 @@ class ParametricKernelLayer(torch.nn.Module):
         Returns:
         - torch.Tensor: normalized kernel weights with shape (nfieldvars, nlevs)
         '''
-        dsig   = dsig.to(device)
-        nlevs  = dsig.numel()
-        kernel = self.function(nlevs,device)
+        dsig  = dsig.to(device)
+        nlevs = dsig.numel()
+        if self.perfield:
+            kernel = torch.cat([f(nlevs,device) for f in self.functions],dim=0)
+        else:
+            kernel = self.function(nlevs,device)
         self.norm = KernelModule.normalize(kernel,dsig)
         return self.norm
 
