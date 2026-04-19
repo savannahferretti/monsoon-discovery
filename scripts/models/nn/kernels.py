@@ -197,6 +197,7 @@ class ParametricKernelLayer(torch.nn.Module):
         self.nfieldvars = int(nfieldvars)
         self.kernelspec = kernelspec
         self.norm       = None
+        self.components = None
         self.features   = None
         self.perfield   = isinstance(kernelspec,list)
         if self.perfield:
@@ -226,7 +227,24 @@ class ParametricKernelLayer(torch.nn.Module):
             kernel = torch.cat([f(nlevs,device) for f in self.functions],dim=0)
         else:
             kernel = self.function(nlevs,device)
-        self.norm = KernelModule.normalize(kernel,dsig)
+        self.norm       = KernelModule.normalize(kernel,dsig)
+        self.components = None
+        kernelsum = (kernel*dsig.unsqueeze(0)).sum(dim=1)
+        if self.perfield:
+            if any(isinstance(f,self.MixtureGaussianKernel) for f in self.functions):
+                c1_list,c2_list = [],[]
+                for i,f in enumerate(self.functions):
+                    if isinstance(f,self.MixtureGaussianKernel):
+                        c1_i,c2_i = f.get_components(nlevs,device)
+                    else:
+                        c1_i = f(nlevs,device)
+                        c2_i = torch.full_like(c1_i,float('nan'))
+                    c1_list.append(c1_i/(kernelsum[i]+1e-6))
+                    c2_list.append(c2_i/(kernelsum[i]+1e-6))
+                self.components = torch.stack([torch.cat(c1_list,dim=0),torch.cat(c2_list,dim=0)],dim=0)
+        elif isinstance(self.function,self.MixtureGaussianKernel):
+            c1,c2 = self.function.get_components(nlevs,device)
+            self.components = torch.stack([c1/(kernelsum[:,None]+1e-6),c2/(kernelsum[:,None]+1e-6)],dim=0)
         return self.norm
 
     def forward(self,fields,dsig):
