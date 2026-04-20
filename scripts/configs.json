@@ -62,6 +62,16 @@
       }
     },
     "sr":{
+      "seed":42,
+      "subsetsize":10000,
+      "searchparams":{
+        "niterations":10000000,
+        "populations":90,
+        "population_size":100,
+        "maxsize":50,
+        "maxdepth":4,
+        "batch_size":500
+      },
       "runs":{
         "sr_bl":{"fieldvars":["bl"],"localvars":[]},
         "sr_rh":{"fieldvars":["rh"],"localvars":[],"featsfrom":"base_rh"}
