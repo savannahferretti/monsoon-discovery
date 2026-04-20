@@ -53,12 +53,12 @@ def kernel_integrate(fields,weights,dsig,mask=None):
 def load_data(splitname,runconfig,config):
     '''
     Purpose: Load a normalized data split and construct predictor features for symbolic regression.
-        If `featsfrom` is set in runconfig, integrates vertical field profiles using kernel weights
+        If `weightsfrom` is set in runconfig, integrates vertical field profiles using kernel weights
         from a previously trained NN model, averaging across seeds. Otherwise reads scalar field
         variables directly. All field profile variables are on sigma levels with dimension `sig`.
     Args:
     - splitname (str): 'train' | 'valid' | 'test'
-    - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'featsfrom'
+    - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
     - config (Config): project configuration object
     Returns:
     - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray]:
@@ -68,16 +68,16 @@ def load_data(splitname,runconfig,config):
         - refda: reference DataArray with (time, lat, lon) coordinates
         - validmask: boolean array with shape (ntotal,) indicating finite samples
     '''
-    fieldvars = runconfig['fieldvars']
-    localvars = runconfig.get('localvars',[])
-    featsfrom = runconfig.get('featsfrom')
-    seeds     = config.nn['seeds']
+    fieldvars   = runconfig['fieldvars']
+    localvars   = runconfig.get('localvars',[])
+    weightsfrom = runconfig.get('weightsfrom')
+    seeds       = config.nn['seeds']
     filepath  = os.path.join(config.splitsdir,f'norm_{splitname}.h5')
     splitds   = xr.open_dataset(filepath,engine='h5netcdf')
     refda     = splitds[config.targetvar].transpose('time','lat','lon')
     ntime     = splitds.sizes['time']
     columns   = {}
-    if featsfrom:
+    if weightsfrom:
         nsig  = splitds.sizes['sig']
         dsig  = splitds['dsig'].values
         fieldarrays = []
@@ -91,7 +91,7 @@ def load_data(splitname,runconfig,config):
             surfmask = None
         seedfeats = []
         for seed in seeds:
-            wpath   = os.path.join(config.weightsdir,f'{featsfrom}_{seed}_weights.nc')
+            wpath   = os.path.join(config.weightsdir,f'{weightsfrom}_{seed}_weights.nc')
             wds     = xr.open_dataset(wpath,engine='h5netcdf')
             weights = wds['k'].isel(seed=0).values
             wds.close()
@@ -139,42 +139,52 @@ def subsample(X,y,subsetsize,seed):
     subidx    = np.array([rng.choice(b) for b in bins if len(b)>0])
     return X.iloc[subidx].reset_index(drop=True),y[subidx]
 
-def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
+def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset.
-        Uses a large niterations value so that the search runs until `timeout_in_seconds` fires,
-        which is the recommended pattern for time-limited HPC runs. Parallelism is achieved via
-        Julia worker processes (`procs`) rather than threads to avoid contention.
+        Operators, complexity penalties, and operator constraints are read from srconfig so they
+        can be tuned in configs.json without touching this script. When physical_constraints is
+        enabled, a clipped MSE loss enforces the lower bound ymin (the normalized value of tp=0)
+        so that equations producing negative precipitation are penalized during the search.
+        Parallelism is achieved via Julia worker processes (`procs`) rather than threads.
     Args:
     - Xsub (pd.DataFrame): predictor features with shape (subsetsize, nfeatures)
     - ysub (np.ndarray): target values with shape (subsetsize,)
     - predictors (list[str]): variable names corresponding to columns of Xsub
-    - srconfig (dict): SR experiment configuration with keys 'searchparams' and 'seed'
+    - srconfig (dict): SR experiment configuration with keys 'searchparams', 'operators',
+        'complexity', 'constraints', 'nested_constraints', 'seed', and 'physical_constraints'
     - procs (int): number of Julia worker processes
-    - timeout (int): search timeout in seconds
+    - timeout (int): search timeout in seconds; acts as a safety net alongside niterations
     - tmpdir (str): temporary directory for Julia equation files
+    - ymin (float | None): normalized lower bound on predictions (tp=0 in native units);
+        only used when physical_constraints is True
     Returns:
     - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
     '''
-    sp    = srconfig['searchparams']
+    sp     = srconfig['searchparams']
+    ops    = srconfig['operators']
+    compl  = srconfig['complexity']
+    constr = {k:tuple(v) for k,v in srconfig.get('constraints',{}).items()}
+    nested = srconfig.get('nested_constraints',{})
+    if srconfig.get('physical_constraints',False) and ymin is not None:
+        loss = f'loss(x, y) = (max(x, {ymin:.6f}) - y)^2'
+    else:
+        loss = 'loss(x, y) = (x - y)^2'
     model = PySRRegressor(
         niterations=sp['niterations'],
         populations=sp['populations'],
         population_size=sp['population_size'],
-        binary_operators=['+','-','*','/','safe_pow'],
-        unary_operators=['exp','log'],
-        complexity_of_operators={'+':1,'-':1,'*':1,'/':3,'safe_pow':3,'exp':4,'log':4},
-        complexity_of_variables=2,
-        complexity_of_constants=1,
+        binary_operators=ops['binary'],
+        unary_operators=ops['unary'],
+        complexity_of_operators=ops['complexity'],
+        complexity_of_variables=compl['of_variables'],
+        complexity_of_constants=compl['of_constants'],
         maxsize=sp['maxsize'],
         maxdepth=sp['maxdepth'],
-        constraints={'safe_pow':(-1,1)},
-        nested_constraints={
-            'exp':{'exp':0,'log':0,'safe_pow':0},
-            'safe_pow':{'safe_pow':0},
-            'log':{'log':0,'exp':0}},
+        constraints=constr,
+        nested_constraints=nested,
         extra_sympy_mappings={'safe_pow':lambda x,y:x**y},
-        loss='loss(x, y) = (x - y)^2',
+        loss=loss,
         model_selection='best',
         turbo=True,
         batching=True,
@@ -241,13 +251,16 @@ if __name__=='__main__':
         gc.collect()
         logger.info(f'   {len(yfit)} valid samples from train+valid splits')
         logger.info(f'   Subsampling {sr["subsetsize"]} stratified samples...')
+        ymin = float(yfit.min()) if sr.get('physical_constraints',False) else None
         Xsub,ysub = subsample(Xfit,yfit,sr['subsetsize'],sr['seed'])
         del Xfit,yfit
         gc.collect()
-        logger.info(f'   Starting PySR search (procs={procs}, timeout={timeout}s)...')
+        if ymin is not None:
+            logger.info(f'   Physical constraint: predictions clipped to ymin={ymin:.4f} (tp=0 in normalized space)')
+        logger.info(f'   Starting PySR search (niterations={sr["searchparams"]["niterations"]}, procs={procs}, timeout={timeout}s)...')
         tmpdir = tempfile.mkdtemp(prefix='pysr_')
         try:
-            model = fit(Xsub,ysub,predictors,sr,procs,timeout,tmpdir)
+            model = fit(Xsub,ysub,predictors,sr,procs,timeout,tmpdir,ymin=ymin)
         finally:
             shutil.rmtree(tmpdir,ignore_errors=True)
         save(model,name,config)

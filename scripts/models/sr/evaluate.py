@@ -60,10 +60,10 @@ if __name__=='__main__':
         if os.path.exists(predpath):
             logger.info(f'Skipping `{name}`, predictions already exist')
             continue
-        fieldvars = runconfig['fieldvars']
-        localvars = runconfig.get('localvars',[])
-        featsfrom = runconfig.get('featsfrom')
-        cachekey  = (tuple(fieldvars),tuple(localvars),featsfrom,split)
+        fieldvars   = runconfig['fieldvars']
+        localvars   = runconfig.get('localvars',[])
+        weightsfrom = runconfig.get('weightsfrom')
+        cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,split)
         if cachekey!=cachedkey:
             logger.info(f'Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
             X,y,refda,validmask = load_data(split,runconfig,config)
