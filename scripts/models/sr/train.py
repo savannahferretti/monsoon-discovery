@@ -183,7 +183,6 @@ def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
         maxdepth=sp['maxdepth'],
         constraints=constr,
         nested_constraints=nested,
-        extra_sympy_mappings={'safe_pow':lambda x,y:x**y},
         loss=loss,
         model_selection='best',
         turbo=True,
@@ -224,7 +223,6 @@ def save(model,runname,config):
     logger.info(f'   Saved to {pklpath}')
 
 if __name__=='__main__':
-    jl.seval('safe_pow(x, y) = abs(x)^y')
     config = Config()
     sr     = config.sr
     runs   = sr['runs']

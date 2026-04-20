@@ -74,21 +74,31 @@
         "batch_size":500
       },
       "operators":{
-        "binary":["+","-","*","/","safe_pow"],
-        "unary":["exp","log"],
-        "complexity":{"+":1,"-":1,"*":1,"/":3,"safe_pow":3,"exp":4,"log":4}
+        "binary":["div","mult","plus","sub","pow"],
+        "unary":["cos","exp","sin","tan","abs","cube","neg","log_abs","sqrt_abs","gamma"],
+        "complexity":{
+          "plus":1,"sub":1,"mult":1,"neg":1,
+          "div":2,"abs":2,"sqrt_abs":2,"cube":2,
+          "cos":3,"sin":3,"exp":3,"tan":3,"log_abs":3,
+          "pow":9,"gamma":9
+        }
       },
       "complexity":{
         "of_variables":2,
         "of_constants":1
       },
       "constraints":{
-        "safe_pow":[-1,1]
+        "pow":[-1,1]
       },
       "nested_constraints":{
-        "exp":{"exp":0,"log":0,"safe_pow":0},
-        "safe_pow":{"safe_pow":0},
-        "log":{"log":0,"exp":0}
+        "exp":{"exp":0,"log_abs":0,"pow":0},
+        "pow":{"pow":0},
+        "log_abs":{"log_abs":0,"exp":0},
+        "sqrt_abs":{"sqrt_abs":0,"log_abs":0},
+        "gamma":{"gamma":0,"exp":0,"log_abs":0},
+        "cos":{"cos":0,"sin":0,"tan":0},
+        "sin":{"cos":0,"sin":0,"tan":0},
+        "tan":{"cos":0,"sin":0,"tan":0}
       },
       "runs":{
         "sr_gauss_all":{"fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","lhf","shf"],"weightsfrom":"param_gauss_all"}
