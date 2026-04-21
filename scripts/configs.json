@@ -58,6 +58,7 @@
         "base_all":{"kind":"baseline","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
         "nonparam_all":{"kind":"nonparametric","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
         "param_gauss_all":{"kind":"parametric","kernel":"gaussian","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
+        "param_mixgauss_all":{"kind":"parametric","kernel":"mixgaussian","fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]},
         "param_mixed_all":{"kind":"parametric","kernel":["mixgaussian","exponential","mixgaussian"],"fieldvars":["rh","thetae","thetaestar"],"localvars":["lf","shf","lhf"]}
       }
     },
