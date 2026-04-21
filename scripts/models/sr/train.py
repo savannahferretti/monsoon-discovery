@@ -233,7 +233,6 @@ if __name__=='__main__':
     runs   = sr['runs']
     logger.info('Spinning up...')
     selectedruns,procs,timeout = parse()
-    logger.info(f'procs={procs}, timeout={timeout}s')
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
@@ -245,22 +244,21 @@ if __name__=='__main__':
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
         predictors = fieldvars + localvars
-        logger.info(f'   Loading normalized splits...')
+        logger.info(f'   Loading normalized training and validation splits...')
         Xtrain,ytrain,_,vmtrain = load_data('train',runconfig,config)
         Xvalid,yvalid,_,vmvalid = load_data('valid',runconfig,config)
         Xfit = pd.concat([Xtrain[vmtrain],Xvalid[vmvalid]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
         del Xtrain,Xvalid,ytrain,yvalid
         gc.collect()
-        logger.info(f'   {len(yfit)} valid samples from train+valid splits')
         logger.info(f'   Subsampling {sr["subsetsize"]} stratified samples...')
         ymin = float(yfit.min()) if sr.get('physical_constraints',False) else None
         Xsub,ysub = subsample(Xfit,yfit,sr['subsetsize'],sr['seed'])
         del Xfit,yfit
         gc.collect()
         if ymin is not None:
-            logger.info(f'   Physical constraint: predictions clipped to ymin={ymin:.4f} (tp=0 in normalized space)')
-        logger.info(f'   Starting PySR search (niterations={sr["searchparams"]["niterations"]}, procs={procs}, timeout={timeout}s)...')
+            logger.info(f'   Physical constraint: predictions clipped to 0 in transformed/normalized space...')
+        logger.info(f'   Starting PySR search ({sr["searchparams"]["niterations"]} iterations, {procs} processes, {timeout}s timeout)...')
         tmpdir = tempfile.mkdtemp(prefix='pysr_')
         try:
             model = fit(Xsub,ysub,predictors,sr,procs,timeout,tmpdir,ymin=ymin)
