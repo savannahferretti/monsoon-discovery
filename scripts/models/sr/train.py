@@ -6,6 +6,8 @@ os.environ.setdefault('JULIA_NUM_THREADS', '1')
 import gc
 import shutil
 import logging
+import warnings
+warnings.filterwarnings('ignore')
 import tempfile
 import argparse
 import pickle
