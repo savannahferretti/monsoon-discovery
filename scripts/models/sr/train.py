@@ -154,8 +154,9 @@ def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
     - ysub (np.ndarray): target values with shape (subsetsize,)
     - predictors (list[str]): variable names corresponding to columns of Xsub
     - srconfig (dict): SR experiment configuration with keys 'searchparams', 'operators',
-        'complexity', 'constraints', 'nested_constraints', 'seed', and 'physical_constraints'
-    - procs (int): number of Julia worker processes
+        'complexity', 'constraints', 'nested_constraints', 'seed', and 'physical_constraints';
+        searchparams must include 'ncycles_per_iteration' and 'weight_optimize'
+    - procs (int): number of Julia worker processes; populations is set to 3*procs
     - timeout (int): search timeout in seconds; acts as a safety net alongside niterations
     - tmpdir (str): temporary directory for Julia equation files
     - ymin (float | None): normalized lower bound on predictions (tp=0 in native units);
@@ -174,8 +175,10 @@ def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
         loss = 'loss(x, y) = (x - y)^2'
     model = PySRRegressor(
         niterations=sp['niterations'],
-        populations=sp['populations'],
+        populations=3*procs,
         population_size=sp['population_size'],
+        ncycles_per_iteration=sp['ncycles_per_iteration'],
+        weight_optimize=sp['weight_optimize'],
         binary_operators=ops['binary'],
         unary_operators=ops['unary'],
         complexity_of_operators=ops['complexity'],
