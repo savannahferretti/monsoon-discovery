@@ -226,6 +226,8 @@ def save(model,runname,config):
 
 if __name__=='__main__':
     jl.seval('safe_pow(x, y) = abs(x)^y')
+    jl.seval('log_abs(x) = log(abs(x))')
+    jl.seval('sqrt_abs(x) = sqrt(abs(x))')
     config = Config()
     sr     = config.sr
     runs   = sr['runs']
