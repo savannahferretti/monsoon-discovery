@@ -15,6 +15,7 @@ export OMP_NUM_THREADS=1
 export JULIA_NUM_THREADS=1
 export JULIA_DEPOT_PATH=/pscratch/sd/s/sferrett/.julia
 export PYTHON_JULIAPKG_PROJECT=/pscratch/sd/s/sferrett/.julia/environments/pyjuliapkg
+export UCX_ERROR_SIGNALS=""
 
 module load python conda
 source "$(conda info --base)/etc/profile.d/conda.sh"
