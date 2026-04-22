@@ -25,16 +25,19 @@ def parse():
     '''
     Purpose: Parse command-line arguments for running the training script.
     Returns:
-    - tuple[set[str] | None, int, int]: selected run names (or None for all), number of Julia
-        worker processes, and search timeout in seconds
+    - tuple[set[str] | None, int, int, int | None, int | None]: selected run names (or None for
+        all), number of Julia worker processes, search timeout in seconds, and optional overrides
+        for niterations and subsetsize (None means use the value from configs.json)
     '''
     parser = argparse.ArgumentParser(description='Train PySR symbolic regression models.')
     parser.add_argument('--runs',type=str,default='all',help='Comma-separated run names to train, or `all`')
     parser.add_argument('--procs',type=int,default=63,help='Number of Julia worker processes (default: 63)')
     parser.add_argument('--timeout',type=int,default=19800,help='PySR search timeout in seconds (default: 19800)')
+    parser.add_argument('--niterations',type=int,default=None,help='Override niterations from config (useful for quick tests)')
+    parser.add_argument('--subsetsize',type=int,default=None,help='Override subsetsize from config (useful for quick tests)')
     args = parser.parse_args()
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
-    return selectedruns,args.procs,args.timeout
+    return selectedruns,args.procs,args.timeout,args.niterations,args.subsetsize
 
 def kernel_integrate(fields,weights,dsig,mask=None):
     '''
@@ -235,7 +238,7 @@ if __name__=='__main__':
     sr     = config.sr
     runs   = sr['runs']
     logger.info('Spinning up...')
-    selectedruns,procs,timeout = parse()
+    selectedruns,procs,timeout,niterations_override,subsetsize_override = parse()
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
@@ -247,6 +250,9 @@ if __name__=='__main__':
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
         predictors = fieldvars + localvars
+        subsetsize = subsetsize_override if subsetsize_override is not None else sr['subsetsize']
+        if niterations_override is not None:
+            sr['searchparams']['niterations'] = niterations_override
         logger.info(f'   Loading normalized training and validation splits...')
         Xtrain,ytrain,_,vmtrain = load_data('train',runconfig,config)
         Xvalid,yvalid,_,vmvalid = load_data('valid',runconfig,config)
@@ -254,9 +260,9 @@ if __name__=='__main__':
         yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
         del Xtrain,Xvalid,ytrain,yvalid
         gc.collect()
-        logger.info(f'   Subsampling {sr["subsetsize"]} stratified samples...')
+        logger.info(f'   Subsampling {subsetsize} stratified samples...')
         ymin = float(yfit.min()) if sr.get('physical_constraints',False) else None
-        Xsub,ysub = subsample(Xfit,yfit,sr['subsetsize'],sr['seed'])
+        Xsub,ysub = subsample(Xfit,yfit,subsetsize,sr['seed'])
         del Xfit,yfit
         gc.collect()
         if ymin is not None:
