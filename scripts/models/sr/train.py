@@ -22,6 +22,46 @@ from scripts.data.classes import PredictionWriter
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
+def select_pareto_elbow(equations: pd.DataFrame, min_complexity: int = 3) -> pd.Series:
+    """
+    Select the equation at the elbow of the Pareto frontier, where the
+    marginal loss reduction per unit complexity drops below a threshold.
+
+    Args:
+    - equations: model.equations_ DataFrame with 'complexity' and 'loss' columns
+    - min_complexity: ignore equations simpler than this (avoids trivial picks)
+
+    Returns:
+    - pd.Series: the selected row from the equations DataFrame
+    """
+    front = equations[equations['complexity'] >= min_complexity].copy()
+    front = front.sort_values('complexity').reset_index(drop=True)
+
+    if len(front) == 1:
+        return front.iloc[0]
+
+    # Normalize both axes to [0, 1] for geometry-agnostic elbow detection
+    c = front['complexity'].values.astype(float)
+    l = front['loss'].values.astype(float)
+    c_norm = (c - c.min()) / (c.max() - c.min() + 1e-12)
+    l_norm = (l - l.min()) / (l.max() - l.min() + 1e-12)
+
+    # Distance from each point to the line connecting the first and last points
+    # (standard "kneedle"-style elbow detection)
+    p1 = np.array([c_norm[0],  l_norm[0]])
+    p2 = np.array([c_norm[-1], l_norm[-1]])
+    line = p2 - p1
+    line_len = np.linalg.norm(line)
+
+    distances = []
+    for i in range(len(front)):
+        pt = np.array([c_norm[i], l_norm[i]])
+        dist = np.abs(np.cross(line, p1 - pt)) / (line_len + 1e-12)
+        distances.append(dist)
+
+    elbow_idx = int(np.argmax(distances))
+    return front.iloc[elbow_idx]
+    
 def parse():
     '''
     Purpose: Parse command-line arguments for running the training script.
@@ -259,14 +299,14 @@ def save(model,runname,config):
     Returns:
     - None
     '''
-    outdir  = os.path.join(config.modelsdir,'sr')
-    os.makedirs(outdir,exist_ok=True)
+    outdir  = os.path.join(config.modelsdir, 'sr')
+    os.makedirs(outdir, exist_ok=True)
     pklpath = os.path.join(outdir,f'{runname}_pareto.pkl')
     csvpath = os.path.join(outdir,f'{runname}_equations.csv')
     with open(pklpath,'wb') as f:
         pickle.dump(model,f)
     model.equations_.to_csv(csvpath,index=False)
-    best = model.get_best()
+    best = select_pareto_elbow(model.equations_)
     logger.info(f'   Best equation: {best["equation"]}')
     logger.info(f'   Complexity: {best["complexity"]}, Loss: {best["loss"]:.6f}')
     logger.info(f'   Saved to {pklpath}')
