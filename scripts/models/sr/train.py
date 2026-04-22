@@ -4,6 +4,7 @@ import os
 os.environ.setdefault('JULIA_NUM_THREADS', '1')
 
 import gc
+import json
 import shutil
 import logging
 import warnings
@@ -55,20 +56,22 @@ def kernel_integrate(fields,weights,dsig,mask=None):
         weighted = weighted * mask[:,None,:]
     return weighted.sum(axis=2)
 
-def load_data(splitname,runconfig,config):
+def load_data(splitname,runconfig,config,time_offset=0):
     '''
     Purpose: Load a normalized data split and construct predictor features for symbolic regression.
         If `weightsfrom` is set in runconfig, integrates vertical field profiles using kernel weights
         from a previously trained NN model, averaging across seeds. Otherwise reads scalar field
         variables directly. All field profile variables are on sigma levels with dimension `sig`.
+        A '__time_idx__' column is added to X so that subsample() can select whole timesteps.
     Args:
     - splitname (str): 'train' | 'valid' | 'test'
     - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
     - config (Config): project configuration object
+    - time_offset (int): added to each time index so that train and valid time indices are globally unique
     Returns:
     - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray]:
         (X, y, refda, validmask) where:
-        - X: predictor features with shape (ntotal, nfeatures), NaN where invalid
+        - X: predictor features with shape (ntotal, nfeatures+1), NaN where invalid; last column is '__time_idx__'
         - y: target values with shape (ntotal,)
         - refda: reference DataArray with (time, lat, lon) coordinates
         - validmask: boolean array with shape (ntotal,) indicating finite samples
@@ -81,6 +84,8 @@ def load_data(splitname,runconfig,config):
     splitds   = xr.open_dataset(filepath,engine='h5netcdf')
     refda     = splitds[config.targetvar].transpose('time','lat','lon')
     ntime     = splitds.sizes['time']
+    nlat      = splitds.sizes.get('lat',1)
+    nlon      = splitds.sizes.get('lon',1)
     columns   = {}
     if weightsfrom:
         nsig  = splitds.sizes['sig']
@@ -119,41 +124,66 @@ def load_data(splitname,runconfig,config):
         else:
             arr = np.tile(da.values,(ntime,1,1)).ravel()
         columns[var] = arr
+    columns['__time_idx__'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     X         = pd.DataFrame(columns)
     y         = refda.values.ravel()
-    validmask = np.isfinite(X).all(axis=1).values & np.isfinite(y)
+    validmask = np.isfinite(X.drop(columns=['__time_idx__'])).all(axis=1).values & np.isfinite(y)
     splitds.close()
     return X,y,refda,validmask
 
-def subsample(X,y,subsetsize,seed,wetfrac=0.5):
+def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     '''
-    Purpose: Stratified subsample that oversamples precipitating points to ensure
-        the search has strong signal across the full range from dry to extreme precip.
-        Separates samples into dry (y at its minimum, corresponding to tp=0) and wet
-        (y > minimum), draws wetfrac*subsetsize stratified samples from wet cases and
-        the remainder from dry cases, then shuffles the combined subset.
+    Purpose: Subsample complete timesteps with log-uniform coverage of the precipitation
+        distribution. Timesteps are grouped by their domain-maximum precipitation in raw mm
+        (recovered by inverting the log1p normalization) and divided into one-decade-wide
+        log10 bins from loglo to loghi, plus one dry bin for timesteps below 10^loglo mm.
+        An equal number of timesteps is drawn from each non-empty bin (with replacement when
+        a bin has fewer timesteps than needed), and ALL valid spatial points within each
+        selected timestep are retained. This avoids geographic bias and ensures the model
+        sees complete spatial snapshots weighted equally across precipitation regimes.
     Args:
-    - X (pd.DataFrame): predictor features with shape (nsamples, nfeatures)
-    - y (np.ndarray): target values with shape (nsamples,)
-    - subsetsize (int): total number of samples to draw
+    - X (pd.DataFrame): features including a '__time_idx__' column added by load_data()
+    - y (np.ndarray): normalized log1p(tp) target values with shape (nsamples,)
+    - subsetsize (int): approximate total samples; actual count is n_selected_timesteps x avg_pts_per_time
     - seed (int): random seed for reproducibility
-    - wetfrac (float): fraction of subsetsize drawn from precipitating samples (default 0.5)
+    - loglo (float): log10 lower bound of wet bins in mm (default -4 → 0.0001 mm)
+    - loghi (float): log10 upper bound of wet bins in mm (default 2 → 100 mm)
     Returns:
-    - tuple[pd.DataFrame, np.ndarray]: (Xsub, ysub) each with shape (subsetsize, nfeatures) and (subsetsize,)
+    - tuple[pd.DataFrame, np.ndarray]: (Xsub, ysub) without the '__time_idx__' column
     '''
-    rng    = np.random.default_rng(seed)
-    ymin   = float(np.nanmin(y))
-    wetidx = np.where(y > ymin)[0]
-    dryidx = np.where(y <= ymin)[0]
-    nwet   = min(int(round(subsetsize*wetfrac)),len(wetidx))
-    ndry   = subsetsize-nwet
-    def stratified(idx,n):
-        s    = idx[np.argsort(y[idx])]
-        bins = np.array_split(s,n)
-        return np.array([rng.choice(b) for b in bins if len(b)>0])
-    subidx = np.concatenate([stratified(wetidx,nwet),stratified(dryidx,ndry)])
+    statsfile = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        flat    = json.load(f)
+    tp      = np.expm1(np.asarray(y)*flat['tp_std']+flat['tp_mean'])
+    rng         = np.random.default_rng(seed)
+    time_idx    = X['__time_idx__'].values
+    uniq_times,start_idx,_ = np.unique(time_idx,return_index=True,return_counts=True)
+    sorted_tp   = tp[np.argsort(time_idx,kind='stable')]
+    tmax        = np.maximum.reduceat(sorted_tp,start_idx)
+    avg_pts     = len(time_idx)/len(uniq_times)
+    nbins       = int(loghi-loglo)
+    n_t_total   = max(nbins+1,int(round(subsetsize/avg_pts)))
+    n_per_bin   = max(1,n_t_total//(nbins+1))
+    logbounds   = np.linspace(loglo,loghi,nbins+1)
+    def draw(tidx,n):
+        return rng.choice(tidx,n,replace=len(tidx)<n)
+    selected = []
+    dry_mask = tmax<=10**loglo
+    if dry_mask.any():
+        selected.append(draw(uniq_times[dry_mask],n_per_bin))
+    log_tmax = np.log10(tmax.clip(min=10**(loglo-1)))
+    for i in range(nbins):
+        lo,hi  = logbounds[i],logbounds[i+1]
+        in_bin = uniq_times[(log_tmax>lo)&(log_tmax<=hi)]
+        if len(in_bin)>0:
+            selected.append(draw(in_bin,n_per_bin))
+    sel_times = np.unique(np.concatenate(selected))
+    keep      = np.isin(time_idx,sel_times)
+    subidx    = np.where(keep)[0]
     rng.shuffle(subidx)
-    return X.iloc[subidx].reset_index(drop=True),y[subidx]
+    Xsub = X.iloc[subidx].drop(columns=['__time_idx__']).reset_index(drop=True)
+    return Xsub,y[subidx]
 
 def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
     '''
@@ -266,13 +296,13 @@ if __name__=='__main__':
         if niterations_override is not None:
             sr['searchparams']['niterations'] = niterations_override
         logger.info(f'   Loading normalized training and validation splits...')
-        Xtrain,ytrain,_,vmtrain = load_data('train',runconfig,config)
-        Xvalid,yvalid,_,vmvalid = load_data('valid',runconfig,config)
+        Xtrain,ytrain,refda_train,vmtrain = load_data('train',runconfig,config,time_offset=0)
+        Xvalid,yvalid,_,vmvalid = load_data('valid',runconfig,config,time_offset=int(refda_train.sizes['time']))
         Xfit = pd.concat([Xtrain[vmtrain],Xvalid[vmvalid]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
-        del Xtrain,Xvalid,ytrain,yvalid
+        del Xtrain,Xvalid,ytrain,yvalid,refda_train
         gc.collect()
-        logger.info(f'   Subsampling {subsetsize} stratified samples...')
+        logger.info(f'   Subsampling ~{subsetsize} samples across log-uniform precipitation bins...')
         ymin = float(yfit.min()) if sr.get('physical_constraints',False) else None
         Xsub,ysub = subsample(Xfit,yfit,subsetsize,sr['seed'])
         del Xfit,yfit
