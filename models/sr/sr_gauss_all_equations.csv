@@ -1,0 +1,13 @@
+complexity,loss,equation,score,sympy_format,lambda_format
+1,0.99261016,-0.0041873897,0.0,-0.00418738970000000,PySRFunction(X=>-0.00418738970000000)
+2,0.67372906,rh,0.38750995688260986,rh,PySRFunction(X=>rh)
+4,0.6460142,cube(rh),0.021003278498846298,rh**3,PySRFunction(X=>rh**3)
+6,0.62463045,cube(rh) * 1.3669707,0.016830645051858505,rh**3*1.3669707,PySRFunction(X=>rh**3*1.3669707)
+8,0.61407894,cube(rh + 0.17426986) + -0.20393859,0.008518354101529164,(rh + 0.17426986)**3 - 0.20393859,PySRFunction(X=>(rh + 0.17426986)**3 - 0.20393859)
+9,0.5952467,cube(rh) * (1.990919 - lf),0.031147545195904604,rh**3*(1.990919 - lf),PySRFunction(X=>rh**3*(1.990919 - lf))
+10,0.577762,thetae + (rh - (thetaestar + 1.0996674)),0.02981392229435278,rh + thetae - (thetaestar + 1.0996674),PySRFunction(X=>rh + thetae - (thetaestar + 1.0996674))
+11,0.5180142,((thetae * 0.71140605) - (thetaestar + 0.7747626)) * 5.9855957,0.10915936415696657,(thetae*0.71140605 - (thetaestar + 0.7747626))*5.9855957,PySRFunction(X=>(thetae*0.71140605 - (thetaestar + 0.7747626))*5.9855957)
+14,0.49535024,(rh + (thetae * 3.1095166)) - ((thetaestar * 4.5574) + 3.7253196),0.014912529028778827,rh + thetae*3.1095166 - (thetaestar*4.5574 + 3.7253196),PySRFunction(X=>rh + thetae*3.1095166 - (thetaestar*4.5574 + 3.7253196))
+16,0.47047326,((thetae * 2.6889856) + cube(rh)) - ((thetaestar * 3.8671932) + 3.0314517),0.02576297183533715,rh**3 + thetae*2.6889856 - (thetaestar*3.8671932 + 3.0314517),PySRFunction(X=>rh**3 + thetae*2.6889856 - (thetaestar*3.8671932 + 3.0314517))
+19,0.47000366,((thetae * 3.33419) + cube(rh)) - ((thetaestar - -0.8276954) * (lf + 4.16704)),0.00033288078210867977,rh**3 + thetae*3.33419 - (lf + 4.16704)*(thetaestar - 1*(-0.8276954)),PySRFunction(X=>rh**3 + thetae*3.33419 - (lf + 4.16704)*(thetaestar - 1*(-0.8276954)))
+20,0.46752545,(exp(rh) * (3.1301534 - lf)) * ((thetae * 0.73313236) - (thetaestar + 0.7834554)),0.005286696158132479,(3.1301534 - lf)*(thetae*0.73313236 - (thetaestar + 0.7834554))*exp(rh),PySRFunction(X=>(3.1301534 - lf)*(thetae*0.73313236 - (thetaestar + 0.7834554))*exp(rh))
