@@ -125,23 +125,34 @@ def load_data(splitname,runconfig,config):
     splitds.close()
     return X,y,refda,validmask
 
-def subsample(X,y,subsetsize,seed):
+def subsample(X,y,subsetsize,seed,wetfrac=0.5):
     '''
-    Purpose: Stratified subsample by target value to ensure uniform coverage of all precipitation regimes.
-        Sorts samples by target, divides into `subsetsize` equal-width bins, and draws one random
-        sample from each bin so that the subset spans the full distribution from driest to wettest.
+    Purpose: Stratified subsample that oversamples precipitating points to ensure
+        the search has strong signal across the full range from dry to extreme precip.
+        Separates samples into dry (y at its minimum, corresponding to tp=0) and wet
+        (y > minimum), draws wetfrac*subsetsize stratified samples from wet cases and
+        the remainder from dry cases, then shuffles the combined subset.
     Args:
     - X (pd.DataFrame): predictor features with shape (nsamples, nfeatures)
     - y (np.ndarray): target values with shape (nsamples,)
-    - subsetsize (int): number of samples to draw, one per sorted bin
+    - subsetsize (int): total number of samples to draw
     - seed (int): random seed for reproducibility
+    - wetfrac (float): fraction of subsetsize drawn from precipitating samples (default 0.5)
     Returns:
     - tuple[pd.DataFrame, np.ndarray]: (Xsub, ysub) each with shape (subsetsize, nfeatures) and (subsetsize,)
     '''
-    rng       = np.random.default_rng(seed)
-    sortedidx = np.argsort(y)
-    bins      = np.array_split(sortedidx,subsetsize)
-    subidx    = np.array([rng.choice(b) for b in bins if len(b)>0])
+    rng    = np.random.default_rng(seed)
+    ymin   = float(np.nanmin(y))
+    wetidx = np.where(y > ymin)[0]
+    dryidx = np.where(y <= ymin)[0]
+    nwet   = min(int(round(subsetsize*wetfrac)),len(wetidx))
+    ndry   = subsetsize-nwet
+    def stratified(idx,n):
+        s    = idx[np.argsort(y[idx])]
+        bins = np.array_split(s,n)
+        return np.array([rng.choice(b) for b in bins if len(b)>0])
+    subidx = np.concatenate([stratified(wetidx,nwet),stratified(dryidx,ndry)])
+    rng.shuffle(subidx)
     return X.iloc[subidx].reset_index(drop=True),y[subidx]
 
 def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
