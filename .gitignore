@@ -23,6 +23,7 @@ data/weights/*
 *.h5
 *.pkl
 *.sh
+!train_sr.sh
 *.pth
 *.npz
 *.pyc
