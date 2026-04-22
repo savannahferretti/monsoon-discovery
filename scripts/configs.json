@@ -76,11 +76,11 @@
         "weight_optimize":0.001},
       "operators":{
         "binary":["div","mult","plus","sub","pow_abs"],
-        "unary":["cos","exp","sin","abs","cube","neg","log_abs","sqrt_abs"],
+        "unary":["cos","exp","sin","abs","cube","neg","log_abs","sqrt_abs","sigmoid"],
         "complexity":{
           "plus":1,"sub":1,"mult":1,"neg":1,
           "div":2,"abs":2,"sqrt_abs":2,"cube":2,
-          "cos":3,"sin":3,"exp":3,"log_abs":3,
+          "cos":3,"sin":3,"exp":3,"log_abs":3,"sigmoid":3,
           "pow_abs":9}},
       "complexity":{
         "of_variables":2,
@@ -88,7 +88,8 @@
       "constraints":{
         "pow_abs":[-1,1]},
       "nested_constraints":{
-        "exp":{"exp":0,"log_abs":0,"pow_abs":0},
+        "exp":{"exp":0,"log_abs":0,"pow_abs":0,"sigmoid":0},
+        "sigmoid":{"sigmoid":0,"exp":0,"log_abs":0},
         "pow_abs":{"pow_abs":0},
         "log_abs":{"log_abs":0,"exp":0},
         "sqrt_abs":{"sqrt_abs":0,"log_abs":0},

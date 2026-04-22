@@ -234,6 +234,7 @@ if __name__=='__main__':
     jl.seval('pow_abs(x, y) = abs(x)^y')
     jl.seval('log_abs(x) = log(abs(x))')
     jl.seval('sqrt_abs(x) = sqrt(abs(x))')
+    jl.seval('sigmoid(x) = one(x) / (one(x) + exp(-x))')
     config = Config()
     sr     = config.sr
     runs   = sr['runs']
