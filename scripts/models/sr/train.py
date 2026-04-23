@@ -15,7 +15,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pysr import PySRRegressor,jl
+from pysr import PySRRegressor
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
 
@@ -275,7 +275,7 @@ def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
         maxdepth=sp['maxdepth'],
         constraints=constr,
         nested_constraints=nested,
-        extra_sympy_mappings={'pow_abs':lambda x,y:x**y,'square':lambda x:x**2},
+        extra_sympy_mappings={'square':lambda x:x**2},
         loss=loss,
         model_selection='best',
         turbo=True,
@@ -315,10 +315,6 @@ def save(model,runname,config):
     logger.info(f'   Saved to {pklpath}')
 
 if __name__=='__main__':
-    jl.seval('pow_abs(x, y) = abs(x)^y')
-    jl.seval('log_abs(x) = log(abs(x))')
-    jl.seval('sqrt_abs(x) = sqrt(abs(x))')
-    jl.seval('sigmoid(x) = one(x) / (one(x) + exp(-x))')
     config = Config()
     sr     = config.sr
     runs   = sr['runs']

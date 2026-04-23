@@ -320,34 +320,38 @@
       },
       "operators": {
         "binary": [
-          "div",
-          "mult",
-          "plus",
-          "sub",
-          "pow_abs"
+          "+",
+          "-",
+          "*",
+          "/",
+          "^"
         ],
         "unary": [
           "square",
           "exp",
           "cube",
           "neg",
-          "log_abs",
-          "sqrt_abs",
-          "sigmoid"
+          "log",
+          "sqrt",
+          "abs",
+          "cos",
+          "sin"
         ],
         "complexity": {
-          "plus": 1,
-          "sub": 1,
-          "mult": 1,
+          "+": 1,
+          "-": 1,
+          "*": 1,
           "neg": 1,
-          "div": 2,
-          "sqrt_abs": 2,
+          "/": 2,
+          "abs": 2,
+          "sqrt": 2,
           "square": 2,
           "cube": 2,
           "exp": 3,
-          "log_abs": 3,
-          "sigmoid": 3,
-          "pow_abs": 3
+          "log": 3,
+          "cos": 3,
+          "sin": 3,
+          "^": 3
         }
       },
       "complexity": {
@@ -355,7 +359,7 @@
         "of_constants": 1
       },
       "constraints": {
-        "pow_abs": [
+        "^": [
           -1,
           1
         ]
@@ -363,25 +367,27 @@
       "nested_constraints": {
         "exp": {
           "exp": 0,
-          "log_abs": 0,
-          "pow_abs": 0,
-          "sigmoid": 0
+          "log": 0,
+          "^": 0
         },
-        "sigmoid": {
-          "sigmoid": 0,
-          "exp": 0,
-          "log_abs": 0
+        "^": {
+          "^": 0
         },
-        "pow_abs": {
-          "pow_abs": 0
-        },
-        "log_abs": {
-          "log_abs": 0,
+        "log": {
+          "log": 0,
           "exp": 0
         },
-        "sqrt_abs": {
-          "sqrt_abs": 0,
-          "log_abs": 0
+        "sqrt": {
+          "sqrt": 0,
+          "log": 0
+        },
+        "cos": {
+          "cos": 0,
+          "sin": 0
+        },
+        "sin": {
+          "cos": 0,
+          "sin": 0
         }
       },
       "runs": {
