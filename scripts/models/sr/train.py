@@ -168,7 +168,7 @@ def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     - loglo (float): log10 lower bound of wet bins in mm (default -4 → 0.0001 mm)
     - loghi (float): log10 upper bound of wet bins in mm (default 2 → 100 mm)
     Returns:
-    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column
+    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column; ysub is in native mm
     '''
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
@@ -203,7 +203,7 @@ def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     subidx     = np.where(keep)[0]
     rng.shuffle(subidx)
     xsub = X.iloc[subidx].drop(columns=['timeidx']).reset_index(drop=True)
-    return xsub,y[subidx]
+    return xsub,tp[subidx]
 
 def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
     '''

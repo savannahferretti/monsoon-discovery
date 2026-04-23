@@ -44,17 +44,22 @@ class PredictionWriter:
         arr[valid] = flat
         return arr.reshape(refda.shape)
 
-    def predictions_to_dataset(self,predslist,valid,refda):
+    def predictions_to_dataset(self,predslist,valid,refda,denormalize=True):
         '''
-        Purpose: Unflatten, denormalize, and wrap a list of per-seed predictions into an xr.Dataset.
+        Purpose: Unflatten, optionally denormalize, and wrap a list of per-seed predictions into an xr.Dataset.
         Args:
         - predslist (list[np.ndarray]): per-seed flat predictions, each with shape (nsamples,)
         - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
+        - denormalize (bool): if True, apply expm1(pred*std+mean) to convert from z-score log1p to native
+            units; if False, predictions are already in native units and are only clipped to zero
         Returns:
         - xr.Dataset: Dataset with predictions in native units on a (time, lat, lon, seed) grid
         '''
-        predstack = np.stack([np.expm1(self.unflatten(preds,valid,refda)*self.std+self.mean) for preds in predslist],axis=-1)
+        if denormalize:
+            predstack = np.stack([np.expm1(self.unflatten(preds,valid,refda)*self.std+self.mean) for preds in predslist],axis=-1)
+        else:
+            predstack = np.stack([np.clip(self.unflatten(preds,valid,refda),0,None) for preds in predslist],axis=-1)
         coords = {dim:refda.coords[dim].values for dim in refda.dims}
         coords['seed'] = np.arange(len(predslist))
         da = xr.DataArray(predstack,dims=('time','lat','lon','seed'),coords=coords,name=self.targetvar,
