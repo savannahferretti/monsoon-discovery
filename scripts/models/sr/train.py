@@ -173,14 +173,14 @@ def load_data(splitname,runconfig,config,time_offset=0):
 
 def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     '''
-    Purpose: Subsample complete timesteps with log-uniform coverage of the precipitation
+    Purpose: Subsample complete timesteps with proportional coverage of the precipitation
         distribution. Timesteps are grouped by their domain-maximum precipitation in raw mm
         (recovered by inverting the log1p normalization) and divided into one-decade-wide
         log10 bins from loglo to loghi, plus one dry bin for timesteps below 10^loglo mm.
-        An equal number of timesteps is drawn from each non-empty bin (with replacement when
-        a bin has fewer timesteps than needed), and ALL valid spatial points within each
-        selected timestep are retained. This avoids geographic bias and ensures the model
-        sees complete spatial snapshots weighted equally across precipitation regimes.
+        Timesteps are drawn from each bin in proportion to its share of the full dataset,
+        so the subsampled precipitation distribution mirrors the shape of the full distribution.
+        ALL valid spatial points within each selected timestep are retained to avoid geographic
+        bias and preserve complete spatial snapshots.
     Args:
     - X (pd.DataFrame): features including a '__time_idx__' column added by load_data()
     - y (np.ndarray): normalized log1p(tp) target values with shape (nsamples,)
@@ -203,21 +203,22 @@ def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     tmax        = np.maximum.reduceat(sorted_tp,start_idx)
     avg_pts     = len(time_idx)/len(uniq_times)
     nbins       = int(loghi-loglo)
-    n_t_total   = max(nbins+1,int(round(subsetsize/avg_pts)))
-    n_per_bin   = max(1,n_t_total//(nbins+1))
+    n_t_total   = max(1,int(round(subsetsize/avg_pts)))
     logbounds   = np.linspace(loglo,loghi,nbins+1)
+    log_tmax    = np.log10(tmax.clip(min=10**(loglo-1)))
+    dry_mask    = tmax<=10**loglo
     def draw(tidx,n):
         return rng.choice(tidx,n,replace=len(tidx)<n)
-    selected = []
-    dry_mask = tmax<=10**loglo
+    bin_pools = []
     if dry_mask.any():
-        selected.append(draw(uniq_times[dry_mask],n_per_bin))
-    log_tmax = np.log10(tmax.clip(min=10**(loglo-1)))
+        bin_pools.append(uniq_times[dry_mask])
     for i in range(nbins):
         lo,hi  = logbounds[i],logbounds[i+1]
         in_bin = uniq_times[(log_tmax>lo)&(log_tmax<=hi)]
         if len(in_bin)>0:
-            selected.append(draw(in_bin,n_per_bin))
+            bin_pools.append(in_bin)
+    total_avail = sum(len(p) for p in bin_pools)
+    selected = [draw(pool,max(1,round(len(pool)/total_avail*n_t_total))) for pool in bin_pools]
     sel_times = np.unique(np.concatenate(selected))
     keep      = np.isin(time_idx,sel_times)
     subidx    = np.where(keep)[0]
@@ -277,7 +278,7 @@ def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
         extra_sympy_mappings={'pow_abs':lambda x,y:x**y},
         loss=loss,
         model_selection='best',
-        turbo=False,
+        turbo=True,
         batching=True,
         batch_size=sp['batch_size'],
         random_state=srconfig['seed'],
