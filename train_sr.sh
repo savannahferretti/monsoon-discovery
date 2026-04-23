@@ -4,7 +4,7 @@
 #SBATCH --qos=shared
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=128
+#SBATCH --cpus-per-task=52
 #SBATCH --time=06:00:00
 #SBATCH --job-name=train_sr
 #SBATCH --output=logs/%x_%j.log
