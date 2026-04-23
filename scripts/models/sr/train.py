@@ -72,7 +72,7 @@ def parse():
     '''
     parser = argparse.ArgumentParser(description='Train PySR symbolic regression models.')
     parser.add_argument('--runs',type=str,default='all',help='Comma-separated run names to train, or `all`')
-    parser.add_argument('--procs',type=int,default=127,help='Number of Julia worker processes (default: 127)')
+    parser.add_argument('--procs',type=int,default=50,help='Number of Julia worker processes (default: 50)')
     parser.add_argument('--timeout',type=int,default=19800,help='PySR search timeout in seconds (default: 19800)')
     parser.add_argument('--niterations',type=int,default=None,help='Override niterations from config (useful for quick tests)')
     parser.add_argument('--subsetsize',type=int,default=None,help='Override subsetsize from config (useful for quick tests)')
