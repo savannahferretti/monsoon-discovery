@@ -113,27 +113,32 @@
         "targettotal":500000,
         "populations":50,
         "populationsize":150,
-        "maxsize":30,
-        "maxdepth":4,
+        "maxsize":20,
+        "maxdepth":10,
         "batchsize":500,
         "cyclesperiteration":200,
-        "weightoptimize":0.01},
+        "weightoptimize":0.05},
       "operators":{
         "binary":["+","-","*","/","^"],
         "unary":["neg","abs","sqrt","square","cube","exp","log","cos","sin"],
-        "complexity":{"+":1,"-":1,"*":1,"neg":1,"/":2,"abs":2,"sqrt":2,"square":2,"cube":2,"exp":3,"log":3,"cos":3,"sin":3,"^":3}},
+        "complexity":{"+":1,"-":1,"*":1,"neg":1,"abs":1,"/":2,"sqrt":2,"square":2,"cube":2,"^":3,"exp":3,"log":3,"cos":3,"sin":3}},
       "complexity":{
-        "ofvariables":2,
+        "ofvariables":1,
         "ofconstants":1},
       "constraints":{
         "^":[-1,1]},
       "nestedconstraints":{
-        "exp":{"exp":0,"log":0,"^":0},
-        "^":{"^":0},
-        "log":{"log":0,"exp":0},
-        "sqrt":{"sqrt":0,"log":0},
-        "cos":{"cos":0,"sin":0},
-        "sin":{"cos":0,"sin":0}},
+          "/":{"/":0},
+          "^":{"^":0},
+          "neg":{"neg":0},
+          "abs":{"neg":0,"abs":0},
+          "sqrt":{"-":0,"*":0,"/":0,"neg":0,"sqrt":0,"cube":0,"log":0,"cos":0,"sin":0},
+          "cube":{"^":0,"cube":0,},
+          "square":{"^":0,"cube":0,"square":0,"exp":0},
+          "exp":{"^":0,"exp":0,"log":0,"square":0,"exp":0},
+          "log":{"-":0,"*":0,"/":0,"neg":0,"cube":0,"exp":0,"log":0,"cos":0,"sin":0}
+          "cos":{"/":0,"^":0,"exp":0,"log":0,"cos":0,"sin":0},
+          "sin":{"/":0,"^":0,"exp":0,"log":0,"cos":0,"sin":0}},
       "runs":{
         "sr_gauss_all":{
           "fieldvars":["rh","thetae","thetaestar"],
