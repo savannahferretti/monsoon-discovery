@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
 import os
-os.environ.setdefault('JULIA_NUM_THREADS', '1')
+os.environ.setdefault('JULIA_NUM_THREADS','1')
 
-import gc
 import json
 import shutil
 import logging
@@ -17,68 +16,54 @@ import pandas as pd
 import xarray as xr
 from pysr import PySRRegressor
 from scripts.utils import Config
-from scripts.data.classes import PredictionWriter
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
-def select_pareto_elbow(equations: pd.DataFrame, min_complexity: int = 3) -> pd.Series:
-    """
-    Select the equation at the elbow of the Pareto frontier, where the
-    marginal loss reduction per unit complexity drops below a threshold.
-
+def select_pareto_elbow(equations,min_complexity=3):
+    '''
+    Purpose: Select the equation at the elbow of the Pareto frontier, where marginal
+        loss reduction per unit complexity is largest.
     Args:
-    - equations: model.equations_ DataFrame with 'complexity' and 'loss' columns
-    - min_complexity: ignore equations simpler than this (avoids trivial picks)
-
+    - equations (pd.DataFrame): model.equations_ with 'complexity' and 'loss' columns
+    - min_complexity (int): ignore equations simpler than this (avoids trivial picks)
     Returns:
     - pd.Series: the selected row from the equations DataFrame
-    """
-    front = equations[equations['complexity'] >= min_complexity].copy()
+    '''
+    front = equations[equations['complexity']>=min_complexity].copy()
     front = front.sort_values('complexity').reset_index(drop=True)
-
-    if len(front) == 1:
+    if len(front)==1:
         return front.iloc[0]
+    c       = front['complexity'].values.astype(float)
+    l       = front['loss'].values.astype(float)
+    cnorm   = (c-c.min())/(c.max()-c.min()+1e-12)
+    lnorm   = (l-l.min())/(l.max()-l.min()+1e-12)
+    p1      = np.array([cnorm[0],lnorm[0]])
+    p2      = np.array([cnorm[-1],lnorm[-1]])
+    line    = p2-p1
+    linelen = np.linalg.norm(line)
+    distances = [np.abs(np.cross(line,p1-np.array([cnorm[i],lnorm[i]])))/(linelen+1e-12)
+                 for i in range(len(front))]
+    elbowix = int(np.argmax(distances))
+    return front.iloc[elbowix]
 
-    # Normalize both axes to [0, 1] for geometry-agnostic elbow detection
-    c = front['complexity'].values.astype(float)
-    l = front['loss'].values.astype(float)
-    c_norm = (c - c.min()) / (c.max() - c.min() + 1e-12)
-    l_norm = (l - l.min()) / (l.max() - l.min() + 1e-12)
-
-    # Distance from each point to the line connecting the first and last points
-    # (standard "kneedle"-style elbow detection)
-    p1 = np.array([c_norm[0],  l_norm[0]])
-    p2 = np.array([c_norm[-1], l_norm[-1]])
-    line = p2 - p1
-    line_len = np.linalg.norm(line)
-
-    distances = []
-    for i in range(len(front)):
-        pt = np.array([c_norm[i], l_norm[i]])
-        dist = np.abs(np.cross(line, p1 - pt)) / (line_len + 1e-12)
-        distances.append(dist)
-
-    elbow_idx = int(np.argmax(distances))
-    return front.iloc[elbow_idx]
-    
 def parse():
     '''
     Purpose: Parse command-line arguments for running the training script.
     Returns:
     - tuple[set[str] | None, int, int, int | None, int | None]: selected run names (or None for
         all), number of Julia worker processes, search timeout in seconds, and optional overrides
-        for niterations and subsetsize (None means use the value from configs.json)
+        for iterations and subsetsize (None means use the value from configs.json)
     '''
     parser = argparse.ArgumentParser(description='Train PySR symbolic regression models.')
     parser.add_argument('--runs',type=str,default='all',help='Comma-separated run names to train, or `all`')
     parser.add_argument('--procs',type=int,default=50,help='Number of Julia worker processes (default: 50)')
     parser.add_argument('--timeout',type=int,default=19800,help='PySR search timeout in seconds (default: 19800)')
-    parser.add_argument('--niterations',type=int,default=None,help='Override niterations from config (useful for quick tests)')
+    parser.add_argument('--iterations',type=int,default=None,help='Override iterations from config (useful for quick tests)')
     parser.add_argument('--subsetsize',type=int,default=None,help='Override subsetsize from config (useful for quick tests)')
     args = parser.parse_args()
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
-    return selectedruns,args.procs,args.timeout,args.niterations,args.subsetsize
+    return selectedruns,args.procs,args.timeout,args.iterations,args.subsetsize
 
 def kernel_integrate(fields,weights,dsig,mask=None):
     '''
@@ -91,27 +76,27 @@ def kernel_integrate(fields,weights,dsig,mask=None):
     Returns:
     - np.ndarray: integrated features with shape (nsamp, nfieldvars)
     '''
-    weighted = fields * weights[None,:,:] * dsig[None,None,:]
+    weighted = fields*weights[None,:,:]*dsig[None,None,:]
     if mask is not None:
-        weighted = weighted * mask[:,None,:]
+        weighted = weighted*mask[:,None,:]
     return weighted.sum(axis=2)
 
 def load_data(splitname,runconfig,config,time_offset=0):
     '''
     Purpose: Load a normalized data split and construct predictor features for symbolic regression.
-        If `weightsfrom` is set in runconfig, integrates vertical field profiles using kernel weights
+        If 'weightsfrom' is set in runconfig, integrates vertical field profiles using kernel weights
         from a previously trained NN model, averaging across seeds. Otherwise reads scalar field
-        variables directly. All field profile variables are on sigma levels with dimension `sig`.
-        A '__time_idx__' column is added to X so that subsample() can select whole timesteps.
+        variables directly. All field profile variables are on sigma levels with dimension 'sig'.
+        A 'timeidx' column is appended to X so that subsample() can select whole timesteps.
     Args:
     - splitname (str): 'train' | 'valid' | 'test'
     - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
     - config (Config): project configuration object
-    - time_offset (int): added to each time index so that train and valid time indices are globally unique
+    - time_offset (int): added to each time index so that train and valid indices are globally unique
     Returns:
     - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray]:
         (X, y, refda, validmask) where:
-        - X: predictor features with shape (ntotal, nfeatures+1), NaN where invalid; last column is '__time_idx__'
+        - X: predictor features with shape (ntotal, nfeatures+1), NaN where invalid; last column is 'timeidx'
         - y: target values with shape (ntotal,)
         - refda: reference DataArray with (time, lat, lon) coordinates
         - validmask: boolean array with shape (ntotal,) indicating finite samples
@@ -120,16 +105,16 @@ def load_data(splitname,runconfig,config,time_offset=0):
     localvars   = runconfig.get('localvars',[])
     weightsfrom = runconfig.get('weightsfrom')
     seeds       = config.nn['seeds']
-    filepath  = os.path.join(config.splitsdir,f'norm_{splitname}.h5')
-    splitds   = xr.open_dataset(filepath,engine='h5netcdf')
-    refda     = splitds[config.targetvar].transpose('time','lat','lon')
-    ntime     = splitds.sizes['time']
-    nlat      = splitds.sizes.get('lat',1)
-    nlon      = splitds.sizes.get('lon',1)
-    columns   = {}
+    filepath    = os.path.join(config.splitsdir,f'norm_{splitname}.h5')
+    splitds     = xr.open_dataset(filepath,engine='h5netcdf')
+    refda       = splitds[config.targetvar].transpose('time','lat','lon')
+    ntime       = splitds.sizes['time']
+    nlat        = splitds.sizes.get('lat',1)
+    nlon        = splitds.sizes.get('lon',1)
+    cols        = {}
     if weightsfrom:
-        nsig  = splitds.sizes['sig']
-        dsig  = splitds['dsig'].values
+        nsig        = splitds.sizes['sig']
+        dsig        = splitds['dsig'].values
         fieldarrays = []
         for var in fieldvars:
             da = splitds[var].transpose('time','lat','lon','sig')
@@ -148,26 +133,20 @@ def load_data(splitname,runconfig,config,time_offset=0):
             seedfeats.append(kernel_integrate(fields3d,weights,dsig,surfmask))
         feats = np.mean(seedfeats,axis=0)
         for i,var in enumerate(fieldvars):
-            columns[var] = feats[:,i]
+            cols[var] = feats[:,i]
     else:
         for var in fieldvars:
-            da = splitds[var]
-            if 'time' in da.dims:
-                arr = da.transpose('time','lat','lon').values.ravel()
-            else:
-                arr = np.tile(da.values,(ntime,1,1)).ravel()
-            columns[var] = arr
+            da      = splitds[var]
+            arr     = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
+            cols[var] = arr
     for var in localvars:
-        da = splitds[var]
-        if 'time' in da.dims:
-            arr = da.transpose('time','lat','lon').values.ravel()
-        else:
-            arr = np.tile(da.values,(ntime,1,1)).ravel()
-        columns[var] = arr
-    columns['__time_idx__'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
-    X         = pd.DataFrame(columns)
+        da      = splitds[var]
+        arr     = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
+        cols[var] = arr
+    cols['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
+    X         = pd.DataFrame(cols)
     y         = refda.values.ravel()
-    validmask = np.isfinite(X.drop(columns=['__time_idx__'])).all(axis=1).values & np.isfinite(y)
+    validmask = np.isfinite(X.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(y)
     splitds.close()
     return X,y,refda,validmask
 
@@ -182,105 +161,96 @@ def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
         ALL valid spatial points within each selected timestep are retained to avoid geographic
         bias and preserve complete spatial snapshots.
     Args:
-    - X (pd.DataFrame): features including a '__time_idx__' column added by load_data()
+    - X (pd.DataFrame): features including a 'timeidx' column added by load_data()
     - y (np.ndarray): normalized log1p(tp) target values with shape (nsamples,)
-    - subsetsize (int): approximate total samples; actual count is n_selected_timesteps x avg_pts_per_time
+    - subsetsize (int): approximate total samples; actual count is nselectedtimesteps x avgptspertime
     - seed (int): random seed for reproducibility
     - loglo (float): log10 lower bound of wet bins in mm (default -4 → 0.0001 mm)
     - loghi (float): log10 upper bound of wet bins in mm (default 2 → 100 mm)
     Returns:
-    - tuple[pd.DataFrame, np.ndarray]: (Xsub, ysub) without the '__time_idx__' column
+    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column
     '''
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
-        flat    = json.load(f)
-    tp      = np.expm1(np.asarray(y)*flat['tp_std']+flat['tp_mean'])
-    rng         = np.random.default_rng(seed)
-    time_idx    = X['__time_idx__'].values
-    uniq_times,start_idx,_ = np.unique(time_idx,return_index=True,return_counts=True)
-    sorted_tp   = tp[np.argsort(time_idx,kind='stable')]
-    tmax        = np.maximum.reduceat(sorted_tp,start_idx)
-    avg_pts     = len(time_idx)/len(uniq_times)
-    nbins       = int(loghi-loglo)
-    n_t_total   = max(1,int(round(subsetsize/avg_pts)))
-    logbounds   = np.linspace(loglo,loghi,nbins+1)
-    log_tmax    = np.log10(tmax.clip(min=10**(loglo-1)))
-    dry_mask    = tmax<=10**loglo
+        flat = json.load(f)
+    tp         = np.expm1(np.asarray(y)*flat['tp_std']+flat['tp_mean'])
+    rng        = np.random.default_rng(seed)
+    timeidx    = X['timeidx'].values
+    uniqtimes,startidx,_ = np.unique(timeidx,return_index=True,return_counts=True)
+    sortedtp   = tp[np.argsort(timeidx,kind='stable')]
+    tmax       = np.maximum.reduceat(sortedtp,startidx)
+    avgpts     = len(timeidx)/len(uniqtimes)
+    nbins      = int(loghi-loglo)
+    ntotal     = max(1,int(round(subsetsize/avgpts)))
+    logbounds  = np.linspace(loglo,loghi,nbins+1)
+    logtmax    = np.log10(tmax.clip(min=10**(loglo-1)))
+    drymask    = tmax<=10**loglo
     def draw(tidx,n):
         return rng.choice(tidx,n,replace=len(tidx)<n)
-    bin_pools = []
-    if dry_mask.any():
-        bin_pools.append(uniq_times[dry_mask])
+    binpools = []
+    if drymask.any():
+        binpools.append(uniqtimes[drymask])
     for i in range(nbins):
-        lo,hi  = logbounds[i],logbounds[i+1]
-        in_bin = uniq_times[(log_tmax>lo)&(log_tmax<=hi)]
-        if len(in_bin)>0:
-            bin_pools.append(in_bin)
-    total_avail = sum(len(p) for p in bin_pools)
-    selected = [draw(pool,max(1,round(len(pool)/total_avail*n_t_total))) for pool in bin_pools]
-    sel_times = np.unique(np.concatenate(selected))
-    keep      = np.isin(time_idx,sel_times)
-    subidx    = np.where(keep)[0]
+        lo,hi = logbounds[i],logbounds[i+1]
+        inbin = uniqtimes[(logtmax>lo)&(logtmax<=hi)]
+        if len(inbin)>0:
+            binpools.append(inbin)
+    totalavail = sum(len(p) for p in binpools)
+    selected   = [draw(pool,max(1,round(len(pool)/totalavail*ntotal))) for pool in binpools]
+    seltimes   = np.unique(np.concatenate(selected))
+    keep       = np.isin(timeidx,seltimes)
+    subidx     = np.where(keep)[0]
     rng.shuffle(subidx)
-    Xsub = X.iloc[subidx].drop(columns=['__time_idx__']).reset_index(drop=True)
-    return Xsub,y[subidx]
+    xsub = X.iloc[subidx].drop(columns=['timeidx']).reset_index(drop=True)
+    return xsub,y[subidx]
 
-def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
+def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset.
         Operators, complexity penalties, and operator constraints are read from srconfig so they
-        can be tuned in configs.json without touching this script. When physical_constraints is
-        enabled, a clipped MSE loss enforces the lower bound ymin (the normalized value of tp=0)
-        so that equations producing negative precipitation are penalized during the search.
-        Parallelism is achieved via Julia worker processes (`procs`) rather than threads.
+        can be tuned in configs.json without touching this script. Parallelism is achieved via
+        Julia worker processes (procs) rather than threads.
     Args:
-    - Xsub (pd.DataFrame): predictor features with shape (subsetsize, nfeatures)
+    - xsub (pd.DataFrame): predictor features with shape (subsetsize, nfeatures)
     - ysub (np.ndarray): target values with shape (subsetsize,)
-    - predictors (list[str]): variable names corresponding to columns of Xsub
+    - predictors (list[str]): variable names corresponding to columns of xsub
     - srconfig (dict): SR experiment configuration with keys 'searchparams', 'operators',
-        'complexity', 'constraints', 'nested_constraints', 'seed', and 'physical_constraints';
-        searchparams must include 'ncycles_per_iteration' and 'weight_optimize'
-    - procs (int): number of Julia worker processes; populations is set to 3*procs
-    - timeout (int): search timeout in seconds; acts as a safety net alongside niterations
+        'complexity', 'constraints', 'nestedconstraints', and 'seed'
+    - procs (int): number of Julia worker processes
+    - timeout (int): search timeout in seconds; acts as a safety net alongside iterations
     - tmpdir (str): temporary directory for Julia equation files
-    - ymin (float | None): normalized lower bound on predictions (tp=0 in native units);
-        only used when physical_constraints is True
     Returns:
     - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
     '''
-    sp     = srconfig['searchparams']
-    ops    = srconfig['operators']
-    compl  = srconfig['complexity']
-    constr = {k:tuple(v) for k,v in srconfig.get('constraints',{}).items()}
-    nested = srconfig.get('nested_constraints',{})
-    if srconfig.get('physical_constraints',False) and ymin is not None:
-        loss = f'loss(x, y) = (max(x, {ymin:.6f}) - y)^2'
-    else:
-        loss = 'loss(x, y) = (x - y)^2'
-    populations = sp.get('populations', 3 * procs)
-    niterations = sp.get('target_total', sp['niterations'] * populations) // populations
-    model = PySRRegressor(
-        niterations=niterations,
-        populations=populations,
-        population_size=sp['population_size'],
-        ncycles_per_iteration=sp['ncycles_per_iteration'],
-        weight_optimize=sp['weight_optimize'],
+    sp       = srconfig['searchparams']
+    ops      = srconfig['operators']
+    compl    = srconfig['complexity']
+    constr   = {k:tuple(v) for k,v in srconfig.get('constraints',{}).items()}
+    nested   = srconfig.get('nestedconstraints',{})
+    popcount = sp.get('populations',3*procs)
+    iters    = sp.get('targettotal',sp['iterations']*popcount)//popcount
+    model    = PySRRegressor(
+        niterations=iters,
+        populations=popcount,
+        population_size=sp['populationsize'],
+        ncycles_per_iteration=sp['cyclesperiteration'],
+        weight_optimize=sp['weightoptimize'],
         binary_operators=ops['binary'],
         unary_operators=ops['unary'],
         complexity_of_operators=ops['complexity'],
-        complexity_of_variables=compl['of_variables'],
-        complexity_of_constants=compl['of_constants'],
+        complexity_of_variables=compl['ofvariables'],
+        complexity_of_constants=compl['ofconstants'],
         maxsize=sp['maxsize'],
         maxdepth=sp['maxdepth'],
         constraints=constr,
         nested_constraints=nested,
         extra_sympy_mappings={'square':lambda x:x**2},
-        loss=loss,
+        loss='loss(x, y) = (x - y)^2',
         model_selection='best',
         turbo=True,
         batching=True,
-        batch_size=sp['batch_size'],
+        batch_size=sp['batchsize'],
         random_state=srconfig['seed'],
         parallelism='multiprocessing',
         procs=procs,
@@ -289,7 +259,7 @@ def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
         delete_tempfiles=True,
         timeout_in_seconds=timeout,
         progress=False)
-    model.fit(Xsub.values,ysub,variable_names=predictors)
+    model.fit(xsub.values,ysub,variable_names=predictors)
     return model
 
 def save(model,runname,config):
@@ -302,8 +272,8 @@ def save(model,runname,config):
     Returns:
     - None
     '''
-    outdir  = os.path.join(config.modelsdir, 'sr')
-    os.makedirs(outdir, exist_ok=True)
+    outdir  = os.path.join(config.modelsdir,'sr')
+    os.makedirs(outdir,exist_ok=True)
     pklpath = os.path.join(outdir,f'{runname}_pareto.pkl')
     csvpath = os.path.join(outdir,f'{runname}_equations.csv')
     with open(pklpath,'wb') as f:
@@ -319,7 +289,7 @@ if __name__=='__main__':
     sr     = config.sr
     runs   = sr['runs']
     logger.info('Spinning up...')
-    selectedruns,procs,timeout,niterations_override,subsetsize_override = parse()
+    selectedruns,procs,timeout,itersoverride,subsetoverride = parse()
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
@@ -330,34 +300,28 @@ if __name__=='__main__':
         logger.info(f'Running `{name}`...')
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
-        predictors = fieldvars + localvars
-        subsetsize = subsetsize_override if subsetsize_override is not None else sr['subsetsize']
-        if niterations_override is not None:
-            sr['searchparams']['niterations'] = niterations_override
-            sr['searchparams'].pop('target_total', None)
-        sp_eff = sr['searchparams']
-        populations_eff = sp_eff.get('populations', 3 * procs)
-        niterations_eff = sp_eff.get('target_total', sp_eff['niterations'] * populations_eff) // populations_eff
+        predictors = fieldvars+localvars
+        subsetsize = subsetoverride if subsetoverride is not None else sr['subsetsize']
+        if itersoverride is not None:
+            sr['searchparams']['iterations'] = itersoverride
+            sr['searchparams'].pop('targettotal',None)
+        sp       = sr['searchparams']
+        popcount = sp.get('populations',3*procs)
+        iterseff = sp.get('targettotal',sp['iterations']*popcount)//popcount
         logger.info(f'   Loading normalized training and validation splits...')
-        Xtrain,ytrain,refda_train,vmtrain = load_data('train',runconfig,config,time_offset=0)
-        Xvalid,yvalid,_,vmvalid = load_data('valid',runconfig,config,time_offset=int(refda_train.sizes['time']))
-        Xfit = pd.concat([Xtrain[vmtrain],Xvalid[vmvalid]]).reset_index(drop=True)
+        xtrain,ytrain,refdatrain,vmtrain = load_data('train',runconfig,config,time_offset=0)
+        xvalid,yvalid,_,vmvalid = load_data('valid',runconfig,config,time_offset=int(refdatrain.sizes['time']))
+        xfit = pd.concat([xtrain[vmtrain],xvalid[vmvalid]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
-        del Xtrain,Xvalid,ytrain,yvalid,refda_train
-        gc.collect()
-        logger.info(f'   Subsampling ~{subsetsize} samples across log-uniform precipitation bins...')
-        ymin = float(yfit.min()) if sr.get('physical_constraints',False) else None
-        Xsub,ysub = subsample(Xfit,yfit,subsetsize,sr['seed'])
-        del Xfit,yfit
-        gc.collect()
-        if ymin is not None:
-            logger.info(f'   Physical constraint: predictions clipped to 0 in transformed/normalized space...')
-        logger.info(f'   Starting PySR search ({niterations_eff} iters × {populations_eff} populations, {procs} workers, {timeout}s timeout)...')
+        del xtrain,xvalid,ytrain,yvalid,refdatrain
+        logger.info(f'   Subsampling ~{subsetsize} samples proportionally from precipitation distribution...')
+        xsub,ysub = subsample(xfit,yfit,subsetsize,sr['seed'])
+        del xfit,yfit
+        logger.info(f'   Starting PySR search ({iterseff} iters × {popcount} populations, {procs} workers, {timeout}s timeout)...')
         tmpdir = tempfile.mkdtemp(prefix='pysr_')
         try:
-            model = fit(Xsub,ysub,predictors,sr,procs,timeout,tmpdir,ymin=ymin)
+            model = fit(xsub,ysub,predictors,sr,procs,timeout,tmpdir)
         finally:
             shutil.rmtree(tmpdir,ignore_errors=True)
         save(model,name,config)
         del model
-        gc.collect()

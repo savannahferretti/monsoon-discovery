@@ -27,16 +27,16 @@ def parse():
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
     return selectedruns,args.split
 
-def load(runname,modelsdir):
+def load(name,modelsdir):
     '''
     Purpose: Load a saved PySRRegressor from disk.
     Args:
-    - runname (str): run identifier matching the saved filename
-    - modelsdir (str): base models directory containing the `sr/` subdirectory
+    - name (str): run identifier matching the saved filename
+    - modelsdir (str): base models directory containing the sr/ subdirectory
     Returns:
     - PySRRegressor | None: loaded model, or None if the file is not found
     '''
-    filepath = os.path.join(modelsdir,'sr',f'{runname}_pareto.pkl')
+    filepath = os.path.join(modelsdir,'sr',f'{name}_pareto.pkl')
     if not os.path.exists(filepath):
         logger.error(f'   Model not found: {filepath}')
         return None
@@ -50,7 +50,7 @@ if __name__=='__main__':
     targetvar = config.targetvar
     logger.info('Spinning up...')
     selectedruns,split = parse()
-    writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
+    writer     = PredictionWriter(config.splitsdir,targetvar=targetvar)
     cachedkey  = None
     cacheddata = None
     for name,runconfig in runs.items():
@@ -65,7 +65,7 @@ if __name__=='__main__':
         weightsfrom = runconfig.get('weightsfrom')
         cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,split)
         if cachekey!=cachedkey:
-            logger.info(f'Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
+            logger.info(f'   Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
             X,y,refda,validmask = load_data(split,runconfig,config)
             cachedkey  = cachekey
             cacheddata = (X,y,refda,validmask)
@@ -75,10 +75,10 @@ if __name__=='__main__':
         model = load(name,config.modelsdir)
         if model is None:
             continue
-        feature_cols = fieldvars + localvars
-        Xvalid = X[validmask][feature_cols].reset_index(drop=True)
-        ypred  = model.predict(Xvalid.values)
+        featurecols = fieldvars+localvars
+        xvalid      = X[validmask][featurecols].reset_index(drop=True)
+        ypred       = model.predict(xvalid.values)
         logger.info(f'   Saving predictions for `{name}`...')
         predds = writer.predictions_to_dataset([ypred],validmask,refda)
         writer.save(predds,name,'predictions',split,config.predsdir)
-        del model,Xvalid,ypred,predds
+        del model,xvalid,ypred,predds
