@@ -1,410 +1,149 @@
 {
-  "filepaths": {
-    "raw": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/raw",
-    "interim": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/interim",
-    "splits": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/splits",
-    "predictions": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/predictions",
-    "features": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/features",
-    "weights": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/weights",
-    "models": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/models"
-  },
+  "filepaths":{
+    "raw":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/raw",
+    "interim":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/interim",
+    "splits":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/splits",
+    "predictions":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/predictions",
+    "features":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/features",
+    "weights":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/weights",
+    "models":"/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/models"},
   "metadata": {
-    "author": "Savannah L. Ferretti",
-    "email": "savannah.ferretti@uci.edu"
-  },
+    "author":"Savannah L. Ferretti",
+    "email":"savannah.ferretti@uci.edu"},
   "domain": {
-    "latrange": [
-      5.0,
-      25.0
-    ],
-    "lonrange": [
-      60.0,
-      90.0
-    ],
-    "levrange": [
-      500.0,
-      1000.0
-    ],
-    "years": [
-      2000,
-      2001,
-      2002,
-      2003,
-      2004,
-      2005,
-      2006,
-      2007,
-      2008,
-      2009,
-      2010,
-      2011,
-      2012,
-      2013,
-      2014,
-      2015,
-      2016,
-      2017,
-      2018,
-      2019,
-      2020
-    ],
-    "months": [
-      6,
-      7,
-      8
-    ]
-  },
-  "splits": {
-    "trainyears": [
-      2000,
-      2014
-    ],
-    "validyears": [
-      2015,
-      2017
-    ],
-    "testyears": [
-      2018,
-      2020
-    ]
-  },
-  "variables": {
-    "field": [
-      "bl",
-      "cape",
-      "subsat",
-      "rh",
-      "thetae",
-      "thetaestar"
-    ],
-    "local": [
-      "lf",
-      "sef"
-    ],
-    "target": "tp"
-  },
+    "latrange":[5.0,25.0],
+    "lonrange":[60.0,90.0],
+    "levrange":[500.0,1000.0],
+    "years":[2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020],
+    "months":[6,7,8]},
+  "splits":{
+    "trainyears":[2000,2014],
+    "validyears":[2015,2017],
+    "testyears":[2018,2020]},
+  "variables":{
+    "field":["bl","cape","subsat","rh","thetae","thetaestar"],
+    "local":["lf","shf","lhf"],
+    "target":"tp"},
   "experiments": {
-    "pod": {
-      "bins": {
-        "min": -0.6,
-        "max": 0.1,
-        "width": 0.0025,
-        "minsample": 50
-      },
-      "fit": {
-        "ymin": 5.0,
-        "ymax": 15.0
-      },
-      "runs": {
-        "pod_bl": {
-          "inputvar": "bl"
-        }
-      }
-    },
-    "nn": {
-      "projectname": "Chapter-3-Experiments",
-      "seeds": [
-        42,
-        72,
-        102
-      ],
-      "workers": 8,
-      "epochs": 20,
-      "batchsize": 500,
-      "learningrate": 0.0005,
-      "patience": 4,
-      "criterion": "MSELoss",
-      "runs": {
-        "base_bl": {
+    "pod":{
+      "bins":{"min":-0.6,"max":0.1,"width":0.0025,"minsample":50},
+      "fit":{"ymin":5.0,"ymax":15.0},
+      "runs":{
+        "pod_bl":{"inputvar":"bl"}}},
+    "nn":{
+      "projectname":"Chapter-3-Experiments",
+      "seeds":[42,72,102],
+      "workers":8,
+      "epochs":20,
+      "batchsize":500,
+      "learningrate":0.0005,
+      "patience":4,
+      "criterion":"MSELoss",
+      "runs":{
+        "base_bl":{
+            "kind":"baseline",
+            "fieldvars":["bl"],
+            "localvars":[]},
+        "base_cape_subsat":{
+            "kind":"baseline",
+            "fieldvars":["cape","subsat"],
+            "localvars":[]},
+        "base_thetae_thetaestar":{
+          "kind":"baseline",
+          "fieldvars":["thetae","thetaestar"],
+          "localvars":[]},
+        "base_thetae_thetaestar_lf":{
+          "kind":"baseline",
+          "fieldvars":["thetae","thetaestar"],
+            "localvars":["lf"]},
+        "base_thetae_thetaestar_shf_lhf":{
+          "kind":"baseline",
+          "fieldvars":["thetae","thetaestar"],
+          "localvars":["shf","lhf"]},
+        "base_rh":{
+          "kind":"baseline",
+          "fieldvars":["rh"],
+          "localvars":[]},
+        "base_rh_lf":{
+          "kind":"baseline",
+          "fieldvars":["rh"],
+          "localvars":["lf"]},
+        "base_rh_shf_lhf":{
+          "kind":"baseline",
+          "fieldvars":["rh"],
+          "localvars":["shf","lhf"]},
+        "base_all":{
           "kind": "baseline",
-          "fieldvars": [
-            "bl"
-          ],
-          "localvars": []
-        },
-        "base_cape_subsat": {
-          "kind": "baseline",
-          "fieldvars": [
-            "cape",
-            "subsat"
-          ],
-          "localvars": []
-        },
-        "base_thetae_thetaestar": {
-          "kind": "baseline",
-          "fieldvars": [
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": []
-        },
-        "base_thetae_thetaestar_lf": {
-          "kind": "baseline",
-          "fieldvars": [
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf"
-          ]
-        },
-        "base_thetae_thetaestar_shf_lhf": {
-          "kind": "baseline",
-          "fieldvars": [
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "shf",
-            "lhf"
-          ]
-        },
-        "base_rh": {
-          "kind": "baseline",
-          "fieldvars": [
-            "rh"
-          ],
-          "localvars": []
-        },
-        "base_rh_lf": {
-          "kind": "baseline",
-          "fieldvars": [
-            "rh"
-          ],
-          "localvars": [
-            "lf"
-          ]
-        },
-        "base_rh_shf_lhf": {
-          "kind": "baseline",
-          "fieldvars": [
-            "rh"
-          ],
-          "localvars": [
-            "shf",
-            "lhf"
-          ]
-        },
-        "base_all": {
-          "kind": "baseline",
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ]
-        },
-        "nonparam_all": {
-          "kind": "nonparametric",
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ]
-        },
-        "param_gauss_all": {
-          "kind": "parametric",
-          "kernel": "gaussian",
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ]
-        },
-        "param_gauss_thetae_thetaestar_lf": {
-          "kind": "parametric",
-          "kernel": "gaussian",
-          "fieldvars": [
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf"
-          ]
-        },
-        "param_gauss_thetae_thetaestar_shf_lhf": {
-          "kind": "parametric",
-          "kernel": "gaussian",
-          "fieldvars": [
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lhf",
-            "shf"
-          ]
-        },
-        "param_gauss_rh_shf_lhf": {
-          "kind": "parametric",
-          "kernel": "gaussian",
-          "fieldvars": [
-            "rh"
-          ],
-          "localvars": [
-            "lhf",
-            "shf"
-          ]
-        },
-        "param_gauss_rh_lf": {
-          "kind": "parametric",
-          "kernel": "gaussian",
-          "fieldvars": [
-            "rh"
-          ],
-          "localvars": [
-            "lf"
-          ]
-        },
-        "param_mixgauss_all": {
-          "kind": "parametric",
-          "kernel": "mixgaussian",
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ]
-        },
-        "param_mixed_all": {
-          "kind": "parametric",
-          "kernel": [
-            "mixgaussian",
-            "exponential",
-            "mixgaussian"
-          ],
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ]
-        }
-      }
-    },
-    "sr": {
-      "seed": 42,
-      "subsetsize": 10000,
-      "physical_constraints": true,
-      "searchparams": {
-        "niterations": 5000,
-        "target_total": 500000,
-        "populations": 50,
-        "population_size": 150,
-        "maxsize": 25,
-        "maxdepth": 4,
-        "batch_size": 500,
-        "ncycles_per_iteration": 200,
-        "weight_optimize": 0.01
-      },
-      "operators": {
-        "binary": [
-          "+",
-          "-",
-          "*",
-          "/",
-          "^"
-        ],
-        "unary": [
-          "square",
-          "exp",
-          "cube",
-          "neg",
-          "log",
-          "sqrt",
-          "abs",
-          "cos",
-          "sin"
-        ],
-        "complexity": {
-          "+": 1,
-          "-": 1,
-          "*": 1,
-          "neg": 1,
-          "/": 2,
-          "abs": 2,
-          "sqrt": 2,
-          "square": 2,
-          "cube": 2,
-          "exp": 3,
-          "log": 3,
-          "cos": 3,
-          "sin": 3,
-          "^": 3
-        }
-      },
-      "complexity": {
-        "of_variables": 2,
-        "of_constants": 1
-      },
-      "constraints": {
-        "^": [
-          -1,
-          1
-        ]
-      },
-      "nested_constraints": {
-        "exp": {
-          "exp": 0,
-          "log": 0,
-          "^": 0
-        },
-        "^": {
-          "^": 0
-        },
-        "log": {
-          "log": 0,
-          "exp": 0
-        },
-        "sqrt": {
-          "sqrt": 0,
-          "log": 0
-        },
-        "cos": {
-          "cos": 0,
-          "sin": 0
-        },
-        "sin": {
-          "cos": 0,
-          "sin": 0
-        }
-      },
-      "runs": {
-        "sr_gauss_all": {
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "lhf",
-            "shf"
-          ],
-          "weightsfrom": "param_gauss_all"
-        }
-      }
+          "fieldvars":["rh","thetae","thetaestar"],
+          "localvars":["lf","shf","lhf"]},
+        "nonparam_all":{
+          "kind":"nonparametric",
+          "fieldvars":["rh","thetae","thetaestar"],
+          "localvars":["lf","shf","lhf"]},
+        "param_gauss_all":{
+          "kind":"parametric",
+          "kernel":"gaussian",
+          "fieldvars":["rh","thetae","thetaestar"],
+          "localvars":["lf","shf","lhf"]},
+        "param_gauss_thetae_thetaestar_lf":{
+          "kind":"parametric",
+          "kernel":"gaussian",
+          "fieldvars":["thetae","thetaestar"],
+          "localvars":["lf"]},
+        "param_gauss_thetae_thetaestar_shf_lhf":{
+          "kind":"parametric",
+          "kernel":"gaussian",
+          "fieldvars":["thetae","thetaestar"],
+          "localvars":["lhf","shf"]},
+        "param_gauss_rh_shf_lhf":{
+          "kind":"parametric",
+          "kernel":"gaussian",
+          "fieldvars":["rh"],
+          "localvars":["lhf","shf"]},
+        "param_gauss_rh_lf":{
+          "kind":"parametric",
+          "kernel":"gaussian",
+          "fieldvars":["rh"],
+          "localvars":["lf"]},
+        "param_mixgauss_all":{
+          "kind":"parametric",
+          "kernel":"mixgaussian",
+          "fieldvars":["rh","thetae","thetaestar"],
+          "localvars":["lf","shf","lhf"]}}},
+    "sr":{
+      "seed":42,
+      "subsetsize":10000,
+      "searchparams":{
+        "iterations":5000,
+        "targettotal":500000,
+        "populations":50,
+        "populationsize":150,
+        "maxsize":30,
+        "maxdepth":4,
+        "batchsize":500,
+        "cyclesperiteration":200,
+        "weightoptimize":0.01},
+      "operators":{
+        "binary":["+","-","*","/","^"],
+        "unary":["neg","abs","sqrt","square","cube","exp","log","cos","sin"],
+        "complexity":{"+":1,"-":1,"*":1,"neg":1,"/":2,"abs":2,"sqrt":2,"square":2,"cube":2,"exp":3,"log":3,"cos":3,"sin":3,"^":3}},
+      "complexity":{
+        "ofvariables":2,
+        "ofconstants":1},
+      "constraints":{
+        "^":[-1,1]},
+      "nestedconstraints":{
+        "exp":{"exp":0,"log":0,"^":0},
+        "^":{"^":0},
+        "log":{"log":0,"exp":0},
+        "sqrt":{"sqrt":0,"log":0},
+        "cos":{"cos":0,"sin":0},
+        "sin":{"cos":0,"sin":0}},
+      "runs":{
+        "sr_gauss_all":{
+          "fieldvars":["rh","thetae","thetaestar"],
+          "localvars":["lf","lhf","shf"],
+          "weightsfrom":"param_gauss_all"}}
     }
   }
 }
