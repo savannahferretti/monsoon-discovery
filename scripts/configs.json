@@ -305,12 +305,14 @@
     },
     "sr": {
       "seed": 42,
-      "subsetsize": 50000,
+      "subsetsize": 15000,
       "physical_constraints": true,
       "searchparams": {
         "niterations": 5000,
+        "target_total": 500000,
+        "populations": 50,
         "population_size": 150,
-        "maxsize": 50,
+        "maxsize": 25,
         "maxdepth": 4,
         "batch_size": 500,
         "ncycles_per_iteration": 200,
@@ -401,11 +403,7 @@
             "thetae",
             "thetaestar"
           ],
-          "localvars": [
-            "lf",
-            "lhf",
-            "shf"
-          ],
+          "localvars": [],
           "weightsfrom": "param_gauss_all"
         }
       }

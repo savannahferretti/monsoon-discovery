@@ -257,9 +257,11 @@ def fit(Xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,ymin=None):
         loss = f'loss(x, y) = (max(x, {ymin:.6f}) - y)^2'
     else:
         loss = 'loss(x, y) = (x - y)^2'
+    populations = sp.get('populations', 3 * procs)
+    niterations = sp.get('target_total', sp['niterations'] * populations) // populations
     model = PySRRegressor(
-        niterations=sp['niterations'],
-        populations=3*procs,
+        niterations=niterations,
+        populations=populations,
         population_size=sp['population_size'],
         ncycles_per_iteration=sp['ncycles_per_iteration'],
         weight_optimize=sp['weight_optimize'],
@@ -335,6 +337,10 @@ if __name__=='__main__':
         subsetsize = subsetsize_override if subsetsize_override is not None else sr['subsetsize']
         if niterations_override is not None:
             sr['searchparams']['niterations'] = niterations_override
+            sr['searchparams'].pop('target_total', None)
+        sp_eff = sr['searchparams']
+        populations_eff = sp_eff.get('populations', 3 * procs)
+        niterations_eff = sp_eff.get('target_total', sp_eff['niterations'] * populations_eff) // populations_eff
         logger.info(f'   Loading normalized training and validation splits...')
         Xtrain,ytrain,refda_train,vmtrain = load_data('train',runconfig,config,time_offset=0)
         Xvalid,yvalid,_,vmvalid = load_data('valid',runconfig,config,time_offset=int(refda_train.sizes['time']))
@@ -349,7 +355,7 @@ if __name__=='__main__':
         gc.collect()
         if ymin is not None:
             logger.info(f'   Physical constraint: predictions clipped to 0 in transformed/normalized space...')
-        logger.info(f'   Starting PySR search ({sr["searchparams"]["niterations"]} iterations, {procs} processes, {timeout}s timeout)...')
+        logger.info(f'   Starting PySR search ({niterations_eff} iters × {populations_eff} populations, {procs} workers, {timeout}s timeout)...')
         tmpdir = tempfile.mkdtemp(prefix='pysr_')
         try:
             model = fit(Xsub,ysub,predictors,sr,procs,timeout,tmpdir,ymin=ymin)

@@ -75,7 +75,8 @@ if __name__=='__main__':
         model = load(name,config.modelsdir)
         if model is None:
             continue
-        Xvalid = X[validmask].reset_index(drop=True)
+        feature_cols = fieldvars + localvars
+        Xvalid = X[validmask][feature_cols].reset_index(drop=True)
         ypred  = model.predict(Xvalid.values)
         logger.info(f'   Saving predictions for `{name}`...')
         predds = writer.predictions_to_dataset([ypred],validmask,refda)
