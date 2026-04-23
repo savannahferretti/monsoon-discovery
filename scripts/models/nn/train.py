@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import json
 import torch
 import logging
 import argparse
@@ -104,12 +103,6 @@ if __name__=='__main__':
                 accumsteps=1,
                 compile=False)
             trainer.fit(name)
-            metapath = os.path.join(config.modelsdir,'nn',f'{name}_meta.json')
-            if not os.path.exists(metapath):
-                os.makedirs(os.path.join(config.modelsdir,'nn'),exist_ok=True)
-                with open(metapath,'w') as f:
-                    json.dump({'nparams':model.nparams},f)
-                logger.info(f'   Saved nparams metadata for `{name}`')
             haskernel = hasattr(model,'kernel')
             if haskernel:
                 logger.info(f'   Saving kernel weights for `{runid}`...')

@@ -111,79 +111,7 @@ class ParametricKernelLayer(torch.nn.Module):
             kernel1D = torch.exp(-0.5*((coord[None,:]-self.mu[:,None])/std[:,None])**2)
             return kernel1D
 
-    class ExponentialKernel(torch.nn.Module):
-
-        def __init__(self,nfieldvars):
-            '''
-            Purpose: Initialize parameters of an exponential-decay kernel.
-            Args:
-            - nfieldvars (int): number of predictor fields
-            '''
-            super().__init__()
-            self.logtau     = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
-            self.logitalpha = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
-
-        def forward(self,nlevs,device):
-            '''
-            Purpose: Evaluate the exponential-decay kernel over vertical levels.
-            Args:
-            - nlevs (int): number of vertical levels
-            - device (str | torch.device): device to use
-            Returns:
-            - torch.Tensor: exponential kernel values with shape (nfieldvars, nlevs)
-            '''
-            tau      = torch.exp(self.logtau).clamp(min=1e-4,max=100.0)
-            alpha    = torch.sigmoid(self.logitalpha)
-            j        = torch.arange(nlevs,device=device,dtype=torch.float32)
-            distance = (1.0-alpha[:,None])*j[None,:]+(alpha[:,None])*(nlevs-1-j[None,:])
-            kernel1D = torch.exp(-distance/tau[:,None])
-            return kernel1D
-
-    class MixtureGaussianKernel(torch.nn.Module):
-
-        def __init__(self,nfieldvars):
-            '''
-            Purpose: Initialize a mixture-of-Gaussians kernel.
-            Args:
-            - nfieldvars (int): number of predictor fields
-            '''
-            super().__init__()
-            self.mu1     = torch.nn.Parameter(torch.full((int(nfieldvars),),-0.5))
-            self.mu2     = torch.nn.Parameter(torch.full((int(nfieldvars),), 0.5))
-            self.logstd1 = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
-            self.logstd2 = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
-            self.weight1 = torch.nn.Parameter(torch.ones(int(nfieldvars)))
-            self.weight2 = torch.nn.Parameter(torch.ones(int(nfieldvars)))
-
-        def get_components(self,nlevs,device):
-            '''
-            Purpose: Compute the two Gaussian components separately (for visualization).
-            Args:
-            - nlevs (int): number of vertical levels
-            - device (str | torch.device): device to use
-            Returns:
-            - tuple[torch.Tensor,torch.Tensor]: each component with shape (nfieldvars, nlevs)
-            '''
-            coord = torch.linspace(-1.0,1.0,steps=nlevs,device=device)
-            std1  = torch.exp(self.logstd1).clamp(min=0.1,max=2.0)
-            std2  = torch.exp(self.logstd2).clamp(min=0.1,max=2.0)
-            c1 = self.weight1[:,None]*torch.exp(-(coord[None,:]-self.mu1[:,None])**2/(2*std1[:,None]**2))
-            c2 = self.weight2[:,None]*torch.exp(-(coord[None,:]-self.mu2[:,None])**2/(2*std2[:,None]**2))
-            return c1,c2
-
-        def forward(self,nlevs,device):
-            '''
-            Purpose: Evaluate the mixture-of-Gaussians kernel over vertical levels.
-            Args:
-            - nlevs (int): number of vertical levels
-            - device (str | torch.device): device to use
-            Returns:
-            - torch.Tensor: mixture kernel values with shape (nfieldvars, nlevs)
-            '''
-            c1,c2 = self.get_components(nlevs,device)
-            return c1+c2+1e-8
-
-    kerneltypes = {'gaussian':GaussianKernel,'exponential':ExponentialKernel,'mixgaussian':MixtureGaussianKernel}
+    kerneltypes = {'gaussian':GaussianKernel}
 
     def __init__(self,nfieldvars,kernelspec):
         '''
@@ -191,13 +119,12 @@ class ParametricKernelLayer(torch.nn.Module):
         Args:
         - nfieldvars (int): number of predictor fields
         - kernelspec (str | list[str]): a single kernel type for all fields, or a list of per-field
-          kernel types; valid types are 'gaussian' | 'exponential' | 'mixgaussian'
+          kernel types; valid type is 'gaussian'
         '''
         super().__init__()
         self.nfieldvars = int(nfieldvars)
         self.kernelspec = kernelspec
         self.norm       = None
-        self.components = None
         self.features   = None
         self.perfield   = isinstance(kernelspec,list)
         if self.perfield:
@@ -227,24 +154,7 @@ class ParametricKernelLayer(torch.nn.Module):
             kernel = torch.cat([f(nlevs,device) for f in self.functions],dim=0)
         else:
             kernel = self.function(nlevs,device)
-        self.norm       = KernelModule.normalize(kernel,dsig)
-        self.components = None
-        kernelsum = (kernel*dsig.unsqueeze(0)).sum(dim=1)
-        if self.perfield:
-            if any(isinstance(f,self.MixtureGaussianKernel) for f in self.functions):
-                c1_list,c2_list = [],[]
-                for i,f in enumerate(self.functions):
-                    if isinstance(f,self.MixtureGaussianKernel):
-                        c1_i,c2_i = f.get_components(nlevs,device)
-                    else:
-                        c1_i = f(nlevs,device)
-                        c2_i = torch.full_like(c1_i,float('nan'))
-                    c1_list.append(c1_i/(kernelsum[i]+1e-6))
-                    c2_list.append(c2_i/(kernelsum[i]+1e-6))
-                self.components = torch.stack([torch.cat(c1_list,dim=0),torch.cat(c2_list,dim=0)],dim=0)
-        elif isinstance(self.function,self.MixtureGaussianKernel):
-            c1,c2 = self.function.get_components(nlevs,device)
-            self.components = torch.stack([c1/(kernelsum[:,None]+1e-6),c2/(kernelsum[:,None]+1e-6)],dim=0)
+        self.norm = KernelModule.normalize(kernel,dsig)
         return self.norm
 
     def forward(self,fields,dsig):
