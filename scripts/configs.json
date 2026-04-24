@@ -94,12 +94,12 @@
           "kind":"parametric",
           "kernel":"gaussian",
           "fieldvars":["thetae","thetaestar"],
-          "localvars":["lhf","shf"]},
+          "localvars":["shf","lhf"]},
         "param_gauss_rh_shf_lhf":{
           "kind":"parametric",
           "kernel":"gaussian",
           "fieldvars":["rh"],
-          "localvars":["lhf","shf"]},
+          "localvars":["shf","lhf"]},
         "param_gauss_rh_lf":{
           "kind":"parametric",
           "kernel":"gaussian",
@@ -133,10 +133,10 @@
           "neg":{"neg":0},
           "abs":{"neg":0,"abs":0},
           "sqrt":{"-":0,"*":0,"/":0,"neg":0,"sqrt":0,"cube":0,"log":0,"cos":0,"sin":0},
-          "cube":{"^":0,"cube":0,},
+          "cube":{"^":0,"cube":0},
           "square":{"^":0,"cube":0,"square":0,"exp":0},
           "exp":{"^":0,"exp":0,"log":0,"square":0,"exp":0},
-          "log":{"-":0,"*":0,"/":0,"neg":0,"cube":0,"exp":0,"log":0,"cos":0,"sin":0}
+          "log":{"-":0,"*":0,"/":0,"neg":0,"cube":0,"exp":0,"log":0,"cos":0,"sin":0},
           "cos":{"/":0,"^":0,"exp":0,"log":0,"cos":0,"sin":0},
           "sin":{"/":0,"^":0,"exp":0,"log":0,"cos":0,"sin":0}},
       "runs":{
