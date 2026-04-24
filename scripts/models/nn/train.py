@@ -109,14 +109,10 @@ if __name__=='__main__':
                 model.eval()
                 with torch.no_grad():
                     model.kernel.get_weights(dsig.to(device),device)
-                weights    = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
-                components = getattr(model.kernel,'components',None)
-                if components is not None:
-                    components = components.detach().cpu().numpy().astype(np.float32)
+                weights = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
                 refds = xr.open_dataset(os.path.join(config.splitsdir,'norm_train.h5'),engine='h5netcdf')
                 ds = PredictionWriter.weights_to_dataset(
-                    weights[...,np.newaxis],fieldvars,refds,
-                    components=components[...,np.newaxis] if components is not None else None)
+                    weights[...,np.newaxis],fieldvars,refds)
                 refds.close()
                 os.makedirs(config.weightsdir,exist_ok=True)
                 wpath = os.path.join(config.weightsdir,f'{runid}_weights.nc')

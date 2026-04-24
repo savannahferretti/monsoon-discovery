@@ -67,30 +67,22 @@ class PredictionWriter:
         return da.to_dataset()
 
     @staticmethod
-    def weights_to_dataset(weights,fieldvars,refds,components=None):
+    def weights_to_dataset(weights,fieldvars,refds):
         '''
         Purpose: Wrap a kernel weight array into an xr.Dataset with a seed dimension.
         Args:
         - weights (np.ndarray): normalized kernel weights with shape (nfieldvars, nlevs, nseed)
         - fieldvars (list[str]): predictor field variable names
         - refds (xr.Dataset): reference Dataset for sig coordinates
-        - components (np.ndarray | None): mixture kernel components with shape (2, nfieldvars, nlevs, nseed),
-          or None if not applicable; NaN entries indicate fields without a mixture kernel
         Returns:
-        - xr.Dataset: Dataset with normalized kernel weights, and mixture components if provided
+        - xr.Dataset: Dataset with normalized kernel weights
         '''
         coords = {'field':fieldvars}
         coords['sig']  = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(weights.shape[1])
         coords['seed'] = np.arange(weights.shape[-1])
         da = xr.DataArray(weights,dims=('field','sig','seed'),coords=coords,
                           attrs=dict(long_name='Normalized kernel weights',units='N/A'))
-        ds = da.to_dataset(name='k')
-        if components is not None:
-            comp_coords = {'component':[0,1],**coords}
-            comp_da = xr.DataArray(components,dims=('component','field','sig','seed'),coords=comp_coords,
-                                   attrs=dict(long_name='Normalized mixture kernel components',units='N/A'))
-            ds['kc'] = comp_da
-        return ds
+        return da.to_dataset(name='k')
 
     def save(self,ds,name,kind,split,savedir,timechunksize=736):
         '''

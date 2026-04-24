@@ -115,29 +115,18 @@ class ParametricKernelLayer(torch.nn.Module):
 
     def __init__(self,nfieldvars,kernelspec):
         '''
-        Purpose: Initialize a parametric vertical kernel, optionally with per-field kernel types.
+        Purpose: Initialize a parametric vertical kernel.
         Args:
         - nfieldvars (int): number of predictor fields
-        - kernelspec (str | list[str]): a single kernel type for all fields, or a list of per-field
-          kernel types; valid type is 'gaussian'
+        - kernelspec (str): kernel type; valid type is 'gaussian'
         '''
         super().__init__()
         self.nfieldvars = int(nfieldvars)
-        self.kernelspec = kernelspec
         self.norm       = None
         self.features   = None
-        self.perfield   = isinstance(kernelspec,list)
-        if self.perfield:
-            if len(kernelspec)!=self.nfieldvars:
-                raise ValueError(f'Per-field kernel list must have length {self.nfieldvars}, got {len(kernelspec)}')
-            for ktype in kernelspec:
-                if ktype not in self.kerneltypes:
-                    raise ValueError(f'Unknown kernel type `{ktype}`; must be one of {list(self.kerneltypes.keys())}')
-            self.functions = torch.nn.ModuleList([self.kerneltypes[ktype](1) for ktype in kernelspec])
-        else:
-            if kernelspec not in self.kerneltypes:
-                raise ValueError(f'Unknown kernel type `{kernelspec}`; must be one of {list(self.kerneltypes.keys())}')
-            self.function = self.kerneltypes[kernelspec](self.nfieldvars)
+        if kernelspec not in self.kerneltypes:
+            raise ValueError(f'Unknown kernel type `{kernelspec}`; must be one of {list(self.kerneltypes.keys())}')
+        self.function = self.kerneltypes[kernelspec](self.nfieldvars)
 
     def get_weights(self,dsig,device):
         '''
@@ -150,10 +139,7 @@ class ParametricKernelLayer(torch.nn.Module):
         '''
         dsig  = dsig.to(device)
         nlevs = dsig.numel()
-        if self.perfield:
-            kernel = torch.cat([f(nlevs,device) for f in self.functions],dim=0)
-        else:
-            kernel = self.function(nlevs,device)
+        kernel = self.function(nlevs,device)
         self.norm = KernelModule.normalize(kernel,dsig)
         return self.norm
 
