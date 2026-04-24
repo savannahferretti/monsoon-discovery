@@ -238,7 +238,7 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
         constraints=constr,
         nested_constraints=nested,
         extra_sympy_mappings={'square':lambda x:x**2},
-        loss='loss(x, y) = (x - y)^2',
+        loss='loss(x, y) = (max(x, 0.0) - y)^2',
         model_selection='best',
         batching=True,
         batch_size=sp['batchsize'],
