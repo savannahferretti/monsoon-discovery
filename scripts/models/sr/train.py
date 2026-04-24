@@ -20,17 +20,16 @@ from scripts.utils import Config
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
-def select_pareto_elbow(equations,min_complexity=3):
+def select_pareto_elbow(equations,mincomplexity=3):
     '''
-    Purpose: Select the equation at the elbow of the Pareto frontier, where marginal
-        loss reduction per unit complexity is largest.
+    Purpose: Select the equation at the elbow of the Pareto frontier, where marginal loss reduction per unit complexity is largest.
     Args:
     - equations (pd.DataFrame): model.equations_ with 'complexity' and 'loss' columns
-    - min_complexity (int): ignore equations simpler than this (avoids trivial picks)
+    - mincomplexity (int): ignore equations simpler than this (avoids trivial picks)
     Returns:
     - pd.Series: the selected row from the equations DataFrame
     '''
-    front = equations[equations['complexity']>=min_complexity].copy()
+    front = equations[equations['complexity']>=mincomplexity].copy()
     front = front.sort_values('complexity').reset_index(drop=True)
     if len(front)==1:
         return front.iloc[0]
@@ -42,16 +41,16 @@ def select_pareto_elbow(equations,min_complexity=3):
     p2      = np.array([cnorm[-1],lnorm[-1]])
     line    = p2-p1
     linelen = np.linalg.norm(line)
-    distances = [np.abs(np.cross(line,p1-np.array([cnorm[i],lnorm[i]])))/(linelen+1e-12)
-                 for i in range(len(front))]
+    distances = [np.abs(np.cross(line,p1-np.array([cnorm[i],lnorm[i]])))/(linelen+1e-12) for i in range(len(front))]
     elbowix = int(np.argmax(distances))
     return front.iloc[elbowix]
 
 def parse():
     '''
     Purpose: Parse command-line arguments for running the training script.
+     - set[str] | None: run names to train, or None if all runs should be trained
     Returns:
-    - tuple[set[str] | None, int, int, int | None, int | None]: selected run names (or None for
+    - tuple[set[str]|None,int,int,int|None,int None]: selected run names (or None for
         all), number of Julia worker processes, search timeout in seconds, and optional overrides
         for iterations and subsetsize (None means use the value from configs.json)
     '''
@@ -69,12 +68,12 @@ def kernel_integrate(fields,weights,dsig,mask=None):
     '''
     Purpose: Integrate vertical field profiles using kernel weights and sigma-level thicknesses.
     Args:
-    - fields (np.ndarray): profile data with shape (nsamp, nfieldvars, nsig)
+    - fields (np.ndarray): profile data with shape (nsamples, nfieldvars, nsig)
     - weights (np.ndarray): kernel weights with shape (nfieldvars, nsig)
     - dsig (np.ndarray): sigma thickness weights with shape (nsig,)
-    - mask (np.ndarray | None): surface mask with shape (nsamp, nsig), or None to skip masking
+    - mask (np.ndarray | None): surface mask with shape (nsamples, nsig), or None to skip masking
     Returns:
-    - np.ndarray: integrated features with shape (nsamp, nfieldvars)
+    - np.ndarray: integrated features with shape (nsamples, nfieldvars)
     '''
     weighted = fields*weights[None,:,:]*dsig[None,None,:]
     if mask is not None:
@@ -83,23 +82,16 @@ def kernel_integrate(fields,weights,dsig,mask=None):
 
 def load_data(splitname,runconfig,config,time_offset=0):
     '''
-    Purpose: Load a normalized data split and construct predictor features for symbolic regression.
-        If 'weightsfrom' is set in runconfig, integrates vertical field profiles using kernel weights
-        from a previously trained NN model, averaging across seeds. Otherwise reads scalar field
-        variables directly. All field profile variables are on sigma levels with dimension 'sig'.
-        A 'timeidx' column is appended to X so that subsample() can select whole timesteps.
+    Purpose: Load a normalized data split and construct predictor features for symbolic regression. If 'weightsfrom' is set, vertically 
+    integrate field variables using kernel weights from a previously trained NN model, averaging across seeds; otherwise read scalar field
+    variables directly. A 'timeidx' column is appended to X so that `subsample()` can select whole timesteps.
     Args:
     - splitname (str): 'train' | 'valid' | 'test'
     - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
     - config (Config): project configuration object
     - time_offset (int): added to each time index so that train and valid indices are globally unique
     Returns:
-    - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray]:
-        (X, y, refda, validmask) where:
-        - X: predictor features with shape (ntotal, nfeatures+1), NaN where invalid; last column is 'timeidx'
-        - y: target values with shape (ntotal,)
-        - refda: reference DataArray with (time, lat, lon) coordinates
-        - validmask: boolean array with shape (ntotal,) indicating finite samples
+    - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray]: predictor features, tagret values, reference DataArray, and mask of finite samples
     '''
     fieldvars   = runconfig['fieldvars']
     localvars   = runconfig.get('localvars',[])
@@ -248,7 +240,6 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
         extra_sympy_mappings={'square':lambda x:x**2},
         loss='loss(x, y) = (x - y)^2',
         model_selection='best',
-        turbo=True,
         batching=True,
         batch_size=sp['batchsize'],
         random_state=srconfig['seed'],

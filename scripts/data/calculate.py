@@ -81,7 +81,7 @@ if __name__=='__main__':
         calculator.create_dataset(lf,'lf','Land fraction','0-1'),
         calculator.create_dataset(sef,'sef','Surface energy flux','W/m²'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
-        calculator.create_dataset(tp,'tp','Total accumulated precipitation','mm'),
+        calculator.create_dataset(tp,'tp','Total precipitation','mm'),
         calculator.create_dataset(dsig,'dsig','Sigma thickness weights','0-1')]
     logger.info('Saving datasets...')
     for ds in dslist:
