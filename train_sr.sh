@@ -11,10 +11,14 @@
 
 set -eo pipefail
 
+JULIA_DEPOT_CFS=/global/cfs/cdirs/m4334/sferrett/.julia
+JULIA_DEPOT_SCRATCH=$SCRATCH/.julia
+rsync -a --update $JULIA_DEPOT_CFS/ $JULIA_DEPOT_SCRATCH/
+
 export OMP_NUM_THREADS=1
 export JULIA_NUM_THREADS=1
-export JULIA_DEPOT_PATH=/global/cfs/cdirs/m4334/sferrett/.julia
-export PYTHON_JULIAPKG_PROJECT=/global/cfs/cdirs/m4334/sferrett/.julia/environments/pyjuliapkg
+export JULIA_DEPOT_PATH=$JULIA_DEPOT_SCRATCH
+export PYTHON_JULIAPKG_PROJECT=$JULIA_DEPOT_SCRATCH/environments/pyjuliapkg
 export UCX_ERROR_SIGNALS=""
 
 module load python conda
