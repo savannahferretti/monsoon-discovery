@@ -160,7 +160,7 @@ def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     - loglo (float): log10 lower bound of wet bins in mm (default -4 → 0.0001 mm)
     - loghi (float): log10 upper bound of wet bins in mm (default 2 → 100 mm)
     Returns:
-    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column; ysub is in native mm
+    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column; ysub is in z-scored log1p space (same space as NN targets)
     '''
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
@@ -195,7 +195,7 @@ def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     subidx     = np.where(keep)[0]
     rng.shuffle(subidx)
     xsub = X.iloc[subidx].drop(columns=['timeidx']).reset_index(drop=True)
-    return xsub,tp[subidx]
+    return xsub,np.asarray(y)[subidx]
 
 def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
     '''
@@ -222,6 +222,11 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
     nested   = srconfig.get('nestedconstraints',{})
     popcount = sp.get('populations',3*procs)
     iters    = sp.get('targettotal',sp['iterations']*popcount)//popcount
+    statsfile = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        flat = json.load(f)
+    zmin = (0.0 - flat['tp_mean']) / flat['tp_std']
     model    = PySRRegressor(
         niterations=iters,
         populations=popcount,
@@ -238,7 +243,7 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
         constraints=constr,
         nested_constraints=nested,
         extra_sympy_mappings={'square':lambda x:x**2},
-        loss='loss(x, y) = (max(x, 0.0) - y)^2',
+        loss=f'loss(x, y) = (max(x, {zmin:.8f}) - y)^2',
         model_selection='best',
         batching=True,
         batch_size=sp['batchsize'],

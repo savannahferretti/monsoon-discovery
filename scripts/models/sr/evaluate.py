@@ -79,6 +79,6 @@ if __name__=='__main__':
         xvalid      = X[validmask][featurecols].reset_index(drop=True)
         ypred       = model.predict(xvalid.values)
         logger.info(f'   Saving predictions for `{name}`...')
-        predds = writer.predictions_to_dataset([ypred],validmask,refda,denormalize=False)
+        predds = writer.predictions_to_dataset([ypred],validmask,refda,denormalize=True)
         writer.save(predds,name,'predictions',split,config.predsdir)
         del model,xvalid,ypred,predds
