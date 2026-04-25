@@ -30,5 +30,5 @@ shift || true
 scontrol update JobId=${SLURM_JOB_ID} Name=${RUN}
 echo "Training model: ${RUN}"
 
-python -m scripts.models.sr.train --runs ${RUN} "$@"
+python -m scripts.models.sr.train --runs ${RUN} --timeout 9000 "$@"
 python -m scripts.models.sr.evaluate --runs ${RUN} --split valid
