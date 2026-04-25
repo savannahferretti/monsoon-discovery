@@ -62,9 +62,9 @@ class PredictionWriter:
             predstack = np.stack([np.clip(self.unflatten(preds,valid,refda),0,None) for preds in predslist],axis=-1)
         coords = {dim:refda.coords[dim].values for dim in refda.dims}
         coords['seed'] = np.arange(len(predslist))
-        da = xr.DataArray(predstack,dims=('time','lat','lon','seed'),coords=coords,name=self.targetvar,
-                          attrs=dict(long_name=self.longname,units=self.units))
-        return da.to_dataset()
+        da = xr.DataArray(predstack,dims=('time','lat','lon','seed'),coords=coords)
+        da.attrs = dict(long_name=self.longname,units=self.units)
+        return da.to_dataset(name=self.targetvar)
 
     @staticmethod
     def weights_to_dataset(weights,fieldvars,refds):
@@ -78,10 +78,11 @@ class PredictionWriter:
         - xr.Dataset: Dataset with normalized kernel weights
         '''
         coords = {'field':fieldvars}
-        coords['sig']  = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(weights.shape[1])
-        coords['seed'] = np.arange(weights.shape[-1])
-        da = xr.DataArray(weights,dims=('field','sig','seed'),coords=coords,
-                          attrs=dict(long_name='Normalized kernel weights',units='N/A'))
+        coords['sig'] = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(weights.shape[1])
+        da = xr.DataArray(weights,dims=('field','sig'),coords=coords)
+        da.sig.attrs   = dict(long_name='Sigma level',units='0-1')
+        da.field.attrs = dict(long_name='Predictor field variable')
+        da.attrs       = dict(long_name='Normalized kernel weights',units='N/A')
         return da.to_dataset(name='k')
 
     def save(self,ds,name,kind,split,savedir,timechunksize=736):

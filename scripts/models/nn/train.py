@@ -112,7 +112,7 @@ if __name__=='__main__':
                 weights = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
                 refds = xr.open_dataset(os.path.join(config.splitsdir,'norm_train.h5'),engine='h5netcdf')
                 ds = PredictionWriter.weights_to_dataset(
-                    weights[...,np.newaxis],fieldvars,refds)
+                    weights,fieldvars,refds)
                 refds.close()
                 os.makedirs(config.weightsdir,exist_ok=True)
                 wpath = os.path.join(config.weightsdir,f'{runid}_weights.nc')

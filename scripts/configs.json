@@ -32,7 +32,7 @@
         "pod_bl":{"inputvar":"bl"}}},
     "nn":{
       "projectname":"Chapter-3-Experiments",
-      "seeds":[42,72,102],
+      "seeds":[102],
       "workers":8,
       "epochs":20,
       "batchsize":500,
