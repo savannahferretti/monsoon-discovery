@@ -120,7 +120,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
         for seed in seeds:
             wpath   = os.path.join(config.weightsdir,f'{weightsfrom}_{seed}_weights.nc')
             wds     = xr.open_dataset(wpath,engine='h5netcdf')
-            weights = wds['k'].isel(seed=0).values
+            weights = wds['k'].values
             wds.close()
             seedfeats.append(kernel_integrate(fields3d,weights,dsig,surfmask))
         feats = np.mean(seedfeats,axis=0)

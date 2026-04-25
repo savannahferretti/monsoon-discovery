@@ -78,9 +78,8 @@ class PredictionWriter:
         - xr.Dataset: Dataset with normalized kernel weights
         '''
         coords = {'field':fieldvars}
-        coords['sig']  = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(weights.shape[1])
-        coords['seed'] = np.arange(weights.shape[-1])
-        da = xr.DataArray(weights,dims=('field','sig','seed'),coords=coords,
+        coords['sig'] = refds.coords['sig'].values if 'sig' in refds.coords else np.arange(weights.shape[1])
+        da = xr.DataArray(weights,dims=('field','sig'),coords=coords,
                           attrs=dict(long_name='Normalized kernel weights',units='N/A'))
         return da.to_dataset(name='k')
 
