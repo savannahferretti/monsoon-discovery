@@ -84,27 +84,7 @@
           "kind":"parametric",
           "kernel":"gaussian",
           "fieldvars":["rh","thetae","thetaestar"],
-          "localvars":["lf","shf","lhf"]},
-        "param_gauss_thetae_thetaestar_lf":{
-          "kind":"parametric",
-          "kernel":"gaussian",
-          "fieldvars":["thetae","thetaestar"],
-          "localvars":["lf"]},
-        "param_gauss_thetae_thetaestar_shf_lhf":{
-          "kind":"parametric",
-          "kernel":"gaussian",
-          "fieldvars":["thetae","thetaestar"],
-          "localvars":["shf","lhf"]},
-        "param_gauss_rh_shf_lhf":{
-          "kind":"parametric",
-          "kernel":"gaussian",
-          "fieldvars":["rh"],
-          "localvars":["shf","lhf"]},
-        "param_gauss_rh_lf":{
-          "kind":"parametric",
-          "kernel":"gaussian",
-          "fieldvars":["rh"],
-          "localvars":["lf"]}}},
+          "localvars":["lf","shf","lhf"]}}},
     "sr":{
       "seed":42,
       "subsetsize":10000,
