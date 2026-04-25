@@ -57,7 +57,7 @@ class PredictionWriter:
         - xr.Dataset: Dataset with predictions in native units on a (time, lat, lon, seed) grid
         '''
         if denormalize:
-            predstack = np.stack([np.expm1(self.unflatten(preds,valid,refda)*self.std+self.mean) for preds in predslist],axis=-1)
+            predstack = np.stack([np.maximum(np.expm1(self.unflatten(preds,valid,refda)*self.std+self.mean),0.0) for preds in predslist],axis=-1)
         else:
             predstack = np.stack([np.clip(self.unflatten(preds,valid,refda),0,None) for preds in predslist],axis=-1)
         coords = {dim:refda.coords[dim].values for dim in refda.dims}

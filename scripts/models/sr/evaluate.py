@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import json
 import logging
 import argparse
 import pickle
@@ -51,6 +52,10 @@ if __name__=='__main__':
     logger.info('Spinning up...')
     selectedruns,split = parse()
     writer     = PredictionWriter(config.splitsdir,targetvar=targetvar)
+    statsfile  = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        flat = json.load(f)
+    zmin = (0.0 - flat[f'{targetvar}_mean']) / flat[f'{targetvar}_std']
     cachedkey  = None
     cacheddata = None
     for name,runconfig in runs.items():
@@ -77,7 +82,7 @@ if __name__=='__main__':
             continue
         featurecols = fieldvars+localvars
         xvalid      = X[validmask][featurecols].reset_index(drop=True)
-        ypred       = model.predict(xvalid.values)
+        ypred       = np.maximum(model.predict(xvalid.values), zmin)
         logger.info(f'   Saving predictions for `{name}`...')
         predds = writer.predictions_to_dataset([ypred],validmask,refda,denormalize=True)
         writer.save(predds,name,'predictions',split,config.predsdir)
