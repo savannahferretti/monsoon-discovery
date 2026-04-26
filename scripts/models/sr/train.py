@@ -353,7 +353,8 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
         binary_operators=ops['binary'],
         unary_operators=ops['unary'],
         complexity_of_operators=ops['complexity'],
-        complexity_of_variables=compl['ofvariables'],
+        complexity_of_variables=[compl['ofvariables'].get(p,1) for p in predictors]
+            if isinstance(compl['ofvariables'],dict) else compl['ofvariables'],
         complexity_of_constants=compl['ofconstants'],
         maxsize=sp['maxsize'],
         maxdepth=sp['maxdepth'],
