@@ -314,7 +314,7 @@ def assert_bin_contributions(y_sub,loglo=-4,loghi=2,tolerance=0.5):
         assert abs(c-expected)/max(expected,1)<=tolerance, \
             f'Bin imbalance: {c} samples vs expected ~{expected:.0f} ({100*tolerance:.0f}% tolerance)'
 
-def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
+def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,lossspace='logz'):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset.
         Operators, complexity penalties, and operator constraints are read from srconfig so they
@@ -329,6 +329,8 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
     - procs (int): number of Julia worker processes
     - timeout (int): search timeout in seconds; acts as a safety net alongside iterations
     - tmpdir (str): temporary directory for Julia equation files
+    - lossspace (str): 'logz' (default) computes MSE in z-scored log1p space;
+        'native' denormalizes both prediction and target to mm before computing MSE
     Returns:
     - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
     '''
@@ -344,6 +346,13 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
     with open(statsfile,'r',encoding='utf-8') as f:
         flat = json.load(f)
     zmin = (0.0 - flat['tp_mean']) / flat['tp_std']
+    if lossspace == 'native':
+        tp_std  = float(flat['tp_std'])
+        tp_mean = float(flat['tp_mean'])
+        loss = (f'loss(x, y) = (max(expm1(x * {tp_std:.8f} + {tp_mean:.8f}), 0.0)'
+                f' - expm1(y * {tp_std:.8f} + {tp_mean:.8f}))^2')
+    else:
+        loss = f'loss(x, y) = (max(x, {zmin:.8f}) - y)^2'
     model    = PySRRegressor(
         niterations=iters,
         populations=popcount,
@@ -361,7 +370,7 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
         constraints=constr,
         nested_constraints=nested,
         extra_sympy_mappings={'square':lambda x:x**2},
-        loss=f'loss(x, y) = (max(x, {zmin:.8f}) - y)^2',
+        loss=loss,
         model_selection='best',
         batching=True,
         batch_size=sp['batchsize'],
@@ -440,7 +449,8 @@ if __name__=='__main__':
         logger.info(f'   Starting PySR search ({iterseff} iters × {popcount} populations, {procs} workers, {timeout}s timeout)...')
         tmpdir = tempfile.mkdtemp(prefix='pysr_')
         try:
-            model = fit(xsub,ysub,predictors,sr,procs,timeout,tmpdir)
+            model = fit(xsub,ysub,predictors,sr,procs,timeout,tmpdir,
+                        lossspace=runconfig.get('lossspace','logz'))
         finally:
             shutil.rmtree(tmpdir,ignore_errors=True)
         save(model,name,config)

@@ -132,7 +132,12 @@
         "sr_gauss_all_v3":{
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","lhf","shf"],
-          "weightsfrom":"param_gauss_all"}}
+          "weightsfrom":"param_gauss_all"},
+        "sr_gauss_all_v4":{
+          "fieldvars":["rh","thetae","thetaestar"],
+          "localvars":["lf","lhf","shf"],
+          "weightsfrom":"param_gauss_all",
+          "lossspace":"native"}}
     }
   }
 }
