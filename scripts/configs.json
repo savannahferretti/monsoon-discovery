@@ -88,6 +88,7 @@
     "sr":{
       "seed":42,
       "subsetsize":10000,
+      "samplingStrategy":"pointwise",
       "searchparams":{
         "iterations":5000,
         "targettotal":500000,

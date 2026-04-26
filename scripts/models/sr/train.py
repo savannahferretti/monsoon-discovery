@@ -84,7 +84,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
     '''
     Purpose: Load a normalized data split and construct predictor features for symbolic regression. If 'weightsfrom' is set, vertically 
     integrate field variables using kernel weights from a previously trained NN model, averaging across seeds; otherwise read scalar field
-    variables directly. A 'timeidx' column is appended to X so that `subsample()` can select whole timesteps.
+    variables directly. A 'timeidx' column is appended to X so that the subsamplers can select whole timesteps or individual samples.
     Args:
     - splitname (str): 'train' | 'valid' | 'test'
     - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
@@ -142,25 +142,21 @@ def load_data(splitname,runconfig,config,time_offset=0):
     splitds.close()
     return X,y,refda,validmask
 
-def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
+def subsample_timestep(X,y,subsetsize,seed,loglo=-4,loghi=2):
     '''
     Purpose: Subsample complete timesteps with proportional coverage of the precipitation
-        distribution. Timesteps are grouped by their domain-maximum precipitation in raw mm
-        (recovered by inverting the log1p normalization) and divided into one-decade-wide
-        log10 bins from loglo to loghi, plus one dry bin for timesteps below 10^loglo mm.
-        Timesteps are drawn from each bin in proportion to its share of the full dataset,
-        so the subsampled precipitation distribution mirrors the shape of the full distribution.
-        ALL valid spatial points within each selected timestep are retained to avoid geographic
-        bias and preserve complete spatial snapshots.
+        distribution. Timesteps are grouped by their domain-maximum precipitation and drawn
+        from each log-decade bin in proportion to its share of the full dataset. ALL valid
+        spatial points within each selected timestep are retained.
     Args:
     - X (pd.DataFrame): features including a 'timeidx' column added by load_data()
-    - y (np.ndarray): normalized log1p(tp) target values with shape (nsamples,)
+    - y (np.ndarray): z-scored log1p(tp) target values with shape (nsamples,)
     - subsetsize (int): approximate total samples; actual count is nselectedtimesteps x avgptspertime
     - seed (int): random seed for reproducibility
-    - loglo (float): log10 lower bound of wet bins in mm (default -4 → 0.0001 mm)
-    - loghi (float): log10 upper bound of wet bins in mm (default 2 → 100 mm)
+    - loglo (float): log10 lower bound of wet bins in mm (default -4)
+    - loghi (float): log10 upper bound of wet bins in mm (default 2)
     Returns:
-    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column; ysub is in z-scored log1p space (same space as NN targets)
+    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column
     '''
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
@@ -196,6 +192,127 @@ def subsample(X,y,subsetsize,seed,loglo=-4,loghi=2):
     rng.shuffle(subidx)
     xsub = X.iloc[subidx].drop(columns=['timeidx']).reset_index(drop=True)
     return xsub,np.asarray(y)[subidx]
+
+def subsample_pointwise(X,y,subsetsize,seed,loglo=-4,loghi=2):
+    '''
+    Purpose: Pointwise precipitation-stratified subsampling. Each gridpoint sample is
+        binned by its own native precipitation value across dry, log-decade wet, and extreme
+        bins. An equal number of samples is drawn from each non-empty bin, with replacement
+        for rare bins. This ensures heavy-precipitation events are represented at training
+        time regardless of how rarely they occur in the full dataset.
+    Args:
+    - X (pd.DataFrame): features including a 'timeidx' column added by load_data()
+    - y (np.ndarray): z-scored log1p(tp) target values with shape (nsamples,)
+    - subsetsize (int): approximate total samples; actual = nnonemptybins * (subsetsize // nnonemptybins)
+    - seed (int): random seed for reproducibility
+    - loglo (float): log10 lower bound of wet bins in mm (default -4)
+    - loghi (float): log10 upper bound of wet bins in mm (default 2)
+    Returns:
+    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column
+    '''
+    statsfile = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        flat = json.load(f)
+    tp        = np.expm1(np.asarray(y)*flat['tp_std']+flat['tp_mean'])
+    rng       = np.random.default_rng(seed)
+    nbins     = int(loghi-loglo)
+    logbounds = np.linspace(loglo,loghi,nbins+1)
+    logtpi    = np.log10(tp.clip(min=10**(loglo-1)))
+    allidx    = np.arange(len(y))
+    binpools  = []
+    if (tp<=10**loglo).any():
+        binpools.append(allidx[tp<=10**loglo])
+    for i in range(nbins):
+        lo,hi = logbounds[i],logbounds[i+1]
+        inbin = allidx[(logtpi>lo)&(logtpi<=hi)]
+        if len(inbin)>0:
+            binpools.append(inbin)
+    extreme = allidx[tp>10**loghi]
+    if len(extreme)>0:
+        binpools.append(extreme)
+    nnonempty = len(binpools)
+    nperbin   = max(1,subsetsize//nnonempty)
+    selected  = [rng.choice(pool,nperbin,replace=len(pool)<nperbin) for pool in binpools]
+    subidx    = np.concatenate(selected)
+    subidx    = subidx[rng.permutation(len(subidx))]
+    xsub      = X.iloc[subidx].drop(columns=['timeidx']).reset_index(drop=True)
+    return xsub,np.asarray(y)[subidx]
+
+def print_subsample_diagnostics(y_full,y_sub,loglo=-4,loghi=2):
+    '''
+    Purpose: Log a comparative summary of native-unit precipitation distributions
+        between the full training pool and the SR subsample, broken down by bin.
+    Args:
+    - y_full (np.ndarray): z-scored log1p(tp) for the full pool
+    - y_sub (np.ndarray): z-scored log1p(tp) for the subsample
+    - loglo (float): log10 lower bound of wet bins in mm (default -4)
+    - loghi (float): log10 upper bound of wet bins in mm (default 2)
+    '''
+    statsfile = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        flat = json.load(f)
+    def denorm(y):
+        return np.expm1(np.asarray(y)*flat['tp_std']+flat['tp_mean'])
+    tpfull    = denorm(y_full)
+    tpsub     = denorm(y_sub)
+    nbins     = int(loghi-loglo)
+    logbounds = np.linspace(loglo,loghi,nbins+1)
+    def bin_counts(tp):
+        logtpi = np.log10(tp.clip(min=10**(loglo-1)))
+        counts = [(tp<=10**loglo).sum()]
+        for i in range(nbins):
+            lo,hi = logbounds[i],logbounds[i+1]
+            counts.append(((logtpi>lo)&(logtpi<=hi)).sum())
+        counts.append((tp>10**loghi).sum())
+        return counts
+    labels = [f'dry (<=1e{int(loglo)} mm)']
+    for i in range(nbins):
+        labels.append(f'1e{int(logbounds[i])} to 1e{int(logbounds[i+1])} mm')
+    labels.append(f'>1e{int(loghi)} mm')
+    fc = bin_counts(tpfull)
+    sc = bin_counts(tpsub)
+    logger.info('   Subsample diagnostics:')
+    logger.info(f'     Pool: {len(y_full):,}   Subset: {len(y_sub):,}')
+    logger.info(f'     Native tp (mm) pool — mean={tpfull.mean():.4f}  med={np.median(tpfull):.4f}  max={tpfull.max():.4f}')
+    logger.info(f'     Native tp (mm) sub  — mean={tpsub.mean():.4f}  med={np.median(tpsub):.4f}  max={tpsub.max():.4f}')
+    logger.info(f'     log1p(tp) pool — mean={np.log1p(tpfull).mean():.4f}  std={np.log1p(tpfull).std():.4f}')
+    logger.info(f'     log1p(tp) sub  — mean={np.log1p(tpsub).mean():.4f}  std={np.log1p(tpsub).std():.4f}')
+    logger.info(f'     {"Bin":<26} {"Pool":>12} {"Subset":>12}')
+    for label,fc_,sc_ in zip(labels,fc,sc):
+        logger.info(f'     {label:<26} {fc_:>12,} {sc_:>12,}')
+
+def assert_bin_contributions(y_sub,loglo=-4,loghi=2,tolerance=0.5):
+    '''
+    Purpose: Assert that each non-empty precipitation bin contributes approximately
+        equal samples to the subset, validating the pointwise equal-allocation strategy.
+    Args:
+    - y_sub (np.ndarray): z-scored log1p(tp) for the subsample
+    - loglo (float): log10 lower bound of wet bins in mm (default -4)
+    - loghi (float): log10 upper bound of wet bins in mm (default 2)
+    - tolerance (float): max allowed fractional deviation from mean bin count (default 0.5)
+    '''
+    statsfile = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        flat = json.load(f)
+    tp        = np.expm1(np.asarray(y_sub)*flat['tp_std']+flat['tp_mean'])
+    nbins     = int(loghi-loglo)
+    logbounds = np.linspace(loglo,loghi,nbins+1)
+    logtpi    = np.log10(tp.clip(min=10**(loglo-1)))
+    counts    = [(tp<=10**loglo).sum()]
+    for i in range(nbins):
+        lo,hi = logbounds[i],logbounds[i+1]
+        counts.append(((logtpi>lo)&(logtpi<=hi)).sum())
+    counts.append((tp>10**loghi).sum())
+    nonempty  = [c for c in counts if c>0]
+    if len(nonempty)<2:
+        return
+    expected  = float(np.mean(nonempty))
+    for c in nonempty:
+        assert abs(c-expected)/max(expected,1)<=tolerance, \
+            f'Bin imbalance: {c} samples vs expected ~{expected:.0f} ({100*tolerance:.0f}% tolerance)'
 
 def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir):
     '''
@@ -310,8 +427,14 @@ if __name__=='__main__':
         xfit = pd.concat([xtrain[vmtrain],xvalid[vmvalid]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
         del xtrain,xvalid,ytrain,yvalid,refdatrain
-        logger.info(f'   Subsampling ~{subsetsize} samples proportionally from precipitation distribution...')
-        xsub,ysub = subsample(xfit,yfit,subsetsize,sr['seed'])
+        strategy = sr.get('samplingStrategy','pointwise')
+        logger.info(f'   Subsampling ~{subsetsize} samples using {strategy!r} strategy...')
+        if strategy=='pointwise':
+            xsub,ysub = subsample_pointwise(xfit,yfit,subsetsize,sr['seed'])
+            assert_bin_contributions(ysub)
+        else:
+            xsub,ysub = subsample_timestep(xfit,yfit,subsetsize,sr['seed'])
+        print_subsample_diagnostics(yfit,ysub)
         del xfit,yfit
         logger.info(f'   Starting PySR search ({iterseff} iters × {popcount} populations, {procs} workers, {timeout}s timeout)...')
         tmpdir = tempfile.mkdtemp(prefix='pysr_')
