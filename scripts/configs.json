@@ -87,7 +87,7 @@
           "localvars":["lf","shf","lhf"]}}},
     "sr":{
       "seed":42,
-      "subsetsize":100000,
+      "subsetsize":10000,
       "samplingStrategy":"timestep",
       "searchparams":{
         "iterations":5000,
