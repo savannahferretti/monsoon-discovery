@@ -44,6 +44,34 @@ def load(name,modelsdir):
     with open(filepath,'rb') as f:
         return pickle.load(f)
 
+def predict_pareto(model,X,zmin,writer,validmask,refda):
+    '''
+    Purpose: Evaluate every equation on the Pareto frontier and return predictions
+        with complexity as a dimension.
+    Args:
+    - model (PySRRegressor): fitted model whose equations_ DataFrame holds the frontier
+    - X (np.ndarray): feature matrix with shape (nvalidsamples, nfeatures)
+    - zmin (float): z-scored floor corresponding to 0 mm precipitation
+    - writer (PredictionWriter): used for unflatten and denormalization stats
+    - validmask (np.ndarray): boolean mask selecting valid grid points from the full flat array
+    - refda (xr.DataArray): reference DataArray supplying (time, lat, lon) coordinates
+    Returns:
+    - xr.Dataset: predictions in native units with dims (time, lat, lon, complexity)
+    '''
+    arrs,complexities = [],[]
+    for i in range(len(model.equations_)):
+        row     = model.equations_.iloc[i]
+        flat    = np.maximum(model.predict(X,index=i),zmin)
+        gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
+        arrs.append(gridded)
+        complexities.append(int(row['complexity']))
+    predstack = np.stack(arrs,axis=-1)
+    coords    = {dim:refda.coords[dim] for dim in refda.dims}
+    coords['complexity'] = xr.DataArray(complexities,dims=['complexity'],attrs=dict(long_name='Equation complexity'))
+    da = xr.DataArray(predstack,dims=('time','lat','lon','complexity'),coords=coords)
+    da.attrs = dict(long_name=writer.longname,units=writer.units)
+    return da.to_dataset(name=writer.targetvar)
+
 if __name__=='__main__':
     config    = Config()
     sr        = config.sr
@@ -76,14 +104,13 @@ if __name__=='__main__':
             cacheddata = (X,y,refda,validmask)
         else:
             X,y,refda,validmask = cacheddata
-        logger.info(f'   Evaluating `{name}` ({validmask.sum()} valid samples)...')
         model = load(name,config.modelsdir)
         if model is None:
             continue
         featurecols = fieldvars+localvars
         xvalid      = X[validmask][featurecols].reset_index(drop=True)
-        ypred       = np.maximum(model.predict(xvalid.values), zmin)
+        logger.info(f'   Evaluating `{name}` ({validmask.sum()} valid samples, {len(model.equations_)} Pareto equations)...')
+        predds = predict_pareto(model,xvalid.values,zmin,writer,validmask,refda)
         logger.info(f'   Saving predictions for `{name}`...')
-        predds = writer.predictions_to_dataset([ypred],validmask,refda,denormalize=True)
         writer.save(predds,name,'predictions',split,config.predsdir)
-        del model,xvalid,ypred,predds
+        del model,xvalid,predds
