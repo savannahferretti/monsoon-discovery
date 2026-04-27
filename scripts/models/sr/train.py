@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-os.environ.setdefault('JULIA_NUM_THREADS','1')
+os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
 
 import json
 import shutil
@@ -375,7 +375,7 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,lossspace='logz'):
         batching=True,
         batch_size=sp['batchsize'],
         random_state=srconfig['seed'],
-        parallelism='multiprocessing',
+        parallelism='multithreading',
         procs=procs,
         tempdir=tmpdir,
         temp_equation_file=True,
