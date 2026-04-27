@@ -88,7 +88,6 @@
     "sr":{
       "seed":42,
       "subsetsize":10000,
-      "samplingStrategy":"timestep",
       "searchparams":{
         "iterations":5000,
         "targettotal":500000,

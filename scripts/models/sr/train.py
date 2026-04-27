@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-os.environ.setdefault('JULIA_NUM_THREADS','1')
+os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
 
 import json
 import shutil
@@ -193,52 +193,6 @@ def subsample_timestep(X,y,subsetsize,seed,loglo=-4,loghi=2):
     xsub = X.iloc[subidx].drop(columns=['timeidx']).reset_index(drop=True)
     return xsub,np.asarray(y)[subidx]
 
-def subsample_pointwise(X,y,subsetsize,seed,loglo=-4,loghi=2):
-    '''
-    Purpose: Pointwise precipitation-stratified subsampling. Each gridpoint sample is
-        binned by its own native precipitation value across dry, log-decade wet, and extreme
-        bins. An equal number of samples is drawn from each non-empty bin, with replacement
-        for rare bins. This ensures heavy-precipitation events are represented at training
-        time regardless of how rarely they occur in the full dataset.
-    Args:
-    - X (pd.DataFrame): features including a 'timeidx' column added by load_data()
-    - y (np.ndarray): z-scored log1p(tp) target values with shape (nsamples,)
-    - subsetsize (int): approximate total samples; actual = nnonemptybins * (subsetsize // nnonemptybins)
-    - seed (int): random seed for reproducibility
-    - loglo (float): log10 lower bound of wet bins in mm (default -4)
-    - loghi (float): log10 upper bound of wet bins in mm (default 2)
-    Returns:
-    - tuple[pd.DataFrame, np.ndarray]: (xsub, ysub) without the 'timeidx' column
-    '''
-    statsfile = os.path.normpath(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
-    with open(statsfile,'r',encoding='utf-8') as f:
-        flat = json.load(f)
-    tp        = np.expm1(np.asarray(y)*flat['tp_std']+flat['tp_mean'])
-    rng       = np.random.default_rng(seed)
-    nbins     = int(loghi-loglo)
-    logbounds = np.linspace(loglo,loghi,nbins+1)
-    logtpi    = np.log10(tp.clip(min=10**(loglo-1)))
-    allidx    = np.arange(len(y))
-    binpools  = []
-    if (tp<=10**loglo).any():
-        binpools.append(allidx[tp<=10**loglo])
-    for i in range(nbins):
-        lo,hi = logbounds[i],logbounds[i+1]
-        inbin = allidx[(logtpi>lo)&(logtpi<=hi)]
-        if len(inbin)>0:
-            binpools.append(inbin)
-    extreme = allidx[tp>10**loghi]
-    if len(extreme)>0:
-        binpools.append(extreme)
-    nnonempty = len(binpools)
-    nperbin   = max(1,subsetsize//nnonempty)
-    selected  = [rng.choice(pool,nperbin,replace=len(pool)<nperbin) for pool in binpools]
-    subidx    = np.concatenate(selected)
-    subidx    = subidx[rng.permutation(len(subidx))]
-    xsub      = X.iloc[subidx].drop(columns=['timeidx']).reset_index(drop=True)
-    return xsub,np.asarray(y)[subidx]
-
 def print_subsample_diagnostics(y_full,y_sub,loglo=-4,loghi=2):
     '''
     Purpose: Log a comparative summary of native-unit precipitation distributions
@@ -282,37 +236,6 @@ def print_subsample_diagnostics(y_full,y_sub,loglo=-4,loghi=2):
     logger.info(f'     {"Bin":<26} {"Pool":>12} {"Subset":>12}')
     for label,fc_,sc_ in zip(labels,fc,sc):
         logger.info(f'     {label:<26} {fc_:>12,} {sc_:>12,}')
-
-def assert_bin_contributions(y_sub,loglo=-4,loghi=2,tolerance=0.5):
-    '''
-    Purpose: Assert that each non-empty precipitation bin contributes approximately
-        equal samples to the subset, validating the pointwise equal-allocation strategy.
-    Args:
-    - y_sub (np.ndarray): z-scored log1p(tp) for the subsample
-    - loglo (float): log10 lower bound of wet bins in mm (default -4)
-    - loghi (float): log10 upper bound of wet bins in mm (default 2)
-    - tolerance (float): max allowed fractional deviation from mean bin count (default 0.5)
-    '''
-    statsfile = os.path.normpath(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
-    with open(statsfile,'r',encoding='utf-8') as f:
-        flat = json.load(f)
-    tp        = np.expm1(np.asarray(y_sub)*flat['tp_std']+flat['tp_mean'])
-    nbins     = int(loghi-loglo)
-    logbounds = np.linspace(loglo,loghi,nbins+1)
-    logtpi    = np.log10(tp.clip(min=10**(loglo-1)))
-    counts    = [(tp<=10**loglo).sum()]
-    for i in range(nbins):
-        lo,hi = logbounds[i],logbounds[i+1]
-        counts.append(((logtpi>lo)&(logtpi<=hi)).sum())
-    counts.append((tp>10**loghi).sum())
-    nonempty  = [c for c in counts if c>0]
-    if len(nonempty)<2:
-        return
-    expected  = float(np.mean(nonempty))
-    for c in nonempty:
-        assert abs(c-expected)/max(expected,1)<=tolerance, \
-            f'Bin imbalance: {c} samples vs expected ~{expected:.0f} ({100*tolerance:.0f}% tolerance)'
 
 def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,lossspace='logz'):
     '''
@@ -375,7 +298,7 @@ def fit(xsub,ysub,predictors,srconfig,procs,timeout,tmpdir,lossspace='logz'):
         batching=True,
         batch_size=sp['batchsize'],
         random_state=srconfig['seed'],
-        parallelism='multiprocessing',
+        parallelism='multithreading',
         procs=procs,
         tempdir=tmpdir,
         temp_equation_file=True,
@@ -437,13 +360,8 @@ if __name__=='__main__':
         xfit = pd.concat([xtrain[vmtrain],xvalid[vmvalid]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
         del xtrain,xvalid,ytrain,yvalid,refdatrain
-        strategy = sr.get('samplingStrategy','pointwise')
-        logger.info(f'   Subsampling ~{subsetsize} samples using {strategy!r} strategy...')
-        if strategy=='pointwise':
-            xsub,ysub = subsample_pointwise(xfit,yfit,subsetsize,sr['seed'])
-            assert_bin_contributions(ysub)
-        else:
-            xsub,ysub = subsample_timestep(xfit,yfit,subsetsize,sr['seed'])
+        logger.info(f'   Subsampling ~{subsetsize} samples by timestep...')
+        xsub,ysub = subsample_timestep(xfit,yfit,subsetsize,sr['seed'])
         print_subsample_diagnostics(yfit,ysub)
         del xfit,yfit
         logger.info(f'   Starting PySR search ({iterseff} iters × {popcount} populations, {procs} workers, {timeout}s timeout)...')
