@@ -6,11 +6,10 @@ import logging
 import argparse
 import pickle
 import numpy as np
-import pandas as pd
 import xarray as xr
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
-from scripts.models.sr.train import kernel_integrate,load_data
+from scripts.models.sr.train import load_data
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
