@@ -28,16 +28,17 @@ def parse():
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
     return selectedruns,args.split
 
-def load(name,modelsdir):
+def load(name,seed,modelsdir):
     '''
     Purpose: Load a saved PySRRegressor from disk.
     Args:
     - name (str): run identifier matching the saved filename
+    - seed (int): training seed matching the saved filename
     - modelsdir (str): base models directory containing the sr/ subdirectory
     Returns:
     - PySRRegressor | None: loaded model, or None if the file is not found
     '''
-    filepath = os.path.join(modelsdir,'sr',f'{name}_pareto.pkl')
+    filepath = os.path.join(modelsdir,'sr',f'{name}_{seed}_pareto.pkl')
     if not os.path.exists(filepath):
         logger.error(f'   Model not found: {filepath}')
         return None
@@ -46,8 +47,7 @@ def load(name,modelsdir):
 
 def predict_pareto(model,X,zmin,writer,validmask,refda):
     '''
-    Purpose: Evaluate every equation on the Pareto frontier and return predictions
-        with complexity as a dimension.
+    Purpose: Evaluate every equation on the Pareto frontier and return predictions keyed by complexity.
     Args:
     - model (PySRRegressor): fitted model whose equations_ DataFrame holds the frontier
     - X (np.ndarray): feature matrix with shape (nvalidsamples, nfeatures)
@@ -56,19 +56,38 @@ def predict_pareto(model,X,zmin,writer,validmask,refda):
     - validmask (np.ndarray): boolean mask selecting valid grid points from the full flat array
     - refda (xr.DataArray): reference DataArray supplying (time, lat, lon) coordinates
     Returns:
-    - xr.Dataset: predictions in native units with dims (time, lat, lon, complexity)
+    - dict[int, np.ndarray]: mapping from complexity to gridded array with shape (time, lat, lon)
     '''
-    arrs,complexities = [],[]
+    preds = {}
     for i in range(len(model.equations_)):
         row     = model.equations_.iloc[i]
         flat    = np.maximum(model.predict(X,index=i),zmin)
         gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
-        arrs.append(gridded)
-        complexities.append(int(row['complexity']))
-    predstack = np.stack(arrs,axis=-1)
-    coords    = {dim:refda.coords[dim] for dim in refda.dims}
-    coords['complexity'] = xr.DataArray(complexities,dims=['complexity'],attrs=dict(long_name='Equation complexity'))
-    da = xr.DataArray(predstack,dims=('time','lat','lon','complexity'),coords=coords)
+        preds[int(row['complexity'])] = gridded
+    return preds
+
+def assemble_predictions(seedpreds,seeds,writer,refda):
+    '''
+    Purpose: Assemble per-seed Pareto frontier predictions into a single xr.Dataset.
+        Complexities missing for a given seed are filled with NaN.
+    Args:
+    - seedpreds (list[dict[int, np.ndarray]]): one dict per seed, mapping complexity → gridded array
+        with shape (time, lat, lon)
+    - seeds (list[int]): seed values corresponding to entries in seedpreds
+    - writer (PredictionWriter): supplies targetvar, longname, and units metadata
+    - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
+    Returns:
+    - xr.Dataset: predictions with dims (time, lat, lon, seed, complexity)
+    '''
+    allcomplexities = sorted(set().union(*[set(p.keys()) for p in seedpreds]))
+    nanarray        = np.full(refda.shape,np.nan,dtype=np.float32)
+    stacked         = np.stack(
+        [np.stack([seeddict.get(c,nanarray) for c in allcomplexities],axis=-1) for seeddict in seedpreds],
+        axis=-2)
+    coords = {dim:refda.coords[dim] for dim in refda.dims}
+    coords['seed']       = xr.DataArray(seeds,dims=['seed'],attrs=dict(long_name='Training seed'))
+    coords['complexity'] = xr.DataArray(allcomplexities,dims=['complexity'],attrs=dict(long_name='Equation complexity'))
+    da = xr.DataArray(stacked,dims=('time','lat','lon','seed','complexity'),coords=coords)
     da.attrs = dict(long_name=writer.longname,units=writer.units)
     return da.to_dataset(name=writer.targetvar)
 
@@ -76,6 +95,7 @@ if __name__=='__main__':
     config    = Config()
     sr        = config.sr
     runs      = sr['runs']
+    seeds     = sr['seeds']
     targetvar = config.targetvar
     logger.info('Spinning up...')
     selectedruns,split = parse()
@@ -104,13 +124,19 @@ if __name__=='__main__':
             cacheddata = (X,y,refda,validmask)
         else:
             X,y,refda,validmask = cacheddata
-        model = load(name,config.modelsdir)
-        if model is None:
-            continue
         featurecols = fieldvars+localvars
         xvalid      = X[validmask][featurecols].reset_index(drop=True)
-        logger.info(f'   Evaluating `{name}` ({validmask.sum()} valid samples, {len(model.equations_)} Pareto equations)...')
-        predds = predict_pareto(model,xvalid.values,zmin,writer,validmask,refda)
-        logger.info(f'   Saving predictions for `{name}`...')
-        writer.save(predds,name,'predictions',split,config.predsdir)
-        del model,xvalid,predds
+        seedpreds   = []
+        for seedidx,seed in enumerate(seeds):
+            model = load(name,seed,config.modelsdir)
+            if model is None:
+                break
+            logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed}) ({validmask.sum()} valid samples, {len(model.equations_)} Pareto equations)...')
+            seedpreds.append(predict_pareto(model,xvalid.values,zmin,writer,validmask,refda))
+            del model
+        else:
+            logger.info(f'   Saving predictions for `{name}`...')
+            predds = assemble_predictions(seedpreds,seeds,writer,refda)
+            writer.save(predds,name,'predictions',split,config.predsdir)
+            del predds
+        del xvalid,seedpreds

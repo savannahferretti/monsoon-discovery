@@ -58,8 +58,8 @@
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"]}}},
     "sr":{
-      "seed":42,
-      "subsetsize":200000,
+      "seeds":[42,72,102],
+      "subsetfrac":0.023,
       "searchparams":{
         "iterations":500,
         "populations":20,
