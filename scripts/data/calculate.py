@@ -58,15 +58,13 @@ if __name__=='__main__':
     thetael     = calculator.calc_layer_average(thetae,pbltop,lfttop)
     thetaelstar = calculator.calc_layer_average(thetaestar,pbltop,lfttop)
     logger.info('Calculating BL terms...')
-    wb,wl          = calculator.calc_weights(ps,pbltop,lfttop)
-    cape,subsat,bl = calculator.calc_bl_terms(thetaeb,thetael,thetaelstar,wb,wl)
+    wb,wl = calculator.calc_weights(ps,pbltop,lfttop)
+    bl    = calculator.calc_bl(thetaeb,thetael,thetaelstar,wb,wl)
     logger.info('Interpolating profile variables to sigma coordinates...')
     sigs       = np.arange(0.5,1.05,0.05,dtype=np.float32)
     rh         = calculator.interpolate_to_sigma(rh,ps,sigs)
     thetae     = calculator.interpolate_to_sigma(thetae,ps,sigs)
     thetaestar = calculator.interpolate_to_sigma(thetaestar,ps,sigs)
-    logger.info('Calculating surface enthalpy flux...')
-    sef  = lhf+shf
     logger.info('Calculating sigma quadrature weights...')
     dsig = calculator.calc_dsig(sigs)
     logger.info('Creating datasets...')
@@ -75,11 +73,9 @@ if __name__=='__main__':
         calculator.create_dataset(thetae,'thetae','Equivalent potential temperature','K'),
         calculator.create_dataset(thetaestar,'thetaestar','Saturated equivalent potential temperature','K'),
         calculator.create_dataset(bl,'bl','Average buoyancy in the lower troposphere','m/s²'),
-        calculator.create_dataset(cape,'cape','Undilute buoyancy in the lower troposphere','K'),
-        calculator.create_dataset(subsat,'subsat','Lower free-tropospheric subsaturation','K'),
-        calculator.create_dataset(ps,'ps','Surface pressure','hPa'),
         calculator.create_dataset(lf,'lf','Land fraction','0-1'),
-        calculator.create_dataset(sef,'sef','Surface energy flux','W/m²'),
+        calculator.create_dataset(shf,'shf','Surface sensible heat flux','W/m²'),
+        calculator.create_dataset(lhf,'lhf','Surface latent heat flux','W/m²'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
         calculator.create_dataset(tp,'tp','Total precipitation','mm'),
         calculator.create_dataset(dsig,'dsig','Sigma thickness weights','0-1')]

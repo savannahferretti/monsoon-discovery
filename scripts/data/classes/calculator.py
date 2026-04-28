@@ -246,9 +246,9 @@ class DataCalculator:
         wl = 1.0-wb
         return wb,wl
 
-    def calc_bl_terms(self,thetaeb,thetael,thetaelstar,wb,wl):
+    def calc_bl(self,thetaeb,thetael,thetaelstar,wb,wl):
         '''
-        Purpose: Calculate CAPEL, SUBSATL, and BL following Eq. 1 from Ahmed F and Neelin JD. 2021. Geophys. Res. Lett.
+        Purpose: Calculate BL following Eq. 1 from Ahmed F and Neelin JD. 2021. Geophys. Res. Lett.
         Args:
         - thetaeb (xr.DataArray): DataArray of θₑ averaged over the PBL (K)
         - thetael (xr.DataArray): DataArray of θₑ averaged over the LFT (K)
@@ -256,7 +256,7 @@ class DataCalculator:
         - wb (xr.DataArray): DataArray of PBL weights
         - wl (xr.DataArray): DataArray of LFT weights
         Returns:
-        - tuple[xr.DataArray,xr.DataArray,xr.DataArray]: CAPEL, SUBSATL, and BL DataArrays
+        - xr.DataArray: BL DataArray
         '''
         g       = 9.81
         kappal  = 3.0
@@ -264,7 +264,7 @@ class DataCalculator:
         cape    = ((thetaeb-thetaelstar)/thetaelstar)*thetae0
         subsat  = ((thetaelstar-thetael)/thetaelstar)*thetae0
         bl      = (g/(kappal*thetae0))*((wb*cape)-(wl*subsat))
-        return cape,subsat,bl
+        return bl
 
     def calc_dsig(self,sigs):
         '''
