@@ -3,6 +3,7 @@
 import os
 import ast
 import json
+import pickle
 import logging
 import warnings
 warnings.filterwarnings('ignore')
@@ -158,24 +159,27 @@ def log_seed_reference(runname,refcomplexity,config):
         for _,row in nearby.sort_values('complexity').iterrows():
             logger.info(f'     seed {seed} | complexity {int(row["complexity"])} | loss {float(row["loss"]):.6f} | {row["equation"]}')
 
-def save_constants(name,constants,trainloss,validloss,form,config):
+def save_registry(registry,config):
     '''
-    Purpose: Save optimized equation constants and training diagnostics to a JSON file.
+    Purpose: Save the full optimized-equations registry as a single PKL and CSV.
     Args:
-    - name (str): equation identifier used for the output filename
-    - constants (dict): optimized constant name → float value
-    - trainloss (float): MSE on the train+valid optimization set
-    - validloss (float): MSE on the held-out validation set
-    - form (str): the equation form string
+    - registry (dict): mapping name → {form, constants, train_loss, valid_loss}
     - config (Config): project configuration object
     '''
     outdir  = os.path.join(config.modelsdir,'sr')
     os.makedirs(outdir,exist_ok=True)
-    outpath = os.path.join(outdir,f'{name}_optimized.json')
-    payload = dict(name=name,form=form,constants=constants,train_loss=trainloss,valid_loss=validloss)
-    with open(outpath,'w',encoding='utf-8') as f:
-        json.dump(payload,f,indent=2)
-    logger.info(f'   Saved optimized constants to {outpath}')
+    pklpath = os.path.join(outdir,'optimized_equations.pkl')
+    csvpath = os.path.join(outdir,'optimized_equations.csv')
+    with open(pklpath,'wb') as f:
+        pickle.dump(registry,f)
+    rows = [
+        dict(name=name,form=entry['form'],
+             train_loss=entry['train_loss'],valid_loss=entry['valid_loss'],
+             constants=json.dumps(entry['constants']))
+        for name,entry in registry.items()
+    ]
+    pd.DataFrame(rows).to_csv(csvpath,index=False)
+    logger.info(f'   Registry saved ({len(registry)} equation(s)) → {pklpath}')
 
 def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin):
     '''
@@ -218,6 +222,13 @@ if __name__=='__main__':
     zmin   = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
 
+    pklpath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
+    registry = {}
+    if os.path.exists(pklpath):
+        with open(pklpath,'rb') as f:
+            registry = pickle.load(f)
+        logger.info(f'Loaded existing registry with {len(registry)} equation(s)')
+
     # Cache loaded data keyed by runfrom to avoid redundant I/O when multiple
     # equations share the same source run (common when all use sr_gauss_all).
     data_cache = {}
@@ -225,8 +236,7 @@ if __name__=='__main__':
     for name,eqspec in optimizedeqs.items():
         if selectedeqs is not None and name not in selectedeqs:
             continue
-        jsonpath = os.path.join(config.modelsdir,'sr',f'{name}_optimized.json')
-        if os.path.exists(jsonpath):
+        if name in registry:
             logger.info(f'Skipping `{name}`, already optimized')
             continue
         runname        = eqspec['runfrom']
@@ -262,7 +272,9 @@ if __name__=='__main__':
 
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in optconstants.items())}')
         logger.info(f'   Train loss: {trainloss:.6f}   Valid loss: {validloss:.6f}   Converged: {res.success}')
-        save_constants(name,{k:float(v) for k,v in optconstants.items()},trainloss,validloss,form,config)
+        registry[name] = dict(form=form,constants={k:float(v) for k,v in optconstants.items()},
+                              train_loss=trainloss,valid_loss=validloss)
+        save_registry(registry,config)
 
         for split in splits:
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
