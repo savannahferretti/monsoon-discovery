@@ -10,6 +10,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import xarray as xr
+from joblib import Parallel, delayed
 from scipy.optimize import minimize
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
@@ -101,16 +102,18 @@ def optimize_constants(form,predictornames,X,y,zmin,init):
     res = minimize(objective,x0,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(cnames,res.x)),res
 
-def multistart_optimize(form,predictornames,X,y,zmin,init,nrestarts=1,init_scale=5.0,seed=0):
+def multistart_optimize(form,predictornames,X,y,zmin,init,nrestarts=1,init_scale=5.0,seed=0,njobs=1):
     '''
     Purpose: Optimize named constants via L-BFGS-B with optional random restarts.
         The first restart uses `init`; subsequent restarts draw starting points uniformly
         from [-init_scale, init_scale], allowing the optimizer to discover the correct
         signs and magnitudes of each constant without manual initialization.
+        Restarts are run in parallel across `njobs` threads.
     Args:
     - nrestarts (int): total number of optimization runs (default 1 = single run from init)
     - init_scale (float): half-range for uniform random initialization (default 5.0)
     - seed (int): RNG seed for reproducible random restarts
+    - njobs (int): number of parallel threads for restarts (default 1)
     Returns:
     - tuple[dict, OptimizeResult]: best constants and corresponding scipy result
     '''
@@ -119,9 +122,11 @@ def multistart_optimize(form,predictornames,X,y,zmin,init,nrestarts=1,init_scale
     inits  = [init] + [
         {c:float(v) for c,v in zip(cnames,rng.uniform(-init_scale,init_scale,len(cnames)))}
         for _ in range(nrestarts-1)]
+    results_list = Parallel(n_jobs=njobs,prefer='threads')(
+        delayed(optimize_constants)(form,predictornames,X,y,zmin,init_i)
+        for init_i in inits)
     best_const,best_res = None,None
-    for i,init_i in enumerate(inits):
-        const,res = optimize_constants(form,predictornames,X,y,zmin,init_i)
+    for i,(const,res) in enumerate(results_list):
         if best_res is None or res.fun < best_res.fun:
             best_const,best_res = const,res
         logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
@@ -203,12 +208,19 @@ if __name__=='__main__':
     logger.info('Spinning up...')
     selectedeqs,splits = parse()
 
+    njobs = int(os.environ.get('SLURM_CPUS_PER_TASK',1))
+    logger.info(f'Using {njobs} parallel worker(s) for multi-start optimization')
+
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
     zmin   = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
+
+    # Cache loaded data keyed by runfrom to avoid redundant I/O when multiple
+    # equations share the same source run (common when all use sr_gauss_all).
+    data_cache = {}
 
     for name,eqspec in optimizedeqs.items():
         if selectedeqs is not None and name not in selectedeqs:
@@ -227,22 +239,26 @@ if __name__=='__main__':
         logger.info(f'Optimizing `{name}` (form: {form})...')
         log_seed_reference(runname,refcomplexity,config)
 
-        logger.info(f'   Loading full train+valid features...')
-        Xtrain,ytrain,refdatrain,vmtrain = load_data('train',runconfig,config,time_offset=0)
-        Xvalid,yvalid,_,vmvalid          = load_data('valid',runconfig,config,time_offset=int(refdatrain.sizes['time']))
-        Xfit = pd.concat([Xtrain[vmtrain],Xvalid[vmvalid]]).reset_index(drop=True)[predictornames]
-        yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
-        del Xtrain,ytrain,refdatrain
+        if runname not in data_cache:
+            logger.info(f'   Loading full train+valid features for `{runname}`...')
+            Xtrain,ytrain,refdatrain,vmtrain = load_data('train',runconfig,config,time_offset=0)
+            Xvalid,yvalid,_,vmvalid          = load_data('valid',runconfig,config,time_offset=int(refdatrain.sizes['time']))
+            _Xfit = pd.concat([Xtrain[vmtrain],Xvalid[vmvalid]]).reset_index(drop=True)
+            _yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
+            data_cache[runname] = (_Xfit,_yfit,Xvalid,yvalid,vmvalid)
+            del Xtrain,ytrain,refdatrain
+
+        Xfit_full,yfit,Xvalid,yvalid,vmvalid = data_cache[runname]
+        Xfit = Xfit_full[predictornames]
 
         nrestarts  = eqspec.get('nrestarts',1)
         init_scale = eqspec.get('init_scale',5.0)
-        logger.info(f'   Running L-BFGS-B ({len(Xfit):,} samples, logz loss, {nrestarts} restart(s))...')
-        optconstants,res = multistart_optimize(form,predictornames,Xfit,yfit,zmin,init,nrestarts,init_scale)
+        logger.info(f'   Running L-BFGS-B ({len(Xfit):,} samples, logz loss, {nrestarts} restart(s), {njobs} worker(s))...')
+        optconstants,res = multistart_optimize(form,predictornames,Xfit,yfit,zmin,init,nrestarts,init_scale,njobs=njobs)
 
         trainloss  = float(res.fun)
         vpred      = np.maximum(eval_form(form,Xvalid[vmvalid][predictornames].reset_index(drop=True),predictornames,optconstants),zmin)
         validloss  = float(np.nanmean((vpred-yvalid[vmvalid])**2))
-        del Xfit,yfit,Xvalid,yvalid,vmvalid,vpred
 
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in optconstants.items())}')
         logger.info(f'   Train loss: {trainloss:.6f}   Valid loss: {validloss:.6f}   Converged: {res.success}')

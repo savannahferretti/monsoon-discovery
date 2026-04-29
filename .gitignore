@@ -24,6 +24,7 @@ data/weights/*
 *.pkl
 *.sh
 !train_sr.sh
+!optimize_sr.sh
 *.pth
 *.npz
 *.pyc
