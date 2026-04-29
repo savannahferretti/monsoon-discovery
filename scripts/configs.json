@@ -29,7 +29,9 @@
       "bins":{"min":-0.6,"max":0.1,"width":0.0025,"minsample":50},
       "fit":{"ymin":5.0,"ymax":15.0},
       "runs":{
-        "pod_bl":{"inputvar":"bl"}}},
+        "pod_bl":{
+            "inputvar":"bl",
+            "description":"POD-BL"}}},
     "nn":{
       "projectname":"Chapter-3-Experiments",
       "seeds":[42,72,102],
@@ -40,22 +42,22 @@
       "patience":4,
       "criterion":"MSELoss",
       "runs":{
-        "base_bl":{
+        "nn_bl":{
             "kind":"baseline",
             "fieldvars":["bl"],
             "localvars":[],
             "description":"NN-BL"},
-        "base_all":{
+        "nn_full":{
           "kind": "baseline",
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
           "description":"NN-FULL"},
-        "nonparam_all":{
+        "nn_nonparam":{
           "kind":"nonparametric",
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
           "description":"NN-NONPARAM"},
-        "gauss_all":{
+        "nn_gauss":{
           "kind":"parametric",
           "kernel":"gaussian",
           "fieldvars":["rh","thetae","thetaestar"],
@@ -95,27 +97,27 @@
           "cos":{"/":0,"^":0,"exp":0,"log":0,"cos":0,"sin":0},
           "sin":{"/":0,"^":0,"exp":0,"log":0,"cos":0,"sin":0}},
       "runs":{
-        "sr_gauss_all":{
+        "sr_gauss":{
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
-          "weightsfrom":"gauss_all"}},
+          "weightsfrom":"nn_gauss"}},
       "optimizedeqs":{
         "sr_lo":{
-          "runfrom":"sr_gauss_all",
+          "runfrom":"sr_gauss",
           "refcomplexity":4,
           "form":"a * cube(rh) + b",
           "constants":{"a":1.0,"b":0.0},
           "nrestarts":50,
           "description":"SR-LO"},
         "sr_med":{
-          "runfrom":"sr_gauss_all",
+          "runfrom":"sr_gauss",
           "refcomplexity":16,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d",
           "constants":{"a":1.0,"b":2.59,"c":-3.80,"d":-2.93},
           "nrestarts":50,
           "description":"SR-MED"},
         "sr_hi":{
-          "runfrom":"sr_gauss_all",
+          "runfrom":"sr_gauss",
           "refcomplexity":25,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(shf - lf) + f",
           "constants":{"a":1.0,"b":2.61,"c":-3.30,"d":-1.06,"e":-1.0,"f":-2.36},
