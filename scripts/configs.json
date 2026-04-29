@@ -106,8 +106,8 @@
         "sr_thermo":{
           "runfrom":"sr_gauss_all",
           "refcomplexity":16,
-          "form":"a * cube(rh) + b * thetae + c * thetaestar + d",
-          "constants":{"a":1.0,"b":1.0,"c":1.0,"d":0.0},
+          "form":"a * cube(rh) + b * thetaestar - c * thetae + d",
+          "constants":{"a":1.0,"b":-1.0,"c":1.0,"d":0.0},
           "nrestarts":50
         },
         "sr_thermo_flux":{
