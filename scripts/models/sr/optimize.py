@@ -103,7 +103,7 @@ def optimize_constants(form,predictornames,X,y,zmin,init):
     x0     = np.array([init.get(c,1.0) for c in cnames])
     def objective(params):
         const = dict(zip(cnames,params))
-        pred  = eval_form(form,X,predictornames,const)
+        pred  = np.maximum(eval_form(form,X,predictornames,const),zmin)
         return float(np.nanmean((pred-y)**2))
     res = minimize(objective,x0,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(cnames,res.x)),res
@@ -272,7 +272,7 @@ if __name__=='__main__':
         optconstants,res = multistart_optimize(form,predictornames,Xfit,yfit,zmin,init,nrestarts,init_scale,njobs=njobs)
 
         trainloss  = float(res.fun)
-        vpred      = eval_form(form,Xvalid[vmvalid][predictornames].reset_index(drop=True),predictornames,optconstants)
+        vpred      = np.maximum(eval_form(form,Xvalid[vmvalid][predictornames].reset_index(drop=True),predictornames,optconstants),zmin)
         validloss  = float(np.nanmean((vpred-yvalid[vmvalid])**2))
 
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in optconstants.items())}')

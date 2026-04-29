@@ -106,15 +106,15 @@
         "sr_thermo":{
           "runfrom":"sr_gauss_all",
           "refcomplexity":16,
-          "form":"a * cube(rh) + b * thetaestar - c * thetae + d",
-          "constants":{"a":1.0,"b":-1.0,"c":1.0,"d":0.0},
+          "form":"a * cube(rh) + b * thetae + c * thetaestar + d",
+          "constants":{"a":1.0,"b":2.59,"c":-3.80,"d":-2.93},
           "nrestarts":50
         },
         "sr_thermo_flux":{
           "runfrom":"sr_gauss_all",
           "refcomplexity":25,
-          "form":"a * cube(rh) + b * thetae - c * thetaestar + d + e * shf + f * abs(shf - lf)",
-          "constants":{"a":1.0,"b":1.0,"c":1.0,"d":0.0,"e":1.0,"f":1.0},
+          "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(shf - lf) + f",
+          "constants":{"a":1.0,"b":2.61,"c":-3.30,"d":-1.06,"e":-1.0,"f":-2.36},
           "nrestarts":50
         }
       }
