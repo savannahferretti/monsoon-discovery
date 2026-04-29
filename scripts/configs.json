@@ -95,35 +95,29 @@
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
           "weightsfrom":"gauss_all"}},
-      "optimized_equations":[
-        {
-          "name":"sr_rh",
+      "optimizedeqs":{
+        "sr_rh":{
           "runfrom":"sr_gauss_all",
-          "complexity_ref":4,
+          "refcomplexity":4,
           "form":"a * cube(rh) + b",
           "constants":{"a":1.0,"b":0.0},
-          "lossspace":"logz",
           "nrestarts":50
         },
-        {
-          "name":"sr_thermo",
+        "sr_thermo":{
           "runfrom":"sr_gauss_all",
-          "complexity_ref":16,
+          "refcomplexity":16,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d",
           "constants":{"a":1.0,"b":1.0,"c":1.0,"d":0.0},
-          "lossspace":"logz",
           "nrestarts":50
         },
-        {
-          "name":"sr_thermo_flux",
+        "sr_thermo_flux":{
           "runfrom":"sr_gauss_all",
-          "complexity_ref":25,
+          "refcomplexity":25,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d + e * shf + f * abs(lf - shf + g)",
           "constants":{"a":1.0,"b":1.0,"c":1.0,"d":0.0,"e":1.0,"f":1.0,"g":0.0},
-          "lossspace":"logz",
           "nrestarts":50
         }
-      ]
+      }
     }
   }
 }

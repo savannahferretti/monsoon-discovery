@@ -79,7 +79,7 @@ def eval_form(form,X,predictornames,constants):
         out = np.full(len(X),float(out))
     return np.asarray(out,dtype=float)
 
-def optimize_constants(form,predictornames,X,y,zmin,init,lossspace='logz',stats=None):
+def optimize_constants(form,predictornames,X,y,zmin,init):
     '''
     Purpose: Optimize named constants in an SR equation form via scipy L-BFGS-B.
     Args:
@@ -89,30 +89,19 @@ def optimize_constants(form,predictornames,X,y,zmin,init,lossspace='logz',stats=
     - y (np.ndarray): z-scored log1p target for the same samples
     - zmin (float): z-scored floor corresponding to 0 mm precipitation
     - init (dict): initial constant values; constants absent from dict default to 1.0
-    - lossspace (str): 'logz' (default) or 'native' — space in which MSE is computed
-    - stats (dict | None): required when lossspace='native'; must contain tp_mean and tp_std
     Returns:
     - tuple[dict, OptimizeResult]: optimized constants and scipy optimization result
     '''
     cnames = extract_constants(form,predictornames)
     x0     = np.array([init.get(c,1.0) for c in cnames])
-    if lossspace=='native':
-        tp_mean,tp_std = float(stats['tp_mean']),float(stats['tp_std'])
-        def objective(params):
-            const    = dict(zip(cnames,params))
-            pred     = np.maximum(eval_form(form,X,predictornames,const),zmin)
-            pred_mm  = np.maximum(np.expm1(pred*tp_std+tp_mean),0.0)
-            true_mm  = np.maximum(np.expm1(y*tp_std+tp_mean),0.0)
-            return float(np.nanmean((pred_mm-true_mm)**2))
-    else:
-        def objective(params):
-            const = dict(zip(cnames,params))
-            pred  = np.maximum(eval_form(form,X,predictornames,const),zmin)
-            return float(np.nanmean((pred-y)**2))
+    def objective(params):
+        const = dict(zip(cnames,params))
+        pred  = np.maximum(eval_form(form,X,predictornames,const),zmin)
+        return float(np.nanmean((pred-y)**2))
     res = minimize(objective,x0,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(cnames,res.x)),res
 
-def multistart_optimize(form,predictornames,X,y,zmin,init,lossspace='logz',stats=None,nrestarts=1,init_scale=5.0,seed=0):
+def multistart_optimize(form,predictornames,X,y,zmin,init,nrestarts=1,init_scale=5.0,seed=0):
     '''
     Purpose: Optimize named constants via L-BFGS-B with optional random restarts.
         The first restart uses `init`; subsequent restarts draw starting points uniformly
@@ -132,34 +121,34 @@ def multistart_optimize(form,predictornames,X,y,zmin,init,lossspace='logz',stats
         for _ in range(nrestarts-1)]
     best_const,best_res = None,None
     for i,init_i in enumerate(inits):
-        const,res = optimize_constants(form,predictornames,X,y,zmin,init_i,lossspace,stats)
+        const,res = optimize_constants(form,predictornames,X,y,zmin,init_i)
         if best_res is None or res.fun < best_res.fun:
             best_const,best_res = const,res
         logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
     return best_const,best_res
 
-def log_seed_reference(runname,complexity_ref,config):
+def log_seed_reference(runname,refcomplexity,config):
     '''
-    Purpose: Log equations from each seed near complexity_ref to help the user choose initial constant values.
+    Purpose: Log equations from each seed near refcomplexity to help the user choose initial constant values.
     Args:
     - runname (str): SR run name (e.g., 'sr_gauss_all')
-    - complexity_ref (int | None): target complexity; equations within ±2 are printed
+    - refcomplexity (int | None): target complexity; equations within ±2 are printed
     - config (Config): project configuration object
     '''
-    if complexity_ref is None:
+    if refcomplexity is None:
         return
     seeds  = config.sr['seeds']
     outdir = os.path.join(config.modelsdir,'sr')
-    logger.info(f'   Seed reference equations near complexity {complexity_ref}:')
+    logger.info(f'   Seed reference equations near complexity {refcomplexity}:')
     for seed in seeds:
         csvpath = os.path.join(outdir,f'{runname}_{seed}_equations.csv')
         if not os.path.exists(csvpath):
             logger.info(f'     seed {seed}: no CSV found')
             continue
         eqdf   = pd.read_csv(csvpath)
-        nearby = eqdf[(eqdf['complexity']>=complexity_ref-2)&(eqdf['complexity']<=complexity_ref+2)]
+        nearby = eqdf[(eqdf['complexity']>=refcomplexity-2)&(eqdf['complexity']<=refcomplexity+2)]
         if nearby.empty:
-            logger.info(f'     seed {seed}: no equation within ±2 of complexity {complexity_ref}')
+            logger.info(f'     seed {seed}: no equation within ±2 of complexity {refcomplexity}')
             continue
         for _,row in nearby.sort_values('complexity').iterrows():
             logger.info(f'     seed {seed} | complexity {int(row["complexity"])} | loss {float(row["loss"]):.6f} | {row["equation"]}')
@@ -210,7 +199,7 @@ if __name__=='__main__':
     config       = Config()
     sr           = config.sr
     targetvar    = config.targetvar
-    optimizedeqs = sr.get('optimized_equations',[])
+    optimizedeqs = sr.get('optimizedeqs',{})
     logger.info('Spinning up...')
     selectedeqs,splits = parse()
 
@@ -221,24 +210,22 @@ if __name__=='__main__':
     zmin   = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
 
-    for eqspec in optimizedeqs:
-        name = eqspec['name']
+    for name,eqspec in optimizedeqs.items():
         if selectedeqs is not None and name not in selectedeqs:
             continue
         jsonpath = os.path.join(config.modelsdir,'sr',f'{name}_optimized.json')
         if os.path.exists(jsonpath):
             logger.info(f'Skipping `{name}`, already optimized')
             continue
-        runname       = eqspec['runfrom']
-        runconfig     = sr['runs'][runname]
+        runname        = eqspec['runfrom']
+        runconfig      = sr['runs'][runname]
         predictornames = runconfig['fieldvars']+runconfig.get('localvars',[])
-        form          = eqspec['form']
-        init          = eqspec.get('constants',{})
-        complexity_ref = eqspec.get('complexity_ref')
-        lossspace     = eqspec.get('lossspace','logz')
+        form           = eqspec['form']
+        init           = eqspec.get('constants',{})
+        refcomplexity  = eqspec.get('refcomplexity')
 
         logger.info(f'Optimizing `{name}` (form: {form})...')
-        log_seed_reference(runname,complexity_ref,config)
+        log_seed_reference(runname,refcomplexity,config)
 
         logger.info(f'   Loading full train+valid features...')
         Xtrain,ytrain,refdatrain,vmtrain = load_data('train',runconfig,config,time_offset=0)
@@ -249,8 +236,8 @@ if __name__=='__main__':
 
         nrestarts  = eqspec.get('nrestarts',1)
         init_scale = eqspec.get('init_scale',5.0)
-        logger.info(f'   Running L-BFGS-B ({len(Xfit):,} samples, {lossspace} loss, {nrestarts} restart(s))...')
-        optconstants,res = multistart_optimize(form,predictornames,Xfit,yfit,zmin,init,lossspace,stats,nrestarts,init_scale)
+        logger.info(f'   Running L-BFGS-B ({len(Xfit):,} samples, logz loss, {nrestarts} restart(s))...')
+        optconstants,res = multistart_optimize(form,predictornames,Xfit,yfit,zmin,init,nrestarts,init_scale)
 
         trainloss  = float(res.fun)
         vpred      = np.maximum(eval_form(form,Xvalid[vmvalid][predictornames].reset_index(drop=True),predictornames,optconstants),zmin)
