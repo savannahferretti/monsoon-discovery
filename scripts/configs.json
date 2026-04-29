@@ -121,7 +121,7 @@
           "refcomplexity":25,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(shf - lf) + f",
           "constants":{"a":1.0,"b":2.61,"c":-3.30,"d":-1.06,"e":-1.0,"f":-2.36},
-          "nrestarts":50
+          "nrestarts":50,
           "description":"SR-HI"}
       }
     }
