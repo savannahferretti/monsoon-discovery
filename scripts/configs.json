@@ -43,20 +43,24 @@
         "base_bl":{
             "kind":"baseline",
             "fieldvars":["bl"],
-            "localvars":[]},
+            "localvars":[],
+            "description":"NN-BL"},
         "base_all":{
           "kind": "baseline",
           "fieldvars":["rh","thetae","thetaestar"],
-          "localvars":["lf","shf","lhf"]},
+          "localvars":["lf","shf","lhf"],
+          "description":"NN-FULL"},
         "nonparam_all":{
           "kind":"nonparametric",
           "fieldvars":["rh","thetae","thetaestar"],
-          "localvars":["lf","shf","lhf"]},
+          "localvars":["lf","shf","lhf"],
+          "description":"NN-NONPARAM"},
         "gauss_all":{
           "kind":"parametric",
           "kernel":"gaussian",
           "fieldvars":["rh","thetae","thetaestar"],
-          "localvars":["lf","shf","lhf"]}}},
+          "localvars":["lf","shf","lhf"],
+          "description":"NN-GAUSS"}}},
     "sr":{
       "seeds":[42,72,102],
       "subsetfrac":0.025,
@@ -96,27 +100,27 @@
           "localvars":["lf","shf","lhf"],
           "weightsfrom":"gauss_all"}},
       "optimizedeqs":{
-        "sr_rh":{
+        "sr_lo":{
           "runfrom":"sr_gauss_all",
           "refcomplexity":4,
           "form":"a * cube(rh) + b",
           "constants":{"a":1.0,"b":0.0},
-          "nrestarts":50
-        },
-        "sr_thermo":{
+          "nrestarts":50,
+          "description":"SR-LO"},
+        "sr_med":{
           "runfrom":"sr_gauss_all",
           "refcomplexity":16,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d",
           "constants":{"a":1.0,"b":2.59,"c":-3.80,"d":-2.93},
-          "nrestarts":50
-        },
-        "sr_thermo_flux":{
+          "nrestarts":50,
+          "description":"SR-MED"},
+        "sr_hi":{
           "runfrom":"sr_gauss_all",
           "refcomplexity":25,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(shf - lf) + f",
           "constants":{"a":1.0,"b":2.61,"c":-3.30,"d":-1.06,"e":-1.0,"f":-2.36},
           "nrestarts":50
-        }
+          "description":"SR-HI"}
       }
     }
   }
