@@ -14,7 +14,6 @@ import pickle
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pysr import PySRRegressor
 from scripts.utils import Config
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
@@ -276,6 +275,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'
                 f' - expm1(y * {tp_std:.8f} + {tp_mean:.8f}))^2')
     else:
         loss = f'loss(x, y) = (max(x, {zmin:.8f}) - y)^2'
+    from pysr import PySRRegressor
     model    = PySRRegressor(
         niterations=iters,
         populations=popcount,
