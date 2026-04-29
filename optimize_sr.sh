@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --time=00:05:00
+#SBATCH --time=00:10:00
 #SBATCH --job-name=optimize_sr
 #SBATCH --output=logs/%x_%j.log
 
@@ -21,7 +21,7 @@ conda activate monsoon-discovery
 # EQ=${1:-all}
 # SPLITS=${2:-valid}
 
-scontrol update JobId=${SLURM_JOB_ID} Name=${EQ}
+# scontrol update JobId=${SLURM_JOB_ID} Name=${EQ}
 # echo "Optimizing equations: ${EQ}  |  splits: ${SPLITS}  |  workers: ${SLURM_CPUS_PER_TASK}"
 
 python -m scripts.models.sr.optimize --equations all --splits valid
