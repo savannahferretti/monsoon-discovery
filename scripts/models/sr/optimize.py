@@ -112,6 +112,32 @@ def optimize_constants(form,predictornames,X,y,zmin,init,lossspace='logz',stats=
     res = minimize(objective,x0,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(cnames,res.x)),res
 
+def multistart_optimize(form,predictornames,X,y,zmin,init,lossspace='logz',stats=None,nrestarts=1,init_scale=5.0,seed=0):
+    '''
+    Purpose: Optimize named constants via L-BFGS-B with optional random restarts.
+        The first restart uses `init`; subsequent restarts draw starting points uniformly
+        from [-init_scale, init_scale], allowing the optimizer to discover the correct
+        signs and magnitudes of each constant without manual initialization.
+    Args:
+    - nrestarts (int): total number of optimization runs (default 1 = single run from init)
+    - init_scale (float): half-range for uniform random initialization (default 5.0)
+    - seed (int): RNG seed for reproducible random restarts
+    Returns:
+    - tuple[dict, OptimizeResult]: best constants and corresponding scipy result
+    '''
+    cnames = extract_constants(form,predictornames)
+    rng    = np.random.default_rng(seed)
+    inits  = [init] + [
+        {c:float(v) for c,v in zip(cnames,rng.uniform(-init_scale,init_scale,len(cnames)))}
+        for _ in range(nrestarts-1)]
+    best_const,best_res = None,None
+    for i,init_i in enumerate(inits):
+        const,res = optimize_constants(form,predictornames,X,y,zmin,init_i,lossspace,stats)
+        if best_res is None or res.fun < best_res.fun:
+            best_const,best_res = const,res
+        logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
+    return best_const,best_res
+
 def log_seed_reference(runname,complexity_ref,config):
     '''
     Purpose: Log equations from each seed near complexity_ref to help the user choose initial constant values.
@@ -221,8 +247,10 @@ if __name__=='__main__':
         yfit = np.concatenate([ytrain[vmtrain],yvalid[vmvalid]])
         del Xtrain,ytrain,refdatrain
 
-        logger.info(f'   Running L-BFGS-B ({len(Xfit):,} samples, {lossspace} loss)...')
-        optconstants,res = optimize_constants(form,predictornames,Xfit,yfit,zmin,init,lossspace,stats)
+        nrestarts  = eqspec.get('nrestarts',1)
+        init_scale = eqspec.get('init_scale',5.0)
+        logger.info(f'   Running L-BFGS-B ({len(Xfit):,} samples, {lossspace} loss, {nrestarts} restart(s))...')
+        optconstants,res = multistart_optimize(form,predictornames,Xfit,yfit,zmin,init,lossspace,stats,nrestarts,init_scale)
 
         trainloss  = float(res.fun)
         vpred      = np.maximum(eval_form(form,Xvalid[vmvalid][predictornames].reset_index(drop=True),predictornames,optconstants),zmin)
