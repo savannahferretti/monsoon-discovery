@@ -113,7 +113,7 @@
         "sr_thermo_flux":{
           "runfrom":"sr_gauss_all",
           "refcomplexity":25,
-          "form":"a * cube(rh) + b * thetae + c * thetaestar + d + e * shf + f * abs(shf - lf)",
+          "form":"a * cube(rh) + b * thetae - c * thetaestar + d + e * shf + f * abs(shf - lf)",
           "constants":{"a":1.0,"b":1.0,"c":1.0,"d":0.0,"e":1.0,"f":1.0},
           "nrestarts":50
         }
