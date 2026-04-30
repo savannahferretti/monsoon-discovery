@@ -84,11 +84,9 @@ def eval_form(form,X,predictornames,constants):
 def optimize_constants(form,predictornames,X,y,zmin,init):
     '''
     Purpose: Optimize named constants in an SR equation form via scipy L-BFGS-B.
-        The objective is the unclipped MSE in z-scored logz space. Clipping at zmin
-        is intentionally omitted here: applying max(pred, zmin) inside the objective
-        creates gradient dead zones (zero gradient whenever pred < zmin), causing
-        L-BFGS-B to stall regardless of starting point. Clipping is applied only
-        when generating predictions in predict_split.
+        The objective is the clipped MSE in z-scored logz space, consistent with
+        neural network training. Predictions are clipped at zmin before computing
+        the loss, matching the floor applied during NN training and in predict_split.
     Args:
     - form (str): Python expression string using predictor names and constant names
     - predictornames (list[str]): predictor column names in X
