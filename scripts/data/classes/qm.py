@@ -2,17 +2,16 @@
 
 import numpy as np
 
-def fit_empirical_qm(a,b,nquantiles=2000):
+def fit_empirical_qm(a,b,nquantiles=200):
     '''
-    Purpose: Fit an empirical quantile-mapping function from distribution a to distribution b.
-        Only positive values are used to build the quantile mapping; zero and negative inputs map to zero.
+    Purpose: Fit an empirical quantile-mapping function from distribution `a` to distribution `b`. Only positive values are 
+    used to build the quantile mapping; zeros and negative inputs map to zero.
     Args:
-    - a (np.ndarray): source distribution (1D, flat, finite values; e.g., ERA5 tp in mm)
-    - b (np.ndarray): target distribution (1D, flat, finite values; e.g., IMERG pr in mm/hr)
-    - nquantiles (int): number of quantile levels used to build the mapping (default 2000)
+    - a (np.ndarray): finite 1D NumPy array of source distribution values (e.g., predicted ERA5 total precipitation in mm)
+    - b (np.ndarray): finite 1D NumPy array of target distribution values (e.g., IMERG V06 precipitation rate in mm/hr)
+    - nquantiles (int): number of quantile levels used to build the mapping (defaults to 200)
     Returns:
-    - callable: function qm(x) → np.ndarray that maps values from a's distribution to b's,
-        preserving zeros and clipping negatives to zero
+    - callable: function that maps distribution `a` to distribution `b`
     '''
     apos      = a[a>0]
     bpos      = b[b>0]
