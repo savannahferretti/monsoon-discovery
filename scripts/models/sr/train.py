@@ -257,6 +257,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'
     - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
     '''
     sp       = srconfig['searchparams']
+    parsimony = sp.get('parsimony', 0.0032)
     ops      = srconfig['operators']
     compl    = srconfig['complexity']
     constr   = {k:tuple(v) for k,v in srconfig.get('constraints',{}).items()}
@@ -282,6 +283,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'
         population_size=sp['populationsize'],
         ncycles_per_iteration=sp['cyclesperiteration'],
         weight_optimize=sp['weightoptimize'],
+        parsimony=parsimony,
         binary_operators=ops['binary'],
         unary_operators=ops['unary'],
         complexity_of_operators=ops['complexity'],
