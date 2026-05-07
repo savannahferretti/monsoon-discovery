@@ -235,7 +235,7 @@ def print_subsample_diagnostics(y_full,y_sub,loglo=-4,loghi=2):
     for label,fc_,sc_ in zip(labels,fc,sc):
         logger.info(f'     {label:<26} {fc_:>12,} {sc_:>12,}')
 
-def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'):
+def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz',early_stop_condition=None):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset.
         Operators, complexity penalties, and operator constraints are read from srconfig so they
@@ -247,6 +247,8 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'
     - predictors (list[str]): variable names corresponding to columns of xsub
     - srconfig (dict): SR experiment configuration with keys 'searchparams', 'operators',
         'complexity', 'constraints', and 'nestedconstraints'
+    - early_stop_condition (float | None): halt search when best loss drops below this value;
+        None disables early stopping (default)
     - seed (int): random seed for PySR search
     - procs (int): number of Julia worker processes
     - timeout (int): search timeout in seconds; acts as a safety net alongside iterations
@@ -306,6 +308,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'
         temp_equation_file=True,
         delete_tempfiles=True,
         timeout_in_seconds=timeout,
+        early_stop_condition=early_stop_condition,
         progress=False)
     model.fit(xsub.values,ysub,variable_names=predictors)
     return model
@@ -373,7 +376,8 @@ if __name__=='__main__':
             tmpdir_ = tempfile.mkdtemp(prefix='pysr_')
             try:
                 model = fit(xsub,ysub,predictors,sr,seed,procs,timeout,tmpdir_,
-                            lossspace=runconfig.get('lossspace','logz'))
+                            lossspace=runconfig.get('lossspace','logz'),
+                            early_stop_condition=runconfig.get('early_stop_condition'))
             finally:
                 shutil.rmtree(tmpdir_,ignore_errors=True)
             save(model,name,seed,config)
