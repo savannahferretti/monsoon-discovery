@@ -100,8 +100,7 @@
       "runs":{
         "sr_bl":{
           "fieldvars":["bl"],
-          "localvars":[],
-          "early_stop_condition":0.68},
+          "localvars":[]},
         "sr_gauss":{
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
