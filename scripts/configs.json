@@ -98,6 +98,9 @@
           "exp":{"^":0,"exp":0,"log":0,"square":0,"exp":0},
           "log":{"-":0,"*":0,"/":0,"neg":0,"cube":0,"exp":0,"log":0}},
       "runs":{
+        "sr_bl":{
+          "fieldvars":["bl"],
+          "localvars":[]}},
         "sr_gauss":{
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
