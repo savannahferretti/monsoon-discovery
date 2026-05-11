@@ -106,6 +106,13 @@
           "localvars":["lf","shf","lhf"],
           "weightsfrom":"nn_gauss"}},
       "optimizedeqs":{
+        "sr_bl":{
+          "runfrom":"sr_bl",
+          "refcomplexity":3,
+          "form":"a * cube(bl)",
+          "constants":{"a":1.0},
+          "nrestarts":50,
+          "description":"SR-BL"},
         "sr_lo":{
           "runfrom":"sr_gauss",
           "refcomplexity":6,
