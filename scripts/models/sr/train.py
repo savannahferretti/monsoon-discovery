@@ -351,7 +351,8 @@ if __name__=='__main__':
         if itersoverride is not None:
             sr['searchparams']['iterations'] = itersoverride
             sr['searchparams'].pop('targettotal',None)
-        sp       = sr['searchparams']
+        sp       = {**sr['searchparams'], **runconfig.get('searchparams', {})}
+        sr_run   = {**sr, 'searchparams': sp}
         popcount = sp.get('populations',3*procs)
         iterseff = sp.get('targettotal',sp['iterations']*popcount)//popcount
         logger.info(f'   Loading normalized training and validation splits...')
@@ -372,7 +373,7 @@ if __name__=='__main__':
             logger.info(f'   Starting PySR search ({iterseff} iters × {popcount} populations, {procs} workers, {timeout}s timeout)...')
             tmpdir_ = tempfile.mkdtemp(prefix='pysr_')
             try:
-                model = fit(xsub,ysub,predictors,sr,seed,procs,timeout,tmpdir_,
+                model = fit(xsub,ysub,predictors,sr_run,seed,procs,timeout,tmpdir_,
                             lossspace=runconfig.get('lossspace','logz'))
             finally:
                 shutil.rmtree(tmpdir_,ignore_errors=True)

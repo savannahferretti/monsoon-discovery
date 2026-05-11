@@ -100,7 +100,8 @@
       "runs":{
         "sr_bl":{
           "fieldvars":["bl"],
-          "localvars":[]},
+          "localvars":[],
+          "searchparams":{"iterations":150,"populations":15}},
         "sr_gauss":{
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
@@ -127,7 +128,7 @@
         "sr_hi":{
           "runfrom":"sr_gauss",
           "refcomplexity":25,
-          "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(shf - lf) + f",
+          "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * lf + f",
           "nrestarts":50,
           "description":"SR-HI"}
       }
