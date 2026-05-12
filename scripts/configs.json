@@ -70,7 +70,7 @@
         "iterations":500,
         "populations":30,
         "populationsize":100,
-        "maxsize":40,
+        "maxsize":35,
         "maxdepth":20,
         "batchsize":500,
         "cyclesperiteration":80,
