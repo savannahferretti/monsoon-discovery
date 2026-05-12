@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=52
-#SBATCH --time=06:00:00
+#SBATCH --time=01:00:00
 #SBATCH --job-name=train_sr
 #SBATCH --output=logs/%x_%j.log
 
@@ -31,4 +31,3 @@ scontrol update JobId=${SLURM_JOB_ID} Name=${RUN}
 echo "Training model: ${RUN}"
 
 python -m scripts.models.sr.train --runs ${RUN} --timeout 21000 "$@"
-python -m scripts.models.sr.evaluate --runs ${RUN} --split test
