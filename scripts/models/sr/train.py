@@ -180,7 +180,7 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     rng.shuffle(subsetindices)
     return features.iloc[subsetindices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[subsetindices]
 
-def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'):
+def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset. Operators,
         complexity penalties, and operator constraints are read from srconfig so they can be
@@ -196,8 +196,6 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'
     - procs (int): number of Julia worker processes
     - timeout (int): search timeout in seconds; acts as a safety net alongside iterations
     - tmpdir (str): temporary directory for Julia equation files
-    - lossspace (str): 'logz' (default) computes MSE in z-scored log1p space;
-        'native' denormalizes both prediction and target to mm before computing MSE
     Returns:
     - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
     '''
@@ -212,13 +210,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
     zfloor = (0.0-stats['tp_mean'])/stats['tp_std']
-    if lossspace=='native':
-        tpstd  = float(stats['tp_std'])
-        tpmean = float(stats['tp_mean'])
-        loss = (f'loss(x, y) = (max(expm1(x * {tpstd:.8f} + {tpmean:.8f}), 0.0)'
-                f' - expm1(y * {tpstd:.8f} + {tpmean:.8f}))^2')
-    else:
-        loss = f'loss(x, y) = (max(x, {zfloor:.8f}) - y)^2'
+    loss = f'loss(x, y) = (max(x, {zfloor:.8f}) - y)^2'
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor
     model = PySRRegressor(
@@ -313,8 +305,7 @@ if __name__=='__main__':
             logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
-                model = fit(xsub,ysub,predictors,srrun,seed,procs,timeout,tempdirpath,
-                            lossspace=runconfig.get('lossspace','logz'))
+                model = fit(xsub,ysub,predictors,srrun,seed,procs,timeout,tempdirpath)
             finally:
                 shutil.rmtree(tempdirpath,ignore_errors=True)
             save(model,name,seed,config)
