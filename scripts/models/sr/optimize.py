@@ -19,16 +19,15 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 
 SRFUNCTIONS = {
-    'cube':   lambda x: x**3,
-    'square': lambda x: x**2,
-    'neg':    lambda x: -x,
-    'sqrt':   np.sqrt,
-    'exp':    np.exp,
-    'log':    np.log,
-    'abs':    np.abs,
-    'sin':    np.sin,
-    'cos':    np.cos,
-}
+    'cube':lambda x:x**3,
+    'square': lambda x:x**2,
+    'neg':lambda x:-x,
+    'sqrt':np.sqrt,
+    'exp':np.exp,
+    'log':np.log,
+    'abs':np.abs,
+    'sin':np.sin,
+    'cos':np.cos}
 
 def parse():
     '''
@@ -154,12 +153,8 @@ def save_registry(registry,config):
     registrycsvpath = os.path.join(outdir,'optimized_equations.csv')
     with open(registrypath,'wb') as f:
         pickle.dump(registry,f)
-    rows = [
-        dict(name=name,form=entry['form'],
-             train_loss=entry['train_loss'],valid_loss=entry['valid_loss'],
-             constants=json.dumps(entry['constants']))
-        for name,entry in registry.items()
-    ]
+    rows = [dict(name=name,form=entry['form'],train_loss=entry['train_loss'],valid_loss=entry['valid_loss'],
+                 constants=json.dumps(entry['constants'])) for name,entry in registry.items()]
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
     logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
 
