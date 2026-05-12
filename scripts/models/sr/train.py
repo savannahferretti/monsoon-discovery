@@ -3,10 +3,11 @@
 import os
 import json
 import shutil
+import pickle
 import logging
 import argparse
-import pickle
 import tempfile
+import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -14,6 +15,8 @@ from scripts.utils import Config
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 
 def select_pareto_elbow(equations,mincomplexity=3):
     '''
@@ -177,47 +180,6 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     rng.shuffle(subsetindices)
     return features.iloc[subsetindices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[subsetindices]
 
-def print_subsample_diagnostics(yfull,ysub,logmin=-4,logmax=2):
-    '''
-    Purpose: Log a comparative summary of native-unit precipitation distributions between
-        the full training pool and the SR subsample, broken down by log-decade bin.
-    Args:
-    - yfull (np.ndarray): z-scored log1p(tp) for the full pool
-    - ysub (np.ndarray): z-scored log1p(tp) for the subsample
-    - logmin (float): log10 lower bound of wet bins in mm (default -4)
-    - logmax (float): log10 upper bound of wet bins in mm (default 2)
-    '''
-    statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
-    with open(statsfile,'r',encoding='utf-8') as f:
-        stats = json.load(f)
-    def denorm(y):
-        return np.expm1(np.asarray(y)*stats['tp_std']+stats['tp_mean'])
-    precipfull = denorm(yfull)
-    precipsub  = denorm(ysub)
-    nbins      = int(logmax-logmin)
-    logbins    = np.linspace(logmin,logmax,nbins+1)
-    def bincounts(precip):
-        logprecip = np.log10(precip.clip(min=10**(logmin-1)))
-        counts    = [(precip<=10**logmin).sum()]
-        for i in range(nbins):
-            lo,hi = logbins[i],logbins[i+1]
-            counts.append(((logprecip>lo)&(logprecip<=hi)).sum())
-        counts.append((precip>10**logmax).sum())
-        return counts
-    labels = [f'dry (<=1e{int(logmin)} mm)']
-    for i in range(nbins):
-        labels.append(f'1e{int(logbins[i])} to 1e{int(logbins[i+1])} mm')
-    labels.append(f'>1e{int(logmax)} mm')
-    fullcounts = bincounts(precipfull)
-    subcounts  = bincounts(precipsub)
-    logger.info('   Subsample diagnostics:')
-    logger.info(f'     Pool: {len(yfull):,}   Subset: {len(ysub):,}')
-    logger.info(f'     Native tp (mm) pool — mean={precipfull.mean():.4f}  med={np.median(precipfull):.4f}  max={precipfull.max():.4f}')
-    logger.info(f'     Native tp (mm) sub  — mean={precipsub.mean():.4f}  med={np.median(precipsub):.4f}  max={precipsub.max():.4f}')
-    logger.info(f'     {"Bin":<26} {"Pool":>12} {"Subset":>12}')
-    for label,fullcount,subcount in zip(labels,fullcounts,subcounts):
-        logger.info(f'     {label:<26} {fullcount:>12,} {subcount:>12,}')
-
 def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,lossspace='logz'):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset. Operators,
@@ -348,8 +310,7 @@ if __name__=='__main__':
             logger.info(f'Running `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             logger.info(f'   Subsampling ~{subsetfrac:.1%} of samples by timestep...')
             xsub,ysub = subsample_timestep(xfit,yfit,subsetfrac,seed)
-            print_subsample_diagnostics(yfit,ysub)
-            logger.info(f'   Starting PySR search ({niterations} iters × {populations} populations, {procs} workers, {timeout}s timeout)...')
+            logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
                 model = fit(xsub,ysub,predictors,srrun,seed,procs,timeout,tempdirpath,
