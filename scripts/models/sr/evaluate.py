@@ -44,13 +44,13 @@ def load(name,seed,modelsdir):
     with open(filepath,'rb') as f:
         return pickle.load(f)
 
-def predict_pareto(model,X,zmin,writer,validmask,refda):
+def predict_pareto(model,x,zfloor,writer,validmask,refda):
     '''
     Purpose: Evaluate every equation on the Pareto frontier and return predictions keyed by complexity.
     Args:
     - model (PySRRegressor): fitted model whose equations_ DataFrame holds the frontier
-    - X (np.ndarray): feature matrix with shape (nvalidsamples, nfeatures)
-    - zmin (float): z-scored floor corresponding to 0 mm precipitation
+    - x (np.ndarray): feature matrix with shape (nvalidsamples, nfeatures)
+    - zfloor (float): z-scored floor corresponding to 0 mm precipitation
     - writer (PredictionWriter): used for unflatten and denormalization stats
     - validmask (np.ndarray): boolean mask selecting valid grid points from the full flat array
     - refda (xr.DataArray): reference DataArray supplying (time, lat, lon) coordinates
@@ -60,7 +60,7 @@ def predict_pareto(model,X,zmin,writer,validmask,refda):
     preds = {}
     for i in range(len(model.equations_)):
         row     = model.equations_.iloc[i]
-        flat    = np.maximum(model.predict(X,index=i),zmin)
+        flat    = np.maximum(model.predict(x,index=i),zfloor)
         gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
         preds[int(row['complexity'])] = gridded
     return preds
@@ -98,11 +98,11 @@ if __name__=='__main__':
     targetvar = config.targetvar
     logger.info('Spinning up...')
     selectedruns,split = parse()
-    writer     = PredictionWriter(config.splitsdir,targetvar=targetvar)
-    statsfile  = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    writer    = PredictionWriter(config.splitsdir,targetvar=targetvar)
+    statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
-        flat = json.load(f)
-    zmin = (0.0 - flat[f'{targetvar}_mean']) / flat[f'{targetvar}_std']
+        stats = json.load(f)
+    zfloor    = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     cachedkey  = None
     cacheddata = None
     for name,runconfig in runs.items():
@@ -118,20 +118,20 @@ if __name__=='__main__':
         cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,split)
         if cachekey!=cachedkey:
             logger.info(f'   Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
-            X,y,refda,validmask = load_data(split,runconfig,config)
+            x,y,refda,validmask = load_data(split,runconfig,config)
             cachedkey  = cachekey
-            cacheddata = (X,y,refda,validmask)
+            cacheddata = (x,y,refda,validmask)
         else:
-            X,y,refda,validmask = cacheddata
-        featurecols = fieldvars+localvars
-        xvalid      = X[validmask][featurecols].reset_index(drop=True)
-        seedpreds   = []
+            x,y,refda,validmask = cacheddata
+        predictors = fieldvars+localvars
+        xvalid     = x[validmask][predictors].reset_index(drop=True)
+        seedpreds  = []
         for seedidx,seed in enumerate(seeds):
             model = load(name,seed,config.modelsdir)
             if model is None:
                 break
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed}) ({validmask.sum()} valid samples, {len(model.equations_)} Pareto equations)...')
-            seedpreds.append(predict_pareto(model,xvalid.values,zmin,writer,validmask,refda))
+            seedpreds.append(predict_pareto(model,xvalid.values,zfloor,writer,validmask,refda))
             del model
         else:
             logger.info(f'   Saving predictions for `{name}`...')
