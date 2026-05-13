@@ -109,26 +109,22 @@
       "optimizedeqs":{
         "sr_bl":{
           "runfrom":"sr_bl",
-          "refcomplexity":3,
           "form":"a * cube(bl)",
           "nrestarts":50,
           "description":"SR-BL"},
         "sr_lo":{
           "runfrom":"sr_gauss",
-          "refcomplexity":6,
           "form":"a * cube(rh)",
           "nrestarts":50,
           "description":"SR-LO"},
         "sr_med":{
           "runfrom":"sr_gauss",
-          "refcomplexity":16,
           "form":"a * cube(rh) + b * thetae + c * thetaestar + d",
           "nrestarts":50,
           "description":"SR-MED"},
         "sr_hi":{
           "runfrom":"sr_gauss",
-          "refcomplexity":25,
-          "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(lf - shf)",
+          "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(lf - shf) + f",
           "nrestarts":50,
           "description":"SR-HI"}
       }
