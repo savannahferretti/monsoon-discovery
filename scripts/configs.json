@@ -70,7 +70,7 @@
         "iterations":500,
         "populations":30,
         "populationsize":100,
-        "maxsize":35,
+        "maxsize":30,
         "maxdepth":20,
         "batchsize":500,
         "cyclesperiteration":80,
@@ -79,10 +79,10 @@
       "operators":{
         "binary":["+","-","*","/","^","min","max"],
         "unary":["neg","abs","sqrt","square","cube","exp","log"],
-        "complexity":{"+":1,"-":1,"*":1,"max":1,"min":1,"neg":1,"abs":1,"/":2,"sqrt":2,"square":2,"cube":2,"^":2,"exp":3,"log":3}},
+        "complexity":{"+":1,"-":1,"*":1,"max":1,"min":1,"neg":1,"abs":1,"/":2,"sqrt":2,"square":2,"cube":2,"^":2,"exp":2,"log":2}},
       "complexity":{
         "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":1,"lhf":1},
-        "ofconstants":1},
+        "ofconstants":0},
       "constraints":{
         "^":[-1,1]},
       "nestedconstraints":{
@@ -101,7 +101,7 @@
         "sr_bl":{
           "fieldvars":["bl"],
           "localvars":[],
-          "searchparams":{"iterations":150,"populations":15}},
+          "searchparams":{"maxsize":10}},
         "sr_gauss":{
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
