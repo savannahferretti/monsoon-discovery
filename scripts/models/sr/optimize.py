@@ -27,7 +27,9 @@ SRFUNCTIONS = {
     'log':np.log,
     'abs':np.abs,
     'sin':np.sin,
-    'cos':np.cos}
+    'cos':np.cos,
+    'max':np.maximum,
+    'min':np.minimum}
 
 def parse():
     '''
