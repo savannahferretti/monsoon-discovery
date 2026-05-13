@@ -158,6 +158,62 @@ def save_registry(registry,config):
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
     logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
 
+def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,subsample=50000):
+    '''
+    Purpose: Initialize constants by fitting the parametric form against PySR equations
+        at refcomplexity via least-squares, averaged over seeds that contain that equation.
+        Because all parametric forms are linear in their constants, the design matrix is
+        exact and lstsq gives the best linear projection of the PySR predictions onto the
+        form's basis functions. Falls back to an empty dict (caller uses 1.0 defaults) if
+        no PySR equations are found at the given complexity.
+    Args:
+    - form (str): Python expression string with named constants
+    - predictornames (list[str]): predictor column names
+    - refcomplexity (int|None): target complexity level to read from per-seed CSVs
+    - runname (str): SR run name (used to locate per-seed equation CSVs)
+    - seeds (list[int]): list of random seeds
+    - modelsdir (str): path to models directory
+    - xfit (pd.DataFrame): full train+valid feature matrix
+    - subsample (int): max samples to use for lstsq (default 50000)
+    Returns:
+    - dict: constant name → float value, or {} if no PySR equations found
+    '''
+    if refcomplexity is None:
+        return {}
+    constantnames = extract_constants(form,predictornames)
+    if not constantnames:
+        return {}
+    rng = np.random.default_rng(0)
+    idx = rng.choice(len(xfit),min(subsample,len(xfit)),replace=False)
+    xsub = xfit.iloc[idx].reset_index(drop=True)
+    X = np.column_stack([
+        eval_form(form,xsub,predictornames,{c:(1.0 if c==ci else 0.0) for c in constantnames})
+        for ci in constantnames])
+    seed_consts = []
+    for seed in seeds:
+        filepath = os.path.join(modelsdir,'sr',f'{runname}_{seed}_equations.csv')
+        if not os.path.exists(filepath):
+            continue
+        df  = pd.read_csv(filepath)
+        row = df[df['complexity']==refcomplexity]
+        if row.empty:
+            continue
+        pysr_eq = str(row.iloc[0]['equation'])
+        ns = dict(SRFUNCTIONS,__builtins__={})
+        for pname in predictornames:
+            ns[pname] = xsub[pname].values
+        try:
+            y_pred = np.asarray(eval(pysr_eq,ns),dtype=float)
+            if np.ndim(y_pred)==0:
+                y_pred = np.full(len(xsub),float(y_pred))
+        except Exception:
+            continue
+        coeffs,_,_,_ = np.linalg.lstsq(X,y_pred,rcond=None)
+        seed_consts.append(dict(zip(constantnames,coeffs)))
+    if not seed_consts:
+        return {}
+    return {c:float(np.mean([sc[c] for sc in seed_consts])) for c in constantnames}
+
 def predict_split(form,predictornames,constants,runconfig,config,writer,split,zfloor):
     '''
     Purpose: Generate native-unit gridded predictions for a data split using an optimized equation.
@@ -227,17 +283,23 @@ if __name__=='__main__':
         nrestarts     = eqspec.get('nrestarts',1)
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
-        init = {}
-        for prevname,preventry in registry.items():
-            if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
-                continue
-            prevconsts = preventry['constants']
-            if set(prevconsts.keys()) < set(constantnames):
-                init = {c:(prevconsts[c] if c in prevconsts else 0.0) for c in constantnames}
+        refcomplexity = eqspec.get('refcomplexity')
+        # Primary init: lstsq projection of PySR equations at refcomplexity, averaged across seeds
+        init = pysr_init(form,predictornames,refcomplexity,runname,sr['seeds'],config.modelsdir,xfit)
         if init:
-            logger.info(f'   Warm-start: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
+            logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            logger.info(f'   No warm-start parent found; defaulting all constants to 1.0')
+            # Fallback: warm-start from most complex already-optimized parent model (same run)
+            for prevname,preventry in registry.items():
+                if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
+                    continue
+                prevconsts = preventry['constants']
+                if set(prevconsts.keys()) < set(constantnames):
+                    init = {c:(prevconsts[c] if c in prevconsts else 0.0) for c in constantnames}
+            if init:
+                logger.info(f'   Nested warm-start: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
+            else:
+                logger.info(f'   No warm-start found; defaulting all constants to 1.0')
         logger.info(f'   Running L-BFGS-B ({len(xfit):,} samples, logz loss, {nrestarts} restart(s), {nworkers} worker(s))...')
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zfloor,init,nrestarts,initscale,nworkers=nworkers)
         trainloss  = float(res.fun)
