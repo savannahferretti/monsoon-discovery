@@ -224,10 +224,22 @@ if __name__=='__main__':
             del xtrain,ytrain,reftrain
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         xfit       = xfitfull[predictornames]
-        nrestarts  = eqspec.get('nrestarts',1)
-        initscale  = eqspec.get('initscale',5.0)
+        nrestarts     = eqspec.get('nrestarts',1)
+        initscale     = eqspec.get('initscale',5.0)
+        constantnames = extract_constants(form,predictornames)
+        init = {}
+        for prevname,preventry in registry.items():
+            if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
+                continue
+            prevconsts = preventry['constants']
+            if set(prevconsts.keys()) < set(constantnames):
+                init = {c:(prevconsts[c] if c in prevconsts else 0.0) for c in constantnames}
+        if init:
+            logger.info(f'   Warm-start: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
+        else:
+            logger.info(f'   No warm-start parent found; defaulting all constants to 1.0')
         logger.info(f'   Running L-BFGS-B ({len(xfit):,} samples, logz loss, {nrestarts} restart(s), {nworkers} worker(s))...')
-        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zfloor,{},nrestarts,initscale,nworkers=nworkers)
+        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zfloor,init,nrestarts,initscale,nworkers=nworkers)
         trainloss  = float(res.fun)
         validpred  = np.maximum(eval_form(form,xvalid[validmask][predictornames].reset_index(drop=True),predictornames,constants),zfloor)
         validloss  = float(np.nanmean((validpred-yvalid[validmask])**2))

@@ -128,7 +128,7 @@
         "sr_hi":{
           "runfrom":"sr_gauss",
           "refcomplexity":25,
-          "form":"a * cube(rh) + b * thetae + c * thetaestar + d * shf + e * abs(lf - shf) + f",
+          "form":"a * cube(rh) + b * thetae + c * thetaestar + d + e * shf + f * abs(lf - shf)",
           "nrestarts":50,
           "description":"SR-HI"}
       }
