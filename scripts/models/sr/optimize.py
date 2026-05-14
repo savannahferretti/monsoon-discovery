@@ -81,18 +81,18 @@ def eval_form(form,x,predictornames,constants):
         out = np.full(len(x),float(out))
     return np.asarray(out,dtype=float)
 
-def optimize_constants(form,predictornames,x,y,zfloor,init):
+def optimize_constants(form,predictornames,x,y,zmin,init):
     '''
     Purpose: Optimize named constants in an SR equation form via scipy L-BFGS-B.
-        The objective is the clipped MSE in z-scored logz space, consistent with
-        neural network training. Predictions are clipped at zfloor before computing
-        the loss, matching the floor applied during NN training and in predict_split.
+        The objective is MSE in z-scored log1p space, consistent with neural network
+        training. Predictions are evaluated as zmin + ReLU(f(x)), matching the output
+        structure used by the NN and the PySR loss.
     Args:
     - form (str): Python expression string using predictor names and constant names
     - predictornames (list[str]): predictor column names in x
     - x (pd.DataFrame): full train+valid feature matrix (valid samples only)
     - y (np.ndarray): z-scored log1p target for the same samples
-    - zfloor (float): z-scored floor corresponding to 0 mm precipitation
+    - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
     - init (dict): initial constant values; constants absent from dict default to 1.0
     Returns:
     - tuple[dict, OptimizeResult]: optimized constants and scipy optimization result
@@ -101,12 +101,12 @@ def optimize_constants(form,predictornames,x,y,zfloor,init):
     initialparams = np.array([init.get(c,1.0) for c in constantnames])
     def objective(params):
         constants = dict(zip(constantnames,params))
-        pred      = zfloor+np.maximum(eval_form(form,x,predictornames,constants),0.0)
+        pred      = zmin+np.maximum(eval_form(form,x,predictornames,constants),0.0)
         return float(np.nanmean((pred-y)**2))
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zfloor,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1):
+def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1):
     '''
     Purpose: Optimize named constants via L-BFGS-B with optional random restarts.
         The first restart uses `init`; subsequent restarts draw starting points uniformly
@@ -118,7 +118,7 @@ def multistart_optimize(form,predictornames,x,y,zfloor,init,nrestarts=1,initscal
     - predictornames (list[str]): predictor column names in x
     - x (pd.DataFrame): full train+valid feature matrix (valid samples only)
     - y (np.ndarray): z-scored log1p target for the same samples
-    - zfloor (float): z-scored floor corresponding to 0 mm precipitation
+    - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
     - init (dict): initial constant values for the first restart
     - nrestarts (int): total number of optimization runs (default 1 = single run from init)
     - initscale (float): half-range for uniform random initialization (default 5.0)
@@ -133,7 +133,7 @@ def multistart_optimize(form,predictornames,x,y,zfloor,init,nrestarts=1,initscal
         {c:float(v) for c,v in zip(constantnames,rng.uniform(-initscale,initscale,len(constantnames)))}
         for _ in range(nrestarts-1)]
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
-        delayed(optimize_constants)(form,predictornames,x,y,zfloor,restartinit)
+        delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit)
         for restartinit in inits)
     bestconstants,bestresult = None,None
     for i,(constants,res) in enumerate(resultslist):
@@ -216,7 +216,7 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,sub
         return {}
     return {c:float(np.mean([sc[c] for sc in seed_consts])) for c in constantnames}
 
-def predict_split(form,predictornames,constants,runconfig,config,writer,split,zfloor):
+def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin):
     '''
     Purpose: Generate native-unit gridded predictions for a data split using an optimized equation.
     Args:
@@ -227,13 +227,13 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zf
     - config (Config): project configuration object
     - writer (PredictionWriter): used for denormalization and saving
     - split (str): 'train' | 'valid' | 'test'
-    - zfloor (float): z-scored floor corresponding to 0 mm precipitation
+    - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
     Returns:
     - xr.Dataset: predictions in native units with dims (time, lat, lon)
     '''
     x,y,refda,validmask = load_data(split,runconfig,config)
     xvalid = x[validmask][predictornames].reset_index(drop=True)
-    pred   = zfloor+np.maximum(eval_form(form,xvalid,predictornames,constants),0.0)
+    pred   = zmin+np.maximum(eval_form(form,xvalid,predictornames,constants),0.0)
     grid   = np.maximum(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
     da     = xr.DataArray(grid,dims=refda.dims,coords=refda.coords)
     da.attrs = dict(long_name=writer.longname,units=writer.units)
@@ -251,7 +251,7 @@ if __name__=='__main__':
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
-    zfloor = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
+    zmin = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
     registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
     registry = {}
@@ -303,9 +303,9 @@ if __name__=='__main__':
             else:
                 logger.info(f'   No warm-start found; defaulting all constants to 1.0')
         logger.info(f'   Running L-BFGS-B ({len(xfit):,} samples, logz loss, {nrestarts} restart(s), {nworkers} worker(s))...')
-        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zfloor,init,nrestarts,initscale,nworkers=nworkers)
+        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,nworkers=nworkers)
         trainloss  = float(res.fun)
-        validpred  = zfloor+np.maximum(eval_form(form,xvalid[validmask][predictornames].reset_index(drop=True),predictornames,constants),0.0)
+        validpred  = zmin+np.maximum(eval_form(form,xvalid[validmask][predictornames].reset_index(drop=True),predictornames,constants),0.0)
         validloss  = float(np.nanmean((validpred-yvalid[validmask])**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
         logger.info(f'   Train loss: {trainloss:.6f}   Valid loss: {validloss:.6f}   Converged: {res.success}')
@@ -318,6 +318,6 @@ if __name__=='__main__':
                 logger.info(f'   Skipping {split} predictions, already exist')
                 continue
             logger.info(f'   Generating {split} predictions...')
-            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zfloor)
+            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds

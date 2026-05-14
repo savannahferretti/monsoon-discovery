@@ -209,8 +209,8 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
     statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
-    zfloor = (0.0-stats['tp_mean'])/stats['tp_std']
-    loss = f'loss(x, y) = (({zfloor:.8f}) + max(x, 0.0) - y)^2'
+    zmin = (0.0-stats['tp_mean'])/stats['tp_std']
+    loss = f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor
     model = PySRRegressor(

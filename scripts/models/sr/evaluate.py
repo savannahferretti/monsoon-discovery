@@ -44,13 +44,13 @@ def load(name,seed,modelsdir):
     with open(filepath,'rb') as f:
         return pickle.load(f)
 
-def predict_pareto(model,x,zfloor,writer,validmask,refda):
+def predict_pareto(model,x,zmin,writer,validmask,refda):
     '''
     Purpose: Evaluate every equation on the Pareto frontier and return predictions keyed by complexity.
     Args:
     - model (PySRRegressor): fitted model whose equations_ DataFrame holds the frontier
     - x (np.ndarray): feature matrix with shape (nvalidsamples, nfeatures)
-    - zfloor (float): z-scored floor corresponding to 0 mm precipitation
+    - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
     - writer (PredictionWriter): used for unflatten and denormalization stats
     - validmask (np.ndarray): boolean mask selecting valid grid points from the full flat array
     - refda (xr.DataArray): reference DataArray supplying (time, lat, lon) coordinates
@@ -60,7 +60,7 @@ def predict_pareto(model,x,zfloor,writer,validmask,refda):
     preds = {}
     for i in range(len(model.equations_)):
         row     = model.equations_.iloc[i]
-        flat    = zfloor+np.maximum(model.predict(x,index=i),0.0)
+        flat    = zmin+np.maximum(model.predict(x,index=i),0.0)
         gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
         preds[int(row['complexity'])] = gridded
     return preds
@@ -102,7 +102,7 @@ if __name__=='__main__':
     statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
-    zfloor    = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
+    zmin    = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     cachedkey  = None
     cacheddata = None
     for name,runconfig in runs.items():
@@ -131,7 +131,7 @@ if __name__=='__main__':
             if model is None:
                 break
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed}) ({validmask.sum()} valid samples, {len(model.equations_)} Pareto equations)...')
-            seedpreds.append(predict_pareto(model,xvalid.values,zfloor,writer,validmask,refda))
+            seedpreds.append(predict_pareto(model,xvalid.values,zmin,writer,validmask,refda))
             del model
         else:
             logger.info(f'   Saving predictions for `{name}`...')

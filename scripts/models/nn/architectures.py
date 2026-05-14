@@ -48,7 +48,7 @@ class MainNN(torch.nn.Module):
         Args:
         - X (torch.Tensor): input features with shape (nbatch, nfeatures)
         Returns:
-        - torch.Tensor: predictions with shape (nbatch,)
+        - torch.Tensor: predictions with shape (nbatch,) as zmin + ReLU(f(x))
         '''
         return self.zmin + F.relu(self.layers(X).squeeze())
 
