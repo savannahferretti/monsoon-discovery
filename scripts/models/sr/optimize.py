@@ -101,7 +101,7 @@ def optimize_constants(form,predictornames,x,y,zfloor,init):
     initialparams = np.array([init.get(c,1.0) for c in constantnames])
     def objective(params):
         constants = dict(zip(constantnames,params))
-        pred      = np.maximum(eval_form(form,x,predictornames,constants),zfloor)
+        pred      = zfloor+np.maximum(eval_form(form,x,predictornames,constants),0.0)
         return float(np.nanmean((pred-y)**2))
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
@@ -233,7 +233,7 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zf
     '''
     x,y,refda,validmask = load_data(split,runconfig,config)
     xvalid = x[validmask][predictornames].reset_index(drop=True)
-    pred   = np.maximum(eval_form(form,xvalid,predictornames,constants),zfloor)
+    pred   = zfloor+np.maximum(eval_form(form,xvalid,predictornames,constants),0.0)
     grid   = np.maximum(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
     da     = xr.DataArray(grid,dims=refda.dims,coords=refda.coords)
     da.attrs = dict(long_name=writer.longname,units=writer.units)
@@ -305,7 +305,7 @@ if __name__=='__main__':
         logger.info(f'   Running L-BFGS-B ({len(xfit):,} samples, logz loss, {nrestarts} restart(s), {nworkers} worker(s))...')
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zfloor,init,nrestarts,initscale,nworkers=nworkers)
         trainloss  = float(res.fun)
-        validpred  = np.maximum(eval_form(form,xvalid[validmask][predictornames].reset_index(drop=True),predictornames,constants),zfloor)
+        validpred  = zfloor+np.maximum(eval_form(form,xvalid[validmask][predictornames].reset_index(drop=True),predictornames,constants),0.0)
         validloss  = float(np.nanmean((validpred-yvalid[validmask])**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
         logger.info(f'   Train loss: {trainloss:.6f}   Valid loss: {validloss:.6f}   Converged: {res.success}')

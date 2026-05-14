@@ -50,7 +50,7 @@ class MainNN(torch.nn.Module):
         Returns:
         - torch.Tensor: predictions with shape (nbatch,)
         '''
-        return self.layers(X).squeeze().clamp(min=self.zmin)
+        return self.zmin + F.relu(self.layers(X).squeeze())
 
 class BaselineNN(torch.nn.Module):
 

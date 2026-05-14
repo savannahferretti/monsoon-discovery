@@ -60,7 +60,7 @@ def predict_pareto(model,x,zfloor,writer,validmask,refda):
     preds = {}
     for i in range(len(model.equations_)):
         row     = model.equations_.iloc[i]
-        flat    = np.maximum(model.predict(x,index=i),zfloor)
+        flat    = zfloor+np.maximum(model.predict(x,index=i),0.0)
         gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
         preds[int(row['complexity'])] = gridded
     return preds
