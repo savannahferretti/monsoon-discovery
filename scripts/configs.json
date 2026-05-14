@@ -81,7 +81,7 @@
         "unary":["neg","abs","sqrt","square","cube","exp","log"],
         "complexity":{"+":1,"-":1,"*":1,"max":1,"min":1,"neg":1,"abs":1,"/":2,"sqrt":2,"square":2,"cube":2,"^":2,"exp":2,"log":2}},
       "complexity":{
-        "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":1,"lhf":1},
+        "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":2,"shf":2,"lhf":2},
         "ofconstants":1},
       "constraints":{
         "^":[-1,1]},
@@ -102,21 +102,32 @@
           "fieldvars":["bl"],
           "localvars":[],
           "searchparams":{"maxsize":10}},
-        "sr_gauss":{
-          "fieldvars":["rh","thetae","thetaestar"],
-          "localvars":["lf","shf","lhf"],
-          "weightsfrom":"nn_gauss"}},
+        "sr_lo":{
+            "fieldvars":["rh"],
+            "localvars":[],
+            "weightsfrom":"nn_gauss",
+            "searchparams":{"maxsize":10}},
+        "sr_med": {
+            "fieldvars":["rh","thetae","thetaestar"],
+            "localvars":[],
+            "weightsfrom":"nn_gauss",
+            "searchparams":{"maxsize":20}},
+        "sr_hi": {
+            "fieldvars":["rh","thetae","thetaestar"],
+            "localvars":["lf","shf","lhf"],
+            "weightsfrom":"nn_gauss",
+            "searchparams":{"maxsize":30}}},
       "optimizedeqs":{
         "sr_bl":{
           "runfrom":"sr_bl",
-          "refcomplexity":7,
-          "form":"cube(bl + b) + c",
+          "refcomplexity":5,
+          "form":"a * cube(bl)",
           "nrestarts":50,
           "description":"SR-BL"},
         "sr_lo":{
           "runfrom":"sr_gauss",
           "refcomplexity":4,
-          "form":"a * cube(rh)",
+          "form":"a *cube(rh)",
           "nrestarts":50,
           "description":"SR-LO"},
         "sr_med":{

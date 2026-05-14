@@ -219,7 +219,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
         population_size=searchparams['populationsize'],
         ncycles_per_iteration=searchparams['cyclesperiteration'],
         weight_optimize=searchparams['weightoptimize'],
-        parsimony=searchparams.get('parsimony',0.0032),
+        parsimony=searchparams['parsimony'],
         binary_operators=operators['binary'],
         unary_operators=operators['unary'],
         complexity_of_operators=operators['complexity'],

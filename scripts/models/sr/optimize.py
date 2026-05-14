@@ -246,7 +246,7 @@ if __name__=='__main__':
     optimizedeqs = sr.get('optimizedeqs',{})
     logger.info('Spinning up...')
     selectedeqs,splits,nworkers = parse()
-    logger.info(f'Using {nworkers} parallel worker(s) for multi-start optimization')
+    logger.info(f'Using {nworkers} parallel worker(s) for multi-start optimization...')
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
@@ -271,9 +271,9 @@ if __name__=='__main__':
         predictornames = runconfig['fieldvars']+runconfig.get('localvars',[])
         form           = eqspec['form']
         refcomplexity  = eqspec.get('refcomplexity')
-        logger.info(f'Optimizing `{name}` (form: {form}, refcomplexity: {refcomplexity})...')
+        logger.info(f'Optimizing `{name}`...')
         if runname not in datacache:
-            logger.info(f'   Loading full train+valid features for `{runname}`...')
+            logger.info(f'   Loading training + validation sets...')
             xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
             xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
             xfit  = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
@@ -286,12 +286,10 @@ if __name__=='__main__':
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
         refcomplexity = eqspec.get('refcomplexity')
-        # Primary init: lstsq projection of PySR equations at refcomplexity, averaged across seeds
         init = pysr_init(form,predictornames,refcomplexity,runname,sr['seeds'],config.modelsdir,xfit)
         if init:
             logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            # Fallback: warm-start from most complex already-optimized parent model (same run)
             for prevname,preventry in registry.items():
                 if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
                     continue
@@ -302,13 +300,13 @@ if __name__=='__main__':
                 logger.info(f'   Nested warm-start: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:
                 logger.info(f'   No warm-start found; defaulting all constants to 1.0')
-        logger.info(f'   Running L-BFGS-B ({len(xfit):,} samples, logz loss, {nrestarts} restart(s), {nworkers} worker(s))...')
+        logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s), {nworkers} worker(s)...')
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,nworkers=nworkers)
         trainloss  = float(res.fun)
         validpred  = zmin+np.maximum(eval_form(form,xvalid[validmask][predictornames].reset_index(drop=True),predictornames,constants),0.0)
         validloss  = float(np.nanmean((validpred-yvalid[validmask])**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
-        logger.info(f'   Train loss: {trainloss:.6f}   Valid loss: {validloss:.6f}   Converged: {res.success}')
+        logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
         registry[name] = dict(form=form,constants={k:float(v) for k,v in constants.items()},
                               train_loss=trainloss,valid_loss=validloss)
         save_registry(registry,config)
