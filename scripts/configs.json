@@ -114,9 +114,9 @@
             "searchparams":{"maxsize":20}},
         "sr_hi": {
             "fieldvars":["rh","thetae","thetaestar"],
-            "localvars":["lf","shf","lhf"],
+            "localvars":["lhf"],
             "weightsfrom":"nn_gauss",
-            "searchparams":{"maxsize":30}}},
+            "searchparams":{"maxsize":30,"parsimony":0.003}}},
       "optimizedeqs":{
         "sr_bl":{
           "runfrom":"sr_bl",

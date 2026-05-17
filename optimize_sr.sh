@@ -25,3 +25,5 @@ conda activate monsoon-discovery
 # echo "Optimizing equations: ${EQ}  |  splits: ${SPLITS}  |  workers: ${SLURM_CPUS_PER_TASK}"
 
 python -m scripts.models.sr.optimize --equations sr_med,sr_hi --splits valid,test
+# Note: sr_hi uses lhf only (localvars updated from [lf,shf,lhf] → [lhf])
+# to fix cross-seed inconsistency. Re-run train_sr.sh for sr_hi when cluster time allows.
