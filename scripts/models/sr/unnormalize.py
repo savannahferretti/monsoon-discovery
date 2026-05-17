@@ -115,9 +115,9 @@ def unnormalize_sr_bl(constants, stats, targetvar='tp'):
     beta_BL  = sigma_tp * c + mu_tp
 
     return [
-        ('BL_crit', BL_crit,  'm/s²',             'Critical BL for precipitation onset'),
-        ('α_BL',    alpha_BL, 'log1p(mm)/(m/s²)³', 'Cubic sensitivity coefficient'),
-        ('β_BL',    beta_BL,  'log1p(mm)',          'Intercept (log1p-precip at BL_crit)'),
+        ('BL_crit', BL_crit,  'm/s²',       'Critical BL for precipitation onset'),
+        ('α_BL',    alpha_BL, '(m/s²)⁻³',   'Cubic sensitivity coefficient'),
+        ('β_BL',    beta_BL,  '—',           'Intercept'),
     ]
 
 
@@ -140,9 +140,9 @@ def unnormalize_sr_lo(constants, stats, targetvar='tp'):
     beta_LO  = sigma_tp * c + mu_tp
 
     return [
-        ('α_LO', alpha_LO, 'log1p(mm)',    'Exponential prefactor'),
-        ('B_LO', B_LO,     '1/%',          'Exponential RH sensitivity'),
-        ('β_LO', beta_LO,  'log1p(mm)',    'Intercept'),
+        ('α_LO', alpha_LO, '—',    'Exponential prefactor'),
+        ('B_LO', B_LO,     '1/%',  'Exponential RH sensitivity'),
+        ('β_LO', beta_LO,  '—',    'Intercept'),
     ]
 
 
@@ -180,10 +180,10 @@ def unnormalize_sr_med(constants, stats, targetvar='tp'):
     rh_scale   = sigma_te / sigma_rh   # multiply by (RH - mu_rh) to get RH_eff in K
 
     return [
-        ('α_MED',      alpha_MED,   'log1p(mm)/K³', 'Cubic sensitivity coefficient'),
-        ('κ',          kappa,       '—',             'θe* weighting relative to θe  (≈ 1 → CAPE proxy)'),
-        ('Θe_crit',    Theta_crit,  'K',             'Critical buoyancy deficit for onset'),
-        ('σ_Θe/σ_RH',  rh_scale,   'K/%',           'Scale factor to convert RH_std → RH_eff (K)'),
+        ('α_MED',      alpha_MED,   'K⁻³',  'Cubic sensitivity coefficient'),
+        ('κ',          kappa,       '—',     'θe* weighting relative to θe  (≈ 1 → CAPE proxy)'),
+        ('Θe_crit',    Theta_crit,  'K',     'Critical buoyancy deficit for onset'),
+        ('σ_Θe/σ_RH',  rh_scale,   'K/%',   'Scale factor: RH_eff [K] = (σ_Θe/σ_RH)·(RH − μ_RH)'),
     ]
 
 
@@ -224,12 +224,12 @@ def unnormalize_sr_hi(constants, stats, targetvar='tp'):
     rh_scale   = sigma_te / sigma_rh
 
     return [
-        ('α_HI',       alpha_HI,   'log1p(mm)/K³', 'Cubic sensitivity (flux-independent part)'),
-        ('A_LHF',      A_LHF,      '—',             'LHF flux offset (dimensionless)'),
-        ('γ_LHF',      gamma_LHF,  'm²/W',          'LHF sensitivity of precipitation response'),
-        ('κ',          kappa,       '—',             'θe* weighting relative to θe'),
-        ('Θe_crit',    Theta_crit,  'K',             'Critical buoyancy deficit for onset'),
-        ('σ_Θe/σ_RH',  rh_scale,   'K/%',           'Scale factor to convert RH_std → RH_eff (K)'),
+        ('α_HI',       alpha_HI,   'K⁻³',   'Cubic sensitivity (flux-independent part)'),
+        ('A_LHF',      A_LHF,      '—',      'LHF flux offset'),
+        ('γ_LHF',      gamma_LHF,  'm²/W',   'LHF sensitivity of precipitation response'),
+        ('κ',          kappa,       '—',      'θe* weighting relative to θe'),
+        ('Θe_crit',    Theta_crit,  'K',      'Critical buoyancy deficit for onset'),
+        ('σ_Θe/σ_RH',  rh_scale,   'K/%',    'Scale factor: RH_eff [K] = (σ_Θe/σ_RH)·(RH − μ_RH)'),
     ]
 
 
