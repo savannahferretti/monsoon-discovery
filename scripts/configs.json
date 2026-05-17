@@ -133,13 +133,13 @@
         "sr_med":{
           "runfrom":"sr_med",
           "refcomplexity":16,
-          "form":"a * cube(rh) + b * thetae + c * thetaestar + d",
+          "form":"a * cube(max(rh, thetae + b * thetaestar + c))",
           "nrestarts":50,
           "description":"SR-MED"},
         "sr_hi":{
           "runfrom":"sr_hi",
           "refcomplexity":22,
-          "form":"a * cube(rh) + b * thetae + c * thetaestar + d + e * max(shf, lf)",
+          "form":"(a - b * lhf) * cube(max(rh, thetae + c * thetaestar + d))",
           "nrestarts":50,
           "description":"SR-HI"}
       }
