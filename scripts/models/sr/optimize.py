@@ -163,11 +163,12 @@ def save_registry(registry,config):
 def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,subsample=50000):
     '''
     Purpose: Initialize constants by fitting the parametric form against PySR equations
-        at refcomplexity via least-squares, averaged over seeds that contain that equation.
-        Because all parametric forms are linear in their constants, the design matrix is
-        exact and lstsq gives the best linear projection of the PySR predictions onto the
-        form's basis functions. Falls back to an empty dict (caller uses 1.0 defaults) if
-        no PySR equations are found at the given complexity.
+        at refcomplexity, averaged over seeds that have a matching equation.
+        For forms where all constants are linear (e.g. a*f(x) + b), uses fast lstsq.
+        For forms with multiplicative structure (e.g. a*cube(max(x, b*y + c))), the linear
+        design matrix has all-zero columns for constants nested inside nonlinear functions,
+        so falls back to nonlinear scipy minimization to match PySR predictions. Seeds whose
+        PySR equation is structurally too different (residual variance > 50%) are skipped.
     Args:
     - form (str): Python expression string with named constants
     - predictornames (list[str]): predictor column names
@@ -176,7 +177,7 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,sub
     - seeds (list[int]): list of random seeds
     - modelsdir (str): path to models directory
     - xfit (pd.DataFrame): full train+valid feature matrix
-    - subsample (int): max samples to use for lstsq (default 50000)
+    - subsample (int): max samples to use (default 50000)
     Returns:
     - dict: constant name → float value, or {} if no PySR equations found
     '''
@@ -191,6 +192,7 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,sub
     X = np.column_stack([
         eval_form(form,xsub,predictornames,{c:(1.0 if c==ci else 0.0) for c in constantnames})
         for ci in constantnames])
+    has_zero_cols = np.any(np.all(np.abs(X) < 1e-10,axis=0))
     seed_consts = []
     for seed in seeds:
         filepath = os.path.join(modelsdir,'sr',f'{runname}_{seed}_equations.csv')
@@ -210,8 +212,22 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,sub
                 y_pred = np.full(len(xsub),float(y_pred))
         except Exception:
             continue
-        coeffs,_,_,_ = np.linalg.lstsq(X,y_pred,rcond=None)
-        seed_consts.append(dict(zip(constantnames,coeffs)))
+        if not has_zero_cols:
+            coeffs,_,_,_ = np.linalg.lstsq(X,y_pred,rcond=None)
+            seed_consts.append(dict(zip(constantnames,coeffs)))
+        else:
+            y_var = float(np.nanvar(y_pred)) + 1e-12
+            def match_obj(params):
+                consts = dict(zip(constantnames,params))
+                try:
+                    out = eval_form(form,xsub,predictornames,consts)
+                    return float(np.nanmean((out - y_pred)**2))
+                except Exception:
+                    return 1e10
+            res = minimize(match_obj,np.ones(len(constantnames)),method='L-BFGS-B',
+                           options={'maxiter':5000,'ftol':1e-12,'gtol':1e-8})
+            if res.fun < y_var * 0.5:
+                seed_consts.append(dict(zip(constantnames,res.x)))
     if not seed_consts:
         return {}
     return {c:float(np.mean([sc[c] for sc in seed_consts])) for c in constantnames}
