@@ -118,7 +118,7 @@
             "searchparams":{"maxsize":30,"parsimony":0.003}},
         "sr_full": {
             "fieldvars":["rh","thetae","thetaestar"],
-            "localvars":["lhf"],
+            "localvars":["lf","shf","lhf"],
             "weightsfrom":"nn_gauss",
             "searchparams":{"maxsize":35,"parsimony":0.003}}},
       "optimizedeqs":{
@@ -134,6 +134,12 @@
           "form":"a * exp(b * rh) + c",
           "nrestarts":50,
           "description":"SR-LO"},
+        "exp_crh":{
+          "runfrom":"sr_lo",
+          "refcomplexity":3,
+          "form":"a * exp(b * rh) + c",
+          "nrestarts":50,
+          "description":"EXP-CRH"},
         "sr_med":{
           "runfrom":"sr_med",
           "refcomplexity":16,
