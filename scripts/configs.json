@@ -27,6 +27,7 @@
   "experiments":{
     "pod":{
       "bins":{"min":-0.6,"max":0.1,"width":0.0025,"minsample":50},
+      "fit":{"ymin":5.0,"ymax":15.0},
       "runs":{
         "pod_bl":{
             "inputvar":"bl",

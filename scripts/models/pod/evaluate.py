@@ -32,18 +32,16 @@ def load(splitname,splitsdir,inputvar):
 
 def fetch(runname,modeldir):
     '''
-    Purpose: Load a trained EmpiricalRampPOD from saved .npz file.
+    Purpose: Load a trained RampPOD from saved .npz file.
     Args:
     - runname (str): model run name
     - modeldir (str): directory containing model files
     Returns:
-    - EmpiricalRampPOD: loaded instance with fitted parameters and bin lookup table
+    - RampPOD: loaded RampPOD instance with fitted parameters
     '''
     filepath = os.path.join(modeldir,f'{runname}.npz')
     with np.load(filepath) as data:
-        model = RampPOD(
-            alpha=float(data['alpha']),
-            xcrit=float(data['xcrit']))
+        model = RampPOD(alpha=float(data['alpha']),xcrit=float(data['xcrit']))
     return model
 
 def predict(model,x,targetvar):

@@ -32,19 +32,22 @@ def load(splitsdir,inputvar,targetvar):
     y = trainds[targetvar].load()
     return x,y
 
-def fit(x,y,bins):
+def fit(x,y,bins,fitparams):
     '''
     Purpose: Fit a ramp model to training data and return the model with diagnostic data.
     Args:
     - x (xr.DataArray): input data
     - y (xr.DataArray): target data
     - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
+    - fitparams (dict): fit parameters with keys 'ymin', 'ymax'
     Returns:
-    - tuple[RampPOD,dict]: trained RampPOD instance and diagnostics dictionary
+    - tuple[RampPOD,dict]: trained RampPOD instance and diagnostics dictionary with binning data
     '''
     binedges     = np.arange(bins['min'],bins['max']+bins['width'],bins['width'])
     bincenters   = 0.5*(binedges[:-1]+binedges[1:])
     samplethresh = bins['minsample']
+    ymin = fitparams['ymin']
+    ymax = fitparams['ymax']
     xflat  = x.values.ravel()
     yflat  = y.values.ravel()
     finite = np.isfinite(xflat)&np.isfinite(yflat)
@@ -57,7 +60,7 @@ def fit(x,y,bins):
     with np.errstate(divide='ignore',invalid='ignore'):
         ymeans = sums/counts
     ymeans[counts<samplethresh] = np.nan
-    fitrange = np.isfinite(ymeans)
+    fitrange = np.isfinite(ymeans)&(ymeans>=ymin)&(ymeans<=ymax)
     alpha,intercept = np.polyfit(bincenters[fitrange],ymeans[fitrange],1)
     xcrit = -intercept/alpha
     model = RampPOD(alpha=float(alpha),xcrit=float(xcrit))
@@ -116,6 +119,6 @@ if __name__=='__main__':
         else:
             x,y = cacheddata
         logger.info(f'   Training `{runname}`...')
-        model,diagnostics = fit(x,y,pod['bins'])
+        model,diagnostics = fit(x,y,pod['bins'],pod['fit'])
         save(model,diagnostics,runname,modeldir)
         del model,diagnostics
