@@ -125,8 +125,8 @@
       "optimizedeqs":{
         "sr_bl":{
           "runfrom":"sr_bl",
-          "refcomplexity":5,
-          "form":"a * cube(bl + b) + c",
+          "refcomplexity":4,
+          "form":"a * exp(bl) + b",
           "nrestarts":50,
           "description":"SR-BL"},
         "sr_lo":{
