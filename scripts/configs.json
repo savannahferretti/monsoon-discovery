@@ -134,12 +134,6 @@
           "form":"a * exp(b * rh) + c",
           "nrestarts":50,
           "description":"SR-LO"},
-        "exp_crh":{
-          "runfrom":"sr_lo",
-          "refcomplexity":3,
-          "form":"a * exp(b * rh) + c",
-          "nrestarts":50,
-          "description":"EXP-CRH"},
         "sr_med":{
           "runfrom":"sr_med",
           "refcomplexity":16,
