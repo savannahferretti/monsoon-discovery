@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import RampPOD
+from scripts.models.pod.model import EmpiricalRampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -32,16 +32,20 @@ def load(splitname,splitsdir,inputvar):
 
 def fetch(runname,modeldir):
     '''
-    Purpose: Load a trained RampPOD from saved .npz file.
+    Purpose: Load a trained EmpiricalRampPOD from saved .npz file.
     Args:
     - runname (str): model run name
     - modeldir (str): directory containing model files
     Returns:
-    - RampPOD: loaded RampPOD instance with fitted parameters
+    - EmpiricalRampPOD: loaded instance with fitted parameters and bin lookup table
     '''
     filepath = os.path.join(modeldir,f'{runname}.npz')
     with np.load(filepath) as data:
-        model = RampPOD(alpha=float(data['alpha']),xcrit=float(data['xcrit']))
+        model = EmpiricalRampPOD(
+            alpha=float(data['alpha']),
+            xcrit=float(data['xcrit']),
+            bincenters=data['bincenters_dense'].copy(),
+            ymeans=data['ymeans_dense'].copy())
     return model
 
 def predict(model,x,targetvar):

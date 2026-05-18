@@ -279,6 +279,9 @@ if __name__=='__main__':
     for name,eqspec in optimizedeqs.items():
         if selectedeqs is not None and name not in selectedeqs:
             continue
+        if eqspec.get('form') is None:
+            logger.info(f'Skipping `{name}`, form not yet specified')
+            continue
         if name in registry:
             logger.info(f'Skipping `{name}`, already optimized')
             continue

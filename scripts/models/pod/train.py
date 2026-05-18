@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import RampPOD
+from scripts.models.pod.model import EmpiricalRampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -32,22 +32,22 @@ def load(splitsdir,inputvar,targetvar):
     y = trainds[targetvar].load()
     return x,y
 
-def fit(x,y,bins,fitparams):
+def fit(x,y,bins):
     '''
-    Purpose: Fit a ramp model to training data and return the model with diagnostic data.
+    Purpose: Fit a hybrid empirical+ramp model to training data and return the model with diagnostic data.
+        Uses empirical binned means for input values within the dense-data range and the fitted ramp for
+        values outside that range, ensuring a continuous transition without imposing a precipitation range
+        filter on the fit.
     Args:
     - x (xr.DataArray): input data
     - y (xr.DataArray): target data
     - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
-    - fitparams (dict): fit parameters with keys 'ymin', 'ymax'
     Returns:
-    - tuple[RampPOD,dict]: trained RampPOD instance and diagnostics dictionary with binning data
+    - tuple[EmpiricalRampPOD,dict]: trained EmpiricalRampPOD instance and diagnostics dictionary
     '''
     binedges     = np.arange(bins['min'],bins['max']+bins['width'],bins['width'])
     bincenters   = 0.5*(binedges[:-1]+binedges[1:])
     samplethresh = bins['minsample']
-    ymin = fitparams['ymin']
-    ymax = fitparams['ymax']
     xflat  = x.values.ravel()
     yflat  = y.values.ravel()
     finite = np.isfinite(xflat)&np.isfinite(yflat)
@@ -60,10 +60,14 @@ def fit(x,y,bins,fitparams):
     with np.errstate(divide='ignore',invalid='ignore'):
         ymeans = sums/counts
     ymeans[counts<samplethresh] = np.nan
-    fitrange = np.isfinite(ymeans)&(ymeans>=ymin)&(ymeans<=ymax)
+    fitrange = np.isfinite(ymeans)
     alpha,intercept = np.polyfit(bincenters[fitrange],ymeans[fitrange],1)
     xcrit = -intercept/alpha
-    model = RampPOD(alpha=float(alpha),xcrit=float(xcrit))
+    model = EmpiricalRampPOD(
+        alpha=float(alpha),
+        xcrit=float(xcrit),
+        bincenters=bincenters[fitrange].astype(np.float32),
+        ymeans=ymeans[fitrange].astype(np.float32))
     diagnostics = {
         'bincenters':bincenters,
         'ymean':ymeans,
@@ -92,6 +96,8 @@ def save(model,diagnostics,runname,modeldir):
                  bincenters=diagnostics['bincenters'],
                  ymean=diagnostics['ymean'],
                  fitrange=diagnostics['fitrange'],
+                 bincenters_dense=model.bincenters,
+                 ymeans_dense=model.ymeans,
                  nparams=np.int32(model.nparams))
         with np.load(filepath) as _:
             pass
@@ -119,6 +125,6 @@ if __name__=='__main__':
         else:
             x,y = cacheddata
         logger.info(f'   Training `{runname}`...')
-        model,diagnostics = fit(x,y,pod['bins'],pod['fit'])
+        model,diagnostics = fit(x,y,pod['bins'])
         save(model,diagnostics,runname,modeldir)
         del model,diagnostics

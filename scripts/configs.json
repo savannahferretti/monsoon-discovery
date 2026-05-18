@@ -27,7 +27,6 @@
   "experiments":{
     "pod":{
       "bins":{"min":-0.6,"max":0.1,"width":0.0025,"minsample":50},
-      "fit":{"ymin":5.0,"ymax":15.0},
       "runs":{
         "pod_bl":{
             "inputvar":"bl",
@@ -79,7 +78,7 @@
       "operators":{
         "binary":["+","-","*","/","^","min","max"],
         "unary":["neg","abs","sqrt","square","cube","exp","log"],
-        "complexity":{"+":1,"-":1,"*":1,"max":1,"min":1,"neg":1,"abs":1,"/":2,"sqrt":2,"square":2,"cube":2,"^":2,"exp":2,"log":2}},
+        "complexity":{"+":1,"-":1,"*":1,"max":1,"min":1,"neg":1,"abs":1,"/":2,"sqrt":2,"square":2,"cube":2,"^":2,"exp":1,"log":2}},
       "complexity":{
         "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":2,"shf":2,"lhf":2},
         "ofconstants":1},
@@ -116,7 +115,12 @@
             "fieldvars":["rh","thetae","thetaestar"],
             "localvars":["lhf"],
             "weightsfrom":"nn_gauss",
-            "searchparams":{"maxsize":30,"parsimony":0.003}}},
+            "searchparams":{"maxsize":30,"parsimony":0.003}},
+        "sr_full": {
+            "fieldvars":["rh","thetae","thetaestar"],
+            "localvars":["lhf"],
+            "weightsfrom":"nn_gauss",
+            "searchparams":{"maxsize":35,"parsimony":0.003}}},
       "optimizedeqs":{
         "sr_bl":{
           "runfrom":"sr_bl",
@@ -141,7 +145,13 @@
           "refcomplexity":22,
           "form":"(a - b * lhf) * cube(max(rh, thetae + c * thetaestar + d))",
           "nrestarts":50,
-          "description":"SR-HI"}
+          "description":"SR-HI"},
+        "sr_full":{
+          "runfrom":"sr_full",
+          "refcomplexity":null,
+          "form":null,
+          "nrestarts":50,
+          "description":"SR-FULL"}
       }
     }
   }
