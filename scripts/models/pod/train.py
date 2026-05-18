@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import EmpiricalRampPOD
+from scripts.models.pod.model import RampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -34,16 +34,13 @@ def load(splitsdir,inputvar,targetvar):
 
 def fit(x,y,bins):
     '''
-    Purpose: Fit a hybrid empirical+ramp model to training data and return the model with diagnostic data.
-        Uses empirical binned means for input values within the dense-data range and the fitted ramp for
-        values outside that range, ensuring a continuous transition without imposing a precipitation range
-        filter on the fit.
+    Purpose: Fit a ramp model to training data and return the model with diagnostic data.
     Args:
     - x (xr.DataArray): input data
     - y (xr.DataArray): target data
     - bins (dict): binning parameters with keys 'min', 'max', 'width', 'minsample'
     Returns:
-    - tuple[EmpiricalRampPOD,dict]: trained EmpiricalRampPOD instance and diagnostics dictionary
+    - tuple[RampPOD,dict]: trained RampPOD instance and diagnostics dictionary
     '''
     binedges     = np.arange(bins['min'],bins['max']+bins['width'],bins['width'])
     bincenters   = 0.5*(binedges[:-1]+binedges[1:])
@@ -63,11 +60,7 @@ def fit(x,y,bins):
     fitrange = np.isfinite(ymeans)
     alpha,intercept = np.polyfit(bincenters[fitrange],ymeans[fitrange],1)
     xcrit = -intercept/alpha
-    model = EmpiricalRampPOD(
-        alpha=float(alpha),
-        xcrit=float(xcrit),
-        bincenters=bincenters[fitrange].astype(np.float32),
-        ymeans=ymeans[fitrange].astype(np.float32))
+    model = RampPOD(alpha=float(alpha),xcrit=float(xcrit))
     diagnostics = {
         'bincenters':bincenters,
         'ymean':ymeans,
@@ -96,8 +89,6 @@ def save(model,diagnostics,runname,modeldir):
                  bincenters=diagnostics['bincenters'],
                  ymean=diagnostics['ymean'],
                  fitrange=diagnostics['fitrange'],
-                 bincenters_dense=model.bincenters,
-                 ymeans_dense=model.ymeans,
                  nparams=np.int32(model.nparams))
         with np.load(filepath) as _:
             pass

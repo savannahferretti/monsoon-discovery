@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import EmpiricalRampPOD
+from scripts.models.pod.model import RampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -41,11 +41,9 @@ def fetch(runname,modeldir):
     '''
     filepath = os.path.join(modeldir,f'{runname}.npz')
     with np.load(filepath) as data:
-        model = EmpiricalRampPOD(
+        model = RampPOD(
             alpha=float(data['alpha']),
-            xcrit=float(data['xcrit']),
-            bincenters=data['bincenters_dense'].copy(),
-            ymeans=data['ymeans_dense'].copy())
+            xcrit=float(data['xcrit']))
     return model
 
 def predict(model,x,targetvar):
