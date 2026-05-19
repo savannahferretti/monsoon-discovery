@@ -68,14 +68,14 @@
       "subsetfrac":0.025,
       "searchparams":{
         "iterations":500,
-        "populations":30,
+        "populations":20,
         "populationsize":100,
         "maxsize":30,
         "maxdepth":10,
         "batchsize":500,
         "cyclesperiteration":50,
-        "weightoptimize":0.10,
-        "parsimony":0.001},
+        "weightoptimize":0.2,
+        "parsimony":0.006},
       "operators":{
         "binary":["+","-","*","/","^","min","max"],
         "unary":["neg","abs","sqrt","square","cube","exp","log"],
@@ -105,8 +105,7 @@
         "sr_gauss": {
             "fieldvars":["rh","thetae","thetaestar"],
             "localvars":["lf","shf","lhf"],
-            "weightsfrom":"nn_gauss",
-            "searchparams":{"parsimony":0.005}}},
+            "weightsfrom":"nn_gauss"}},
       "optimizedeqs":{
         "sr_bl":{
           "runfrom":"sr_bl",
