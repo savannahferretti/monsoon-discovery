@@ -71,9 +71,9 @@
         "populations":30,
         "populationsize":100,
         "maxsize":30,
-        "maxdepth":20,
+        "maxdepth":15,
         "batchsize":500,
-        "cyclesperiteration":80,
+        "cyclesperiteration":60,
         "weightoptimize":0.05,
         "parsimony":0.001},
       "operators":{
