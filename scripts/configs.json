@@ -81,7 +81,7 @@
         "unary":["neg","abs","sqrt","square","cube","exp","log"],
         "complexity":{"+":1,"-":1,"*":1,"max":1,"min":1,"neg":1,"abs":1,"/":2,"sqrt":2,"square":2,"cube":2,"^":2,"exp":1,"log":2}},
       "complexity":{
-        "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":2,"shf":2,"lhf":2},
+        "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":1,"lhf":1},
         "ofconstants":1},
       "constraints":{
         "^":[-10,10]},
@@ -102,57 +102,36 @@
           "fieldvars":["bl"],
           "localvars":[],
           "searchparams":{"maxsize":10}},
-        "sr_lo":{
-            "fieldvars":["rh"],
-            "localvars":[],
-            "weightsfrom":"nn_gauss",
-            "searchparams":{"maxsize":10}},
-        "sr_med": {
-            "fieldvars":["rh","thetae","thetaestar"],
-            "localvars":[],
-            "weightsfrom":"nn_gauss",
-            "searchparams":{"maxsize":20}},
-        "sr_hi": {
-            "fieldvars":["rh","thetae","thetaestar"],
-            "localvars":["lhf"],
-            "weightsfrom":"nn_gauss",
-            "searchparams":{"maxsize":30,"parsimony":0.003}},
         "sr_gauss": {
             "fieldvars":["rh","thetae","thetaestar"],
             "localvars":["lf","shf","lhf"],
             "weightsfrom":"nn_gauss",
-            "searchparams":{"maxsize":35,"parsimony":0.003}}},
+            "searchparams":{"parsimony":0.005}}},
       "optimizedeqs":{
         "sr_bl":{
           "runfrom":"sr_bl",
           "refcomplexity":4,
-          "form":"a * exp(bl) + b",
+          "form":"a * cube(bl + b) + c",
           "nrestarts":50,
           "description":"SR-BL"},
         "sr_lo":{
-          "runfrom":"sr_lo",
+          "runfrom":"sr_gauss",
           "refcomplexity":6,
-          "form":"a * exp(b * rh) + c",
+          "form":"a * exp(b * rh)",
           "nrestarts":50,
           "description":"SR-LO"},
         "sr_med":{
-          "runfrom":"sr_med",
+          "runfrom":"sr_gauss",
           "refcomplexity":16,
           "form":"a * cube(max(rh, thetae + b * thetaestar + c))",
           "nrestarts":50,
           "description":"SR-MED"},
         "sr_hi":{
-          "runfrom":"sr_hi",
+          "runfrom":"sr_gauss",
           "refcomplexity":22,
           "form":"(a - b * lhf) * cube(max(rh, thetae + c * thetaestar + d))",
           "nrestarts":50,
-          "description":"SR-HI"},
-        "sr_full":{
-          "runfrom":"sr_full",
-          "refcomplexity":null,
-          "form":null,
-          "nrestarts":50,
-          "description":"SR-FULL"}
+          "description":"SR-HI"}
       }
     }
   }
