@@ -305,7 +305,8 @@ if __name__=='__main__':
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
         refcomplexity = eqspec.get('refcomplexity')
-        init = pysr_init(form,predictornames,refcomplexity,runname,sr['seeds'],config.modelsdir,xfit)
+        eq_seeds = eqspec.get('seeds', sr['seeds'])
+        init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,xfit)
         if init:
             logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
