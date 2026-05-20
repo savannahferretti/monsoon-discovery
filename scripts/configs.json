@@ -125,13 +125,13 @@
                 "sr_lo":{
                     "runfrom":"sr_gauss",
                     "refcomplexity":6,
-                    "form":"a * exp(rh) - b",
+                    "form":"a * exp(rh) + b",
                     "nrestarts":50,
                     "color":"#fb992f",
                     "description":"SR-LO"},
                 "sr_med":{
                     "runfrom":"sr_gauss",
-                    "form":"a * cube(max(rh, thetae - b * thetaestar - c))",
+                    "form":"a * cube(max(rh, thetae + b * thetaestar + c))",
                     "nrestarts":50,
                     "color":"#e74b29",
                     "description":"SR-MED",
