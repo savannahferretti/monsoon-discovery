@@ -224,10 +224,16 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,sub
                     return float(np.nanmean((out - y_pred)**2))
                 except Exception:
                     return 1e10
-            res = minimize(match_obj,np.ones(len(constantnames)),method='L-BFGS-B',
-                           options={'maxiter':5000,'ftol':1e-12,'gtol':1e-8})
-            if res.fun < y_var * 0.5:
-                seed_consts.append(dict(zip(constantnames,res.x)))
+            rng2 = np.random.default_rng(seed)
+            starts = [np.ones(len(constantnames))] + list(rng2.uniform(-3,3,(9,len(constantnames))))
+            best_res = None
+            for start in starts:
+                res = minimize(match_obj,start,method='L-BFGS-B',
+                               options={'maxiter':5000,'ftol':1e-12,'gtol':1e-8})
+                if best_res is None or res.fun < best_res.fun:
+                    best_res = res
+            if best_res.fun < y_var * 0.5:
+                seed_consts.append(dict(zip(constantnames,best_res.x)))
     if not seed_consts:
         return {}
     return {c:float(np.mean([sc[c] for sc in seed_consts])) for c in constantnames}
@@ -305,7 +311,8 @@ if __name__=='__main__':
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
         refcomplexity = eqspec.get('refcomplexity')
-        init = pysr_init(form,predictornames,refcomplexity,runname,sr['seeds'],config.modelsdir,xfit)
+        eq_seeds = eqspec.get('seeds', sr['seeds'])
+        init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,xfit)
         if init:
             logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:

@@ -46,22 +46,26 @@
             "kind":"baseline",
             "fieldvars":["bl"],
             "localvars":[],
+            "color":"#1d346e",
             "description":"NN-BL"},
         "nn_full":{
           "kind": "baseline",
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
+          "color":"#2355a1",
           "description":"NN-FULL"},
         "nn_nonparam":{
           "kind":"nonparametric",
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
+          "color":"#4a91cc",
           "description":"NN-NONPARAM"},
         "nn_gauss":{
           "kind":"parametric",
           "kernel":"gaussian",
           "fieldvars":["rh","thetae","thetaestar"],
           "localvars":["lf","shf","lhf"],
+          "color":"#7dc1e9",
           "description":"NN-GAUSS"}}},
     "sr":{
       "seeds":[42,72,102],
@@ -110,24 +114,29 @@
           "refcomplexity":7,
           "form":"cube(bl + a) + b",
           "nrestarts":50,
+          "color":"#fa932e",
           "description":"SR-BL"},
         "sr_lo":{
           "runfrom":"sr_gauss",
           "refcomplexity":6,
           "form":"a * exp(rh) + b",
           "nrestarts":50,
+          "color":"#ee5a29",
           "description":"SR-LO"},
         "sr_med":{
           "runfrom":"sr_gauss",
           "refcomplexity":16,
           "form":"a * cube(max(rh, thetae + b * thetaestar + c))",
           "nrestarts":50,
+          "color":"#d01f27",
           "description":"SR-MED"},
         "sr_hi":{
           "runfrom":"sr_gauss",
           "refcomplexity":23,
+          "seeds":[42,102],
           "form":"a * cube(max(rh, thetae + b * thetaestar + c) + max(lf, shf) * d)",
           "nrestarts":50,
+          "color":"#a0171c",
           "description":"SR-HI"}
       }
     }
