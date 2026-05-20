@@ -316,16 +316,7 @@ if __name__=='__main__':
         if init:
             logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            for prevname,preventry in registry.items():
-                if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
-                    continue
-                prevconsts = preventry['constants']
-                if set(prevconsts.keys()) < set(constantnames):
-                    init = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
-            if init:
-                logger.info(f'   Nested warm-start: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
-            else:
-                logger.info(f'   No warm-start found; defaulting all constants to 1.0')
+            logger.info(f'   No PySR init found; defaulting all constants to 1.0')
         logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s), {nworkers} worker(s)...')
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,nworkers=nworkers)
         trainloss  = float(res.fun)
