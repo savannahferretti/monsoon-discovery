@@ -106,12 +106,11 @@ def optimize_constants(form,predictornames,x,y,zmin,init):
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1):
+def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None):
     '''
     Purpose: Optimize named constants via L-BFGS-B with optional random restarts.
-        The first restart uses `init`; subsequent restarts draw starting points uniformly
-        from [-initscale, initscale], allowing the optimizer to discover the correct
-        signs and magnitudes of each constant without manual initialization.
+        The first restart uses `init`; any extra_inits follow; remaining slots are
+        filled with uniform random draws from [-initscale, initscale].
         Restarts are run in parallel across `nworkers` threads.
     Args:
     - form (str): Python expression string using predictor names and constant names
@@ -124,14 +123,18 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
     - initscale (float): half-range for uniform random initialization (default 5.0)
     - seed (int): RNG seed for reproducible random restarts
     - nworkers (int): number of parallel threads for restarts (default 1)
+    - extra_inits (list[dict]|None): additional anchor starting points inserted after init
+        and before random draws; counted against nrestarts
     Returns:
     - tuple[dict, OptimizeResult]: best constants and corresponding scipy result
     '''
     constantnames = extract_constants(form,predictornames)
     rng           = np.random.default_rng(seed)
-    inits         = [init] + [
+    fixed_inits   = [init] + (extra_inits or [])
+    nrandom       = max(0, nrestarts - len(fixed_inits))
+    inits         = fixed_inits + [
         {c:float(v) for c,v in zip(constantnames,rng.uniform(-initscale,initscale,len(constantnames)))}
-        for _ in range(nrestarts-1)]
+        for _ in range(nrandom)]
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
         delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit)
         for restartinit in inits)
@@ -317,8 +320,22 @@ if __name__=='__main__':
             logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
             logger.info(f'   No PySR init found; defaulting all constants to 1.0')
-        logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s), {nworkers} worker(s)...')
-        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,nworkers=nworkers)
+        # Anchor starts: for each already-optimized equation whose constant set is a strict
+        # subset of this one's, inject its constants (new constants default to 1.0) as an
+        # additional guaranteed starting point — without making it the primary init.
+        anchor_inits = []
+        for prevname,preventry in registry.items():
+            if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
+                continue
+            prevconsts = preventry['constants']
+            if set(prevconsts.keys()) < set(constantnames):
+                anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
+                anchor_inits.append(anchor)
+                logger.info(f'   Anchor start from {prevname}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
+        logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s) '
+                    f'({len(anchor_inits)} anchor(s)), {nworkers} worker(s)...')
+        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,
+                                            nworkers=nworkers,extra_inits=anchor_inits)
         trainloss  = float(res.fun)
         validpred  = zmin+np.maximum(eval_form(form,xvalid[validmask][predictornames].reset_index(drop=True),predictornames,constants),0.0)
         validloss  = float(np.nanmean((validpred-yvalid[validmask])**2))
