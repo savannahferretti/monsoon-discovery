@@ -321,7 +321,7 @@ if __name__=='__main__':
                     continue
                 prevconsts = preventry['constants']
                 if set(prevconsts.keys()) < set(constantnames):
-                    init = {c:(prevconsts[c] if c in prevconsts else 0.0) for c in constantnames}
+                    init = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
             if init:
                 logger.info(f'   Nested warm-start: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:

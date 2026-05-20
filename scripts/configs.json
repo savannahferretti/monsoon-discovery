@@ -1,347 +1,345 @@
 {
-  "filepaths": {
-    "raw": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/raw",
-    "interim": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/interim",
-    "splits": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/splits",
-    "predictions": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/predictions",
-    "features": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/features",
-    "weights": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/weights",
-    "models": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/models"
-  },
-  "metadata": {
-    "author": "Savannah L. Ferretti",
-    "email": "savannah.ferretti@uci.edu"
-  },
-  "domain": {
-    "latrange": [
-      5.0,
-      25.0
-    ],
-    "lonrange": [
-      60.0,
-      90.0
-    ],
-    "levrange": [
-      500.0,
-      1000.0
-    ],
-    "years": [
-      2000,
-      2001,
-      2002,
-      2003,
-      2004,
-      2005,
-      2006,
-      2007,
-      2008,
-      2009,
-      2010,
-      2011,
-      2012,
-      2013,
-      2014,
-      2015,
-      2016,
-      2017,
-      2018,
-      2019,
-      2020
-    ],
-    "months": [
-      6,
-      7,
-      8
-    ]
-  },
-  "splits": {
-    "trainyears": [
-      2000,
-      2014
-    ],
-    "validyears": [
-      2015,
-      2017
-    ],
-    "testyears": [
-      2018,
-      2020
-    ]
-  },
-  "variables": {
-    "field": [
-      "bl",
-      "cape",
-      "subsat",
-      "rh",
-      "thetae",
-      "thetaestar"
-    ],
-    "local": [
-      "lf",
-      "shf",
-      "lhf"
-    ],
-    "target": "tp"
-  },
-  "experiments": {
-    "pod": {
-      "bins": {
-        "min": -0.6,
-        "max": 0.1,
-        "width": 0.0025,
-        "minsample": 50
-      },
-      "fit": {
-        "ymin": 5.0,
-        "ymax": 15.0
-      },
-      "runs": {
-        "pod_bl": {
-          "inputvar": "bl",
-          "description": "POD-BL"
-        }
-      }
+    "filepaths": {
+        "raw": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/raw",
+        "interim": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/interim",
+        "splits": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/splits",
+        "predictions": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/predictions",
+        "features": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/features",
+        "weights": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/data/weights",
+        "models": "/global/cfs/cdirs/m4334/sferrett/monsoon-discovery/models"
     },
-    "nn": {
-      "projectname": "Chapter-3-Experiments",
-      "seeds": [
-        42,
-        72,
-        102
-      ],
-      "workers": 8,
-      "epochs": 20,
-      "batchsize": 500,
-      "learningrate": 0.0005,
-      "patience": 4,
-      "criterion": "MSELoss",
-      "runs": {
-        "nn_bl": {
-          "kind": "baseline",
-          "fieldvars": [
-            "bl"
-          ],
-          "localvars": [],
-          "color": "#1d346e",
-          "description": "NN-BL"
-        },
-        "nn_full": {
-          "kind": "baseline",
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ],
-          "color": "#2355a1",
-          "description": "NN-FULL"
-        },
-        "nn_nonparam": {
-          "kind": "nonparametric",
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ],
-          "color": "#539ed4",
-          "description": "NN-NONPARAM"
-        },
-        "nn_gauss": {
-          "kind": "parametric",
-          "kernel": "gaussian",
-          "fieldvars": [
-            "rh",
-            "thetae",
-            "thetaestar"
-          ],
-          "localvars": [
-            "lf",
-            "shf",
-            "lhf"
-          ],
-          "color": "#a7def7",
-          "description": "NN-GAUSS"
-        }
-      }
+    "metadata": {
+        "author": "Savannah L. Ferretti",
+        "email": "savannah.ferretti@uci.edu"
     },
-    "sr": {
-      "seeds": [
-        42,
-        72,
-        102
-      ],
-      "subsetfrac": 0.025,
-      "searchparams": {
-        "iterations": 500,
-        "populations": 20,
-        "populationsize": 100,
-        "maxsize": 30,
-        "maxdepth": 10,
-        "batchsize": 500,
-        "cyclesperiteration": 50,
-        "weightoptimize": 0.2,
-        "parsimony": 0.006
-      },
-      "operators": {
-        "binary": [
-          "+",
-          "-",
-          "*",
-          "/",
-          "^",
-          "min",
-          "max"
+    "domain": {
+        "latrange": [
+            5.0,
+            25.0
         ],
-        "unary": [
-          "neg",
-          "abs",
-          "square",
-          "cube",
-          "exp"
+        "lonrange": [
+            60.0,
+            90.0
         ],
-        "complexity": {
-          "+": 1,
-          "-": 1,
-          "*": 1,
-          "/": 2,
-          "^": 2,
-          "min": 1,
-          "max": 1,
-          "neg": 1,
-          "abs": 2,
-          "square": 2,
-          "cube": 2,
-          "exp": 2
-        }
-      },
-      "complexity": {
-        "ofvariables": {
-          "rh": 2,
-          "thetae": 2,
-          "thetaestar": 2,
-          "lf": 1,
-          "shf": 2,
-          "lhf": 2
-        },
-        "ofconstants": 1
-      },
-      "constraints": {
-        "^": [
-          -10,
-          10
+        "levrange": [
+            500.0,
+            1000.0
+        ],
+        "years": [
+            2000,
+            2001,
+            2002,
+            2003,
+            2004,
+            2005,
+            2006,
+            2007,
+            2008,
+            2009,
+            2010,
+            2011,
+            2012,
+            2013,
+            2014,
+            2015,
+            2016,
+            2017,
+            2018,
+            2019,
+            2020
+        ],
+        "months": [
+            6,
+            7,
+            8
         ]
-      },
-      "nestedconstraints": {
-        "/": {
-          "/": 0
-        },
-        "^": {
-          "^": 0
-        },
-        "min": {
-          "min": 0,
-          "max": 0
-        },
-        "max": {
-          "min": 0,
-          "max": 0
-        },
-        "neg": {
-          "neg": 0,
-          "abs": 0
-        },
-        "abs": {
-          "neg": 0,
-          "abs": 0,
-          "exp": 0
-        },
-        "square": {
-          "^": 0
-        },
-        "cube": {
-          "^": 0,
-          "cube": 0
-        },
-        "exp": {
-          "^": 0,
-          "abs": 0,
-          "square": 0,
-          "cube": 0,
-          "exp": 0
-        }
-      },
-      "runs": {
-        "sr_bl": {
-          "fieldvars": [
-            "bl"
-          ],
-          "localvars": [],
-          "searchparams": {
-            "maxsize": 10
-          }
-        },
-        "sr_gauss": {
-          "fieldvars": [
+    },
+    "splits": {
+        "trainyears": [
+            2000,
+            2014
+        ],
+        "validyears": [
+            2015,
+            2017
+        ],
+        "testyears": [
+            2018,
+            2020
+        ]
+    },
+    "variables": {
+        "field": [
+            "bl",
+            "cape",
+            "subsat",
             "rh",
             "thetae",
             "thetaestar"
-          ],
-          "localvars": [
+        ],
+        "local": [
             "lf",
             "shf",
             "lhf"
-          ],
-          "weightsfrom": "nn_gauss"
+        ],
+        "target": "tp"
+    },
+    "experiments": {
+        "pod": {
+            "bins": {
+                "min": -0.6,
+                "max": 0.1,
+                "width": 0.0025,
+                "minsample": 50
+            },
+            "fit": {
+                "ymin": 5.0,
+                "ymax": 15.0
+            },
+            "runs": {
+                "pod_bl": {
+                    "inputvar": "bl",
+                    "description": "POD-BL"
+                }
+            }
+        },
+        "nn": {
+            "projectname": "Chapter-3-Experiments",
+            "seeds": [
+                42,
+                72,
+                102
+            ],
+            "workers": 8,
+            "epochs": 20,
+            "batchsize": 500,
+            "learningrate": 0.0005,
+            "patience": 4,
+            "criterion": "MSELoss",
+            "runs": {
+                "nn_bl": {
+                    "kind": "baseline",
+                    "fieldvars": [
+                        "bl"
+                    ],
+                    "localvars": [],
+                    "color": "#1d346e",
+                    "description": "NN-BL"
+                },
+                "nn_full": {
+                    "kind": "baseline",
+                    "fieldvars": [
+                        "rh",
+                        "thetae",
+                        "thetaestar"
+                    ],
+                    "localvars": [
+                        "lf",
+                        "shf",
+                        "lhf"
+                    ],
+                    "color": "#2355a1",
+                    "description": "NN-FULL"
+                },
+                "nn_nonparam": {
+                    "kind": "nonparametric",
+                    "fieldvars": [
+                        "rh",
+                        "thetae",
+                        "thetaestar"
+                    ],
+                    "localvars": [
+                        "lf",
+                        "shf",
+                        "lhf"
+                    ],
+                    "color": "#539ed4",
+                    "description": "NN-NONPARAM"
+                },
+                "nn_gauss": {
+                    "kind": "parametric",
+                    "kernel": "gaussian",
+                    "fieldvars": [
+                        "rh",
+                        "thetae",
+                        "thetaestar"
+                    ],
+                    "localvars": [
+                        "lf",
+                        "shf",
+                        "lhf"
+                    ],
+                    "color": "#a7def7",
+                    "description": "NN-GAUSS"
+                }
+            }
+        },
+        "sr": {
+            "seeds": [
+                42,
+                72,
+                102
+            ],
+            "subsetfrac": 0.025,
+            "searchparams": {
+                "iterations": 500,
+                "populations": 20,
+                "populationsize": 100,
+                "maxsize": 30,
+                "maxdepth": 10,
+                "batchsize": 500,
+                "cyclesperiteration": 50,
+                "weightoptimize": 0.2,
+                "parsimony": 0.006
+            },
+            "operators": {
+                "binary": [
+                    "+",
+                    "-",
+                    "*",
+                    "/",
+                    "^",
+                    "min",
+                    "max"
+                ],
+                "unary": [
+                    "neg",
+                    "abs",
+                    "square",
+                    "cube",
+                    "exp"
+                ],
+                "complexity": {
+                    "+": 1,
+                    "-": 1,
+                    "*": 1,
+                    "/": 2,
+                    "^": 2,
+                    "min": 1,
+                    "max": 1,
+                    "neg": 1,
+                    "abs": 2,
+                    "square": 2,
+                    "cube": 2,
+                    "exp": 2
+                }
+            },
+            "complexity": {
+                "ofvariables": {
+                    "rh": 2,
+                    "thetae": 2,
+                    "thetaestar": 2,
+                    "lf": 1,
+                    "shf": 2,
+                    "lhf": 2
+                },
+                "ofconstants": 1
+            },
+            "constraints": {
+                "^": [
+                    -10,
+                    10
+                ]
+            },
+            "nestedconstraints": {
+                "/": {
+                    "/": 0
+                },
+                "^": {
+                    "^": 0
+                },
+                "min": {
+                    "min": 0,
+                    "max": 0
+                },
+                "max": {
+                    "min": 0,
+                    "max": 0
+                },
+                "neg": {
+                    "neg": 0,
+                    "abs": 0
+                },
+                "abs": {
+                    "neg": 0,
+                    "abs": 0,
+                    "exp": 0
+                },
+                "square": {
+                    "^": 0
+                },
+                "cube": {
+                    "^": 0,
+                    "cube": 0
+                },
+                "exp": {
+                    "^": 0,
+                    "abs": 0,
+                    "square": 0,
+                    "cube": 0,
+                    "exp": 0
+                }
+            },
+            "runs": {
+                "sr_bl": {
+                    "fieldvars": [
+                        "bl"
+                    ],
+                    "localvars": [],
+                    "searchparams": {
+                        "maxsize": 10
+                    }
+                },
+                "sr_gauss": {
+                    "fieldvars": [
+                        "rh",
+                        "thetae",
+                        "thetaestar"
+                    ],
+                    "localvars": [
+                        "lf",
+                        "shf",
+                        "lhf"
+                    ],
+                    "weightsfrom": "nn_gauss"
+                }
+            },
+            "optimizedeqs": {
+                "sr_bl": {
+                    "runfrom": "sr_bl",
+                    "refcomplexity": 7,
+                    "form": "cube(bl + b) + c",
+                    "nrestarts": 50,
+                    "color": "#fdd778",
+                    "description": "SR-BL"
+                },
+                "sr_lo": {
+                    "runfrom": "sr_gauss",
+                    "refcomplexity": 6,
+                    "form": "a * exp(rh) + b",
+                    "nrestarts": 50,
+                    "color": "#fb992f",
+                    "description": "SR-LO"
+                },
+                "sr_med": {
+                    "runfrom": "sr_gauss",
+                    "form": "a * cube(max(rh, thetae + b * thetaestar + c))",
+                    "nrestarts": 50,
+                    "color": "#e74b29",
+                    "description": "SR-MED"
+                },
+                "sr_hi": {
+                    "runfrom": "sr_gauss",
+                    "seeds": [
+                        42,
+                        102
+                    ],
+                    "form": "a * cube(max(rh, thetae + b * thetaestar + c) + max(lf, shf) * d)",
+                    "nrestarts": 50,
+                    "color": "#ad191f",
+                    "description": "SR-HI"
+                }
+            }
         }
-      },
-      "optimizedeqs": {
-        "sr_bl": {
-          "runfrom": "sr_bl",
-          "refcomplexity": 7,
-          "form": "cube(bl + a) + b",
-          "nrestarts": 50,
-          "color": "#fdd778",
-          "description": "SR-BL"
-        },
-        "sr_lo": {
-          "runfrom": "sr_gauss",
-          "refcomplexity": 6,
-          "form": "a * exp(rh) + b",
-          "nrestarts": 50,
-          "color": "#fb992f",
-          "description": "SR-LO"
-        },
-        "sr_med": {
-          "runfrom": "sr_gauss",
-          "refcomplexity": 16,
-          "form": "a * cube(max(rh, thetae + b * thetaestar + c))",
-          "nrestarts": 50,
-          "color": "#e74b29",
-          "description": "SR-MED"
-        },
-        "sr_hi": {
-          "runfrom": "sr_gauss",
-          "refcomplexity": 23,
-          "seeds": [
-            42,
-            102
-          ],
-          "form": "a * cube(max(rh, thetae + b * thetaestar + c) + max(lf, shf) * d)",
-          "nrestarts": 50,
-          "color": "#ad191f",
-          "description": "SR-HI"
-        }
-      }
     }
-  }
 }
