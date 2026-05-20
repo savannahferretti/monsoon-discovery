@@ -70,10 +70,10 @@
         "iterations":500,
         "populations":20,
         "populationsize":100,
-        "maxsize":25,
+        "maxsize":30,
         "maxdepth":10,
         "batchsize":500,
-        "cyclesperiteration":60,
+        "cyclesperiteration":50,
         "weightoptimize":0.2,
         "parsimony":0.006},
       "operators":{
