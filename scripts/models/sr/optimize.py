@@ -315,11 +315,16 @@ if __name__=='__main__':
         constantnames = extract_constants(form,predictornames)
         refcomplexity = eqspec.get('refcomplexity')
         eq_seeds = eqspec.get('seeds', sr['seeds'])
-        init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,xfit)
-        if init:
-            logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
+        explicit_init = eqspec.get('init')
+        if explicit_init is not None:
+            init = explicit_init
+            logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            logger.info(f'   No PySR init found; defaulting all constants to 1.0')
+            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,xfit)
+            if init:
+                logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
+            else:
+                logger.info(f'   No PySR init found; defaulting all constants to 1.0')
         # Anchor starts: for each already-optimized equation whose constant set is a strict
         # subset of this one's, inject its constants (new constants default to 1.0) as an
         # additional guaranteed starting point — without making it the primary init.
