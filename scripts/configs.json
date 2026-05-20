@@ -73,9 +73,9 @@
         "maxsize":30,
         "maxdepth":10,
         "batchsize":500,
-        "cyclesperiteration":30,
-        "weightoptimize":0.25,
-        "parsimony":0.008},
+        "cyclesperiteration":50,
+        "weightoptimize":0.2,
+        "parsimony":0.006},
       "operators":{
         "binary":["+","-","*","/","^","min","max"],
         "unary":["neg","abs","sqrt","square","cube","exp","log"],
@@ -88,7 +88,7 @@
       "nestedconstraints":{
           "/":{"/":0},
           "^":{"^":0},
-          "min":{"min":0,"max":0,"neg":0},
+          "min":{"min":0,"max":0},
           "max":{"min":0,"max":0},
           "neg":{"neg":0},
           "abs":{"neg":0,"abs":0},
