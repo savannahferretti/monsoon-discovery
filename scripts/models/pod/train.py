@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import RampPOD
+from scripts.models.pod.model import RampPOD, EmpiricalRampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -119,6 +119,15 @@ if __name__=='__main__':
         else:
             x,y = cacheddata
         logger.info(f'   Training `{runname}`...')
-        model,diagnostics = fit(x,y,pod['bins'],pod['fit'])
+        ramp,diagnostics = fit(x,y,pod['bins'],pod['fit'])
+        if runconfig.get('kind') == 'empirical':
+            valid_mask = diagnostics['fitrange'] | np.isfinite(diagnostics['ymean'])
+            ymeans_emp = diagnostics['ymean'].copy()
+            ymeans_emp[~np.isfinite(ymeans_emp)] = 0.0
+            model = EmpiricalRampPOD(
+                alpha=ramp.alpha, xcrit=ramp.xcrit,
+                bincenters=diagnostics['bincenters'], ymeans=ymeans_emp)
+        else:
+            model = ramp
         save(model,diagnostics,runname,modeldir)
         del model,diagnostics

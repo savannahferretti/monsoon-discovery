@@ -38,7 +38,12 @@
                 "pod_bl":{
                     "inputvar":"bl",
                     "description":"POD-BL",
-                    "color":"gray"}}},
+                    "color":"gray"},
+                "pod_bl_e":{
+                    "inputvar":"bl",
+                    "kind":"empirical",
+                    "description":"POD-BL-E",
+                    "color":"#4a4a4a"}}},
         "nn":{
             "projectname": "Chapter-3-Experiments",
             "seeds":[42,72,102],
