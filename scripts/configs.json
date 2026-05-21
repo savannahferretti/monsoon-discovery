@@ -53,7 +53,7 @@
                     "kind":"baseline",
                     "fieldvars":["bl"],
                     "localvars":[],
-                    "color":"#5BA7DA",
+                    "color":"#a7def7",
                     "description":"NN-BL"},
                 "nn_full":{
                     "kind":"baseline",
