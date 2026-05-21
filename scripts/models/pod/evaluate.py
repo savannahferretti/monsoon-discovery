@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 import xarray as xr
 from scripts.utils import Config
-from scripts.models.pod.model import RampPOD, EmpiricalRampPOD
+from scripts.models.pod.model import RampPOD
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -30,24 +30,18 @@ def load(splitname,splitsdir,inputvar):
     x = evalds[inputvar].load()
     return x
 
-def fetch(runname,modeldir,kind=None):
+def fetch(runname,modeldir):
     '''
     Purpose: Load a trained POD model from saved .npz file.
     Args:
     - runname (str): model run name
     - modeldir (str): directory containing model files
-    - kind (str | None): 'empirical' loads EmpiricalRampPOD; otherwise loads RampPOD
     Returns:
-    - RampPOD | EmpiricalRampPOD: loaded model instance with fitted parameters
+    - RampPOD: loaded model instance with fitted parameters
     '''
     filepath = os.path.join(modeldir,f'{runname}.npz')
     with np.load(filepath) as data:
-        if kind == 'empirical':
-            model = EmpiricalRampPOD(
-                alpha=float(data['alpha']), xcrit=float(data['xcrit']),
-                bincenters=data['bincenters'].copy(), ymeans=data['ymean'].copy())
-        else:
-            model = RampPOD(alpha=float(data['alpha']),xcrit=float(data['xcrit']))
+        model = RampPOD(alpha=float(data['alpha']),xcrit=float(data['xcrit']))
     return model
 
 def predict(model,x,targetvar):
@@ -104,7 +98,7 @@ if __name__=='__main__':
         logger.info(f'      Loading {args.split} split...')
         inputvar = runconfig['inputvar']
         x = load(args.split,config.splitsdir,inputvar=inputvar)
-        model = fetch(runname,modeldir,kind=runconfig.get('kind'))
+        model = fetch(runname,modeldir)
         ypred = predict(model,x,targetvar)
         save(ypred,runname,args.split,config.predsdir)
         del x,model,ypred
