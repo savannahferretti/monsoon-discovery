@@ -121,7 +121,7 @@
                     "form":"cube(bl + a) + b",
                     "init":{"a":0.2957,"b":0.1421},
                     "nrestarts":50,
-                    "color":"#fdd778",
+                    "color":"#fb992f",
                     "description":"SR-BL"},
                 "sr_lo":{
                     "runfrom":"sr_gauss",
@@ -129,7 +129,7 @@
                     "form":"a * exp(rh) + b",
                     "init":{"a":1.0,"b":-0.6507},
                     "nrestarts":50,
-                    "color":"#fb992f",
+                    "color":"#fdd778",
                     "description":"SR-LO"},
                 "sr_med":{
                     "runfrom":"sr_gauss",
