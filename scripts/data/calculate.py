@@ -27,6 +27,7 @@ if __name__=='__main__':
     lf  = calculator.retrieve('ERA5_land_fraction')
     lhf = calculator.retrieve('ERA5_mean_surface_latent_heat_flux')
     shf = calculator.retrieve('ERA5_mean_surface_sensible_heat_flux')
+    sst = calculator.retrieve('ERA5_sea_surface_temperature')
     tp  = calculator.retrieve('ERA5_total_accumulated_precipitation')
     pr  = calculator.retrieve('IMERG_V06_precipitation_rate')
     logger.info('Regridding variables...')
@@ -36,6 +37,7 @@ if __name__=='__main__':
     lf  = calculator.regrid(lf).load()
     lhf = calculator.regrid(lhf).load()
     shf = calculator.regrid(shf).load()
+    sst = calculator.regrid(sst).load()
     tp  = calculator.regrid(tp)
     pr  = calculator.regrid(pr)
     logger.info('Resampling variables to 3-hourly...')
@@ -44,6 +46,7 @@ if __name__=='__main__':
     ps  = calculator.resample(ps,'first')
     lhf = calculator.resample(lhf,'mean')
     shf = calculator.resample(shf,'mean')
+    calculator.resample(sst,'mean')
     tp  = calculator.resample(tp,'sum').where(lambda x:x>=1e-4,0.0).load()
     pr  = calculator.resample(pr,'mean').where(lambda x:x>=1e-6,0.0).load()
     logger.info('Calculating relative humidity and equivalent potential temperature terms...')
@@ -76,6 +79,7 @@ if __name__=='__main__':
         calculator.create_dataset(lf,'lf','Land fraction','0-1'),
         calculator.create_dataset(shf,'shf','Surface sensible heat flux','W/m²'),
         calculator.create_dataset(lhf,'lhf','Surface latent heat flux','W/m²'),
+        calculator.create_dataset(sst,'sst','Sea surface temperature','K'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
         calculator.create_dataset(tp,'tp','Total precipitation','mm'),
         calculator.create_dataset(dsig,'dsig','Sigma thickness weights','0-1')]

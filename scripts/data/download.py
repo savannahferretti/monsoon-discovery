@@ -33,6 +33,7 @@ if __name__=='__main__':
     lfdata  = era5.land_sea_mask
     lhfdata = era5.mean_surface_latent_heat_flux
     shfdata = era5.mean_surface_sensible_heat_flux
+    sstdata   = era5.sea_surface_temperature
     tpdata  = era5.total_precipitation*1000
     prdata  = imerg.precipitationCal
     del era5,imerg
@@ -44,6 +45,7 @@ if __name__=='__main__':
         downloader.process(lfdata,'lf','ERA5 land fraction','0-1',radius=4),
         downloader.process(lhfdata,'lhf','ERA5 mean surface latent heat flux','W/m²',radius=4),
         downloader.process(shfdata,'shf','ERA5 mean surface sensible heat flux','W/m²',radius=4),
+        downloader.process(sstdata,'sst','ERA5 sea surface temperature','K',radius=4),
         downloader.process(tpdata,'tp','ERA5 total accumulated precipitation','mm',radius=4),
         downloader.process(prdata,'pr','IMERG V06 precipitation rate','mm/hr',radius=10)]
     del tdata,qdata,psdata,lfdata,lhfdata,shfdata,prdata,tpdata
