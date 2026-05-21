@@ -37,7 +37,8 @@
             "runs": {
                 "pod_bl":{
                     "inputvar":"bl",
-                    "description":"POD-BL"}}},
+                    "description":"POD-BL",
+                    "color":"gray"}}},
         "nn":{
             "projectname": "Chapter-3-Experiments",
             "seeds":[42,72,102],
@@ -52,13 +53,13 @@
                     "kind":"baseline",
                     "fieldvars":["bl"],
                     "localvars":[],
-                    "color":"#1d346e",
+                    "color":"#5BA7DA",
                     "description":"NN-BL"},
                 "nn_full":{
                     "kind":"baseline",
                     "fieldvars":["rh", "thetae","thetaestar"],
                     "localvars":[ "lf","shf","lhf"],
-                    "color":"#2355a1",
+                    "color":"#1B2C61",
                     "description":"NN-FULL"},
                 "nn_nonparam":{
                     "kind":"nonparametric",
@@ -71,7 +72,7 @@
                     "kernel":"gaussian",
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
-                    "color":"#a7def7",
+                    "color":"#2355a1",
                     "description":"NN-GAUSS"}}},
         "sr":{
             "seeds":[42,72,102],
@@ -129,14 +130,14 @@
                     "form":"a * exp(rh) + b",
                     "init":{"a":1.0,"b":-0.6507},
                     "nrestarts":50,
-                    "color":"#fdd778",
+                    "color":"#F2C85E",
                     "description":"SR-LO"},
                 "sr_med":{
                     "runfrom":"sr_gauss",
                     "form":"a * cube(max(rh, thetae - b * thetaestar - c))",
                     "init":{"a":1.5576,"b":1.4706,"c":0.3756},
                     "nrestarts":50,
-                    "color":"#e74b29",
+                    "color":"#D42028",
                     "description":"SR-MED",
                     "refcomplexity":16},
                 "sr_hi":{
@@ -145,7 +146,7 @@
                     "form":"cube(a * max(rh, thetae + b * thetaestar + c) + max(lf, shf) * d)",
                     "init":{"a":1.3070,"b":-1.3594,"c":-0.4173,"d":-0.1270},
                     "nrestarts":50,
-                    "color":"#ad191f",
+                    "color":"blood",
                     "description":"SR-HI",
                     "refcomplexity":23}
             }
