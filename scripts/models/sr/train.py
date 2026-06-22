@@ -132,28 +132,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
     splitds.close()
     return features,target,refda,validmask
 
-def load_residual_target(residualfile,positions):
-    '''
-    Purpose: Load a precomputed residual target (from prep_residual.py) and restrict it to the
-        positions also valid for the current run, via exact flat-array position matching (not
-        timeidx, which repeats across lat/lon within a timestep and can't identify a single row).
-        Used when a run should be fit against a leftover signal instead of the standard target.
-    Args:
-    - residualfile (str): path to an .npz file with 'residual' and 'position' arrays, where
-        'position' indexes into the full (time*lat*lon) flat array, pre-masking
-    - positions (np.ndarray): this run's own valid flat-array positions (pre-masking)
-    Returns:
-    - tuple[np.ndarray, np.ndarray]: boolean mask into `positions` selecting rows also present
-        in the residual file, and the corresponding residual values in that same order
-    '''
-    saved          = np.load(residualfile)
-    savedpositions = saved['position']
-    lookup         = {p:i for i,p in enumerate(savedpositions)}
-    keep           = np.array([p in lookup for p in positions])
-    residual       = np.array([saved['residual'][lookup[p]] for p in positions[keep]])
-    return keep,residual
-
-def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2,stratifyby=None):
+def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     '''
     Purpose: Subsample complete timesteps with proportional coverage of the precipitation
         distribution. Timesteps are grouped by their domain-maximum precipitation and drawn
@@ -161,22 +140,18 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2,strati
         spatial points within each selected timestep are retained.
     Args:
     - features (pd.DataFrame): predictor features including a 'timeidx' column added by load_data
-    - target (np.ndarray): values to return as the subsampled fit target, shape (nsamples,)
+    - target (np.ndarray): z-scored log1p(tp) target values with shape (nsamples,)
     - subsetfrac (float): target fraction of total available samples
     - seed (int): random seed for reproducibility
     - logmin (float): log10 lower bound of wet bins in mm (default -4)
     - logmax (float): log10 upper bound of wet bins in mm (default 2)
-    - stratifyby (np.ndarray | None): z-scored log1p(tp) values used to bin by precipitation,
-        for cases where `target` is something else (e.g. a residual) and can't be converted
-        back to mm itself; defaults to `target` when None
     Returns:
     - tuple[pd.DataFrame, np.ndarray]: subsampled features (without 'timeidx') and target
     '''
     statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
-    stratifyby    = target if stratifyby is None else stratifyby
-    precip        = np.expm1(np.asarray(stratifyby)*stats['tp_std']+stats['tp_mean'])
+    precip        = np.expm1(np.asarray(target)*stats['tp_std']+stats['tp_mean'])
     rng           = np.random.default_rng(seed)
     timeidx       = features['timeidx'].values
     uniquetimes,startindices,_ = np.unique(timeidx,return_index=True,return_counts=True)
@@ -205,7 +180,7 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2,strati
     rng.shuffle(subsetindices)
     return features.iloc[subsetindices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[subsetindices]
 
-def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,plainloss=False):
+def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset. Operators,
         complexity penalties, and operator constraints are read from srconfig so they can be
@@ -221,8 +196,6 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,plainloss=False)
     - procs (int): number of Julia worker processes
     - timeout (int): search timeout in seconds; acts as a safety net alongside iterations
     - tmpdir (str): temporary directory for Julia equation files
-    - plainloss (bool): if True, use plain MSE instead of the zmin-floored precip loss; for
-        runs fit against a residual target rather than the standard z-scored precip target
     Returns:
     - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
     '''
@@ -233,14 +206,11 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir,plainloss=False)
     nestedconstraints = srconfig.get('nestedconstraints',{})
     populations       = searchparams.get('populations',3*procs)
     niterations       = searchparams.get('targettotal',searchparams['iterations']*populations)//populations
-    if plainloss:
-        loss = 'loss(x, y) = (x - y)^2'
-    else:
-        statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
-        with open(statsfile,'r',encoding='utf-8') as f:
-            stats = json.load(f)
-        zmin = (0.0-stats['tp_mean'])/stats['tp_std']
-        loss = f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
+    statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        stats = json.load(f)
+    zmin = (0.0-stats['tp_mean'])/stats['tp_std']
+    loss = f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor
     model = PySRRegressor(
@@ -315,30 +285,14 @@ if __name__=='__main__':
             sr['searchparams']['iterations'] = iterationsoverride
             sr['searchparams'].pop('targettotal',None)
         searchparams = {**sr['searchparams'], **runconfig.get('searchparams',{})}
-        srrun        = {**sr, 'searchparams': searchparams,
-                         'operators': runconfig.get('operators',sr['operators']),
-                         'complexity': runconfig.get('complexity',sr['complexity']),
-                         'constraints': runconfig.get('constraints',sr.get('constraints',{})),
-                         'nestedconstraints': runconfig.get('nestedconstraints',sr.get('nestedconstraints',{}))}
+        srrun        = {**sr, 'searchparams': searchparams}
         populations  = searchparams.get('populations',3*procs)
         niterations  = searchparams.get('targettotal',searchparams['iterations']*populations)//populations
         logger.info(f'Loading normalized training and validation splits for `{name}`...')
         xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
         xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
-        residualfrom = runconfig.get('residualfrom')
-        stratifyfit  = None
-        if residualfrom:
-            residualdir = os.path.join(config.splitsdir,'residuals')
-            keeptrain,ytrain_res = load_residual_target(os.path.join(residualdir,f'{residualfrom}_train.npz'),np.where(trainmask)[0])
-            keepvalid,yvalid_res = load_residual_target(os.path.join(residualdir,f'{residualfrom}_valid.npz'),np.where(validmask)[0])
-            logger.info(f'   Fitting against residual from `{residualfrom}` ({keeptrain.sum():,} train + {keepvalid.sum():,} valid rows matched)...')
-            xfit = pd.concat([xtrain[trainmask].reset_index(drop=True)[keeptrain],
-                               xvalid[validmask].reset_index(drop=True)[keepvalid]]).reset_index(drop=True)
-            yfit        = np.concatenate([ytrain_res,yvalid_res])
-            stratifyfit = np.concatenate([ytrain[trainmask][keeptrain],yvalid[validmask][keepvalid]])
-        else:
-            xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
-            yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
+        xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
+        yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
         del xtrain,xvalid,ytrain,yvalid,reftrain
         for seedidx,seed in enumerate(seeds):
             paretopath = os.path.join(config.modelsdir,'sr',f'{name}_{seed}_pareto.pkl')
@@ -347,11 +301,11 @@ if __name__=='__main__':
                 continue
             logger.info(f'Running `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             logger.info(f'   Subsampling ~{subsetfrac:.1%} of samples by timestep...')
-            xsub,ysub = subsample_timestep(xfit,yfit,subsetfrac,seed,stratifyby=stratifyfit)
+            xsub,ysub = subsample_timestep(xfit,yfit,subsetfrac,seed)
             logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
-                model = fit(xsub,ysub,predictors,srrun,seed,procs,timeout,tempdirpath,plainloss=bool(residualfrom))
+                model = fit(xsub,ysub,predictors,srrun,seed,procs,timeout,tempdirpath)
             finally:
                 shutil.rmtree(tempdirpath,ignore_errors=True)
             save(model,name,seed,config)
