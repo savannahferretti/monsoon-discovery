@@ -86,13 +86,13 @@
                 "batchsize":500,
                 "cyclesperiteration":50,
                 "weightoptimize":0.2,
-                "parsimony":0.006},
+                "parsimony":0.008},
             "operators":{
                 "binary":["+","-","*","/","^","min","max"],
                 "unary":["neg","abs","square","cube","exp"],
-                "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":1,"max":1,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
+                "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":2,"max":2,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
             "complexity":{
-                "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":2,"lhf":2},
+                "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":2,"shf":2,"lhf":2},
                 "ofconstants":1},
             "constraints":{
                 "^":[-10,10]},
@@ -112,6 +112,10 @@
                     "localvars":[],
                     "searchparams":{"maxsize":10}},
                 "sr_gauss":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["lf","shf","lhf"],
+                    "weightsfrom":"nn_gauss"},
+                "sr_gauss_v2":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss"}},
