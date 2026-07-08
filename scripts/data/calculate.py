@@ -82,7 +82,7 @@ if __name__=='__main__':
         # calculator.create_dataset(shf,'shf','Surface sensible heat flux','W/m²'),
         # calculator.create_dataset(lhf,'lhf','Surface latent heat flux','W/m²'),
         calculator.create_dataset(lhf+shf,'sef','Surface enthalpy flux','W/m²'),
-        calculator.create_dataset(xr.where(np.abs(lhf)>1.0,shf/lhf,np.nan),'bow','Bowen ratio','Unitless'),
+        calculator.create_dataset(shf/lhf,'bow','Bowen ratio','Unitless'),
         # calculator.create_dataset(sst,'sst','Sea surface temperature','K'),
         # calculator.create_dataset(sdo,'sdo','Standard deviation of orography','m'),
         # calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
