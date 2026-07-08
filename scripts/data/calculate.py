@@ -21,68 +21,74 @@ if __name__=='__main__':
         latrange=config.latrange,
         lonrange=config.lonrange)
     logger.info('Importing all raw variables...')
-    t   = calculator.retrieve('ERA5_air_temperature')
-    q   = calculator.retrieve('ERA5_specific_humidity')
-    ps  = calculator.retrieve('ERA5_surface_pressure')
-    lf  = calculator.retrieve('ERA5_land_fraction')
+    # t   = calculator.retrieve('ERA5_air_temperature')
+    # q   = calculator.retrieve('ERA5_specific_humidity')
+    # ps  = calculator.retrieve('ERA5_surface_pressure')
+    # lf  = calculator.retrieve('ERA5_land_fraction')
     lhf = calculator.retrieve('ERA5_mean_surface_latent_heat_flux')
     shf = calculator.retrieve('ERA5_mean_surface_sensible_heat_flux')
-    sst = calculator.retrieve('ERA5_sea_surface_temperature')
-    tp  = calculator.retrieve('ERA5_total_accumulated_precipitation')
-    pr  = calculator.retrieve('IMERG_V06_precipitation_rate')
+    # sst = calculator.retrieve('ERA5_sea_surface_temperature')
+    # sdo = calculator.retrieve('ERA5_standard_deviation_of_orography')
+    # tp  = calculator.retrieve('ERA5_total_accumulated_precipitation')
+    # pr  = calculator.retrieve('IMERG_V06_precipitation_rate')
     logger.info('Regridding variables...')
-    t   = calculator.regrid(t).load()
-    q   = calculator.regrid(q).load()
-    ps  = calculator.regrid(ps).load()
-    lf  = calculator.regrid(lf).load()
+    # t   = calculator.regrid(t).load()
+    # q   = calculator.regrid(q).load()
+    # ps  = calculator.regrid(ps).load()
+    # lf  = calculator.regrid(lf).load()
     lhf = calculator.regrid(lhf).load()
     shf = calculator.regrid(shf).load()
-    sst = calculator.regrid(sst).load()
-    tp  = calculator.regrid(tp)
-    pr  = calculator.regrid(pr)
-    logger.info('Resampling variables to 3-hourly...')
-    t   = calculator.resample(t,'first')
-    q   = calculator.resample(q,'first')
-    ps  = calculator.resample(ps,'first')
+    # sst = calculator.regrid(sst).load()
+    # sdo = calculator.regrid(sdo).load()
+    # tp  = calculator.regrid(tp)
+    # pr  = calculator.regrid(pr)
+    # logger.info('Resampling variables to 3-hourly...')
+    # t   = calculator.resample(t,'first')
+    # q   = calculator.resample(q,'first')
+    # ps  = calculator.resample(ps,'first')
     lhf = calculator.resample(lhf,'mean')
     shf = calculator.resample(shf,'mean')
-    calculator.resample(sst,'mean')
-    tp  = calculator.resample(tp,'sum').where(lambda x:x>=1e-4,0.0).load()
-    pr  = calculator.resample(pr,'mean').where(lambda x:x>=1e-6,0.0).load()
-    logger.info('Calculating relative humidity and equivalent potential temperature terms...')
-    p          = calculator.create_p_array(q)
-    rh         = calculator.calc_rh(p,t,q)
-    thetae     = calculator.calc_thetae(p,t,q)
-    thetaestar = calculator.calc_thetae(p,t)
-    logger.info('Calculating layer averages...')
-    pbltop      = ps-100.0
-    lfttop      = xr.full_like(ps,500.0)
-    thetaeb     = calculator.calc_layer_average(thetae,ps,pbltop)
-    thetael     = calculator.calc_layer_average(thetae,pbltop,lfttop)
-    thetaelstar = calculator.calc_layer_average(thetaestar,pbltop,lfttop)
-    logger.info('Calculating BL terms...')
-    wb,wl = calculator.calc_weights(ps,pbltop,lfttop)
-    bl    = calculator.calc_bl(thetaeb,thetael,thetaelstar,wb,wl)
-    logger.info('Interpolating profile variables to sigma coordinates...')
-    sigs       = np.arange(0.5,1.05,0.05,dtype=np.float32)
-    rh         = calculator.interpolate_to_sigma(rh,ps,sigs)
-    thetae     = calculator.interpolate_to_sigma(thetae,ps,sigs)
-    thetaestar = calculator.interpolate_to_sigma(thetaestar,ps,sigs)
-    logger.info('Calculating sigma quadrature weights...')
-    dsig = calculator.calc_dsig(sigs)
+    # sst = calculator.resample(sst,'mean')
+    # tp  = calculator.resample(tp,'sum').where(lambda x:x>=1e-4,0.0).load()
+    # pr  = calculator.resample(pr,'mean').where(lambda x:x>=1e-6,0.0).load()
+    # logger.info('Calculating relative humidity and equivalent potential temperature terms...')
+    # p          = calculator.create_p_array(q)
+    # rh         = calculator.calc_rh(p,t,q)
+    # thetae     = calculator.calc_thetae(p,t,q)
+    # thetaestar = calculator.calc_thetae(p,t)
+    # logger.info('Calculating layer averages...')
+    # pbltop      = ps-100.0
+    # lfttop      = xr.full_like(ps,500.0)
+    # thetaeb     = calculator.calc_layer_average(thetae,ps,pbltop)
+    # thetael     = calculator.calc_layer_average(thetae,pbltop,lfttop)
+    # thetaelstar = calculator.calc_layer_average(thetaestar,pbltop,lfttop)
+    # logger.info('Calculating BL terms...')
+    # wb,wl = calculator.calc_weights(ps,pbltop,lfttop)
+    # bl    = calculator.calc_bl(thetaeb,thetael,thetaelstar,wb,wl)
+    # logger.info('Interpolating profile variables to sigma coordinates...')
+    # sigs       = np.arange(0.5,1.05,0.05,dtype=np.float32)
+    # rh         = calculator.interpolate_to_sigma(rh,ps,sigs)
+    # thetae     = calculator.interpolate_to_sigma(thetae,ps,sigs)
+    # thetaestar = calculator.interpolate_to_sigma(thetaestar,ps,sigs)
+    # logger.info('Calculating sigma quadrature weights...')
+    # dsig = calculator.calc_dsig(sigs)
     logger.info('Creating datasets...')
     dslist = [
-        calculator.create_dataset(rh,'rh','Relative humidity','%'),
-        calculator.create_dataset(thetae,'thetae','Equivalent potential temperature','K'),
-        calculator.create_dataset(thetaestar,'thetaestar','Saturated equivalent potential temperature','K'),
-        calculator.create_dataset(bl,'bl','Average buoyancy in the lower troposphere','m/s²'),
-        calculator.create_dataset(lf,'lf','Land fraction','0-1'),
-        calculator.create_dataset(shf,'shf','Surface sensible heat flux','W/m²'),
-        calculator.create_dataset(lhf,'lhf','Surface latent heat flux','W/m²'),
-        calculator.create_dataset(sst,'sst','Sea surface temperature','K'),
-        calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
-        calculator.create_dataset(tp,'tp','Total precipitation','mm'),
-        calculator.create_dataset(dsig,'dsig','Sigma thickness weights','0-1')]
+        # calculator.create_dataset(rh,'rh','Relative humidity','%'),
+        # calculator.create_dataset(thetae,'thetae','Equivalent potential temperature','K'),
+        # calculator.create_dataset(thetaestar,'thetaestar','Saturated equivalent potential temperature','K'),
+        # calculator.create_dataset(bl,'bl','Average buoyancy in the lower troposphere','m/s²'),
+        # calculator.create_dataset(lf,'lf','Land fraction','0-1'),
+        # calculator.create_dataset(shf,'shf','Surface sensible heat flux','W/m²'),
+        # calculator.create_dataset(lhf,'lhf','Surface latent heat flux','W/m²'),
+        calculator.create_dataset(lhf+shf,'sef','Surface enthalpy flux','W/m²'),
+        calculator.create_dataset(shf/lhf,'bow','Bowen ratio','Unitless'),
+        # calculator.create_dataset(sst,'sst','Sea surface temperature','K'),
+        # calculator.create_dataset(sdo,'sdo','Standard deviation of orography','m'),
+        # calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
+        # calculator.create_dataset(tp,'tp','Total precipitation','mm'),
+        # calculator.create_dataset(dsig,'dsig','Sigma thickness weights','0-1')
+    ]
     logger.info('Saving datasets...')
     for ds in dslist:
         calculator.save(ds)
