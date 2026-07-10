@@ -283,9 +283,6 @@ if __name__=='__main__':
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
-        fieldvars  = runconfig['fieldvars']
-        localvars  = runconfig.get('localvars',[])
-        predictors = fieldvars+localvars
         subsetfrac = subsetfracoverride if subsetfracoverride is not None else sr['subsetfrac']
         if iterationsoverride is not None:
             sr['searchparams']['iterations'] = iterationsoverride
@@ -297,6 +294,7 @@ if __name__=='__main__':
         logger.info(f'Loading normalized training and validation splits for `{name}`...')
         xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
         xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
+        predictors = [c for c in xtrain.columns if c!='timeidx']
         xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
         del xtrain,xvalid,ytrain,yvalid,reftrain
