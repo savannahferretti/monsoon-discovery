@@ -73,7 +73,14 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "color":"#2355a1",
-                    "description":"NN-GAUSS"}}},
+                    "description":"NN-GAUSS"},
+                "nn_gauss_rot": {
+                    "kind":"parametric",
+                    "kernel":"gaussian",
+                    "fieldvars":["rh","thetaerot"],
+                    "localvars":["lf","shf","lhf","sef","sdo","bow"],
+                    "color": "#2355a1",
+                    "description":"NN-GAUSS-ROT"}}},
         "sr":{
             "seeds":[42,72,102],
             "subsetfrac":0.025,
