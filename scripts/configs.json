@@ -88,7 +88,7 @@
                 "iterations":500,
                 "populations":20,
                 "populationsize":100,
-                "maxsize":35,
+                "maxsize":30,
                 "maxdepth":10,
                 "batchsize":500,
                 "cyclesperiteration":50,
@@ -124,7 +124,7 @@
                     "weightsfrom":"nn_gauss"},
                 "sr_gauss_v2":{
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf"],
+                    "localvars":["sef","sdo"],
                     "weightsfrom":"nn_gauss"},
                 "sr_rot": {
                     "fieldvars": ["rh", "thetae", "thetaestar"],
