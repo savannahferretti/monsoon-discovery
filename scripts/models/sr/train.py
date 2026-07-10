@@ -94,9 +94,10 @@ def load_data(splitname,runconfig,config,time_offset=0):
     - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray]: predictor features, target
         values, reference DataArray, and boolean mask of finite samples
     '''
-    fieldvars   = runconfig['fieldvars']
-    localvars   = runconfig.get('localvars',[])
-    weightsfrom = runconfig.get('weightsfrom')
+    fieldvars    = runconfig['fieldvars']
+    localvars    = runconfig.get('localvars',[])
+    weightsfrom  = runconfig.get('weightsfrom')
+    rotatefields = runconfig.get('rotatefields',{})
     seeds       = config.nn['seeds']
     splitds     = xr.open_dataset(os.path.join(config.splitsdir,f'norm_{splitname}.h5'),engine='h5netcdf')
     refda       = splitds[config.targetvar].transpose('time','lat','lon')
@@ -118,6 +119,11 @@ def load_data(splitname,runconfig,config,time_offset=0):
         features = np.mean(seedfeatures,axis=0)
         for i,var in enumerate(fieldvars):
             columns[var] = features[:,i]
+        for newvar,spec in rotatefields.items():
+            w = np.array(spec['weights'])
+            columns[newvar] = sum(wi*columns[v] for wi,v in zip(w,spec['vars']))
+            for v in spec['vars']:
+                del columns[v]
     else:
         for var in fieldvars:
             da = splitds[var]
