@@ -125,8 +125,7 @@
                 "sr_gauss_v2":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["sef","sdo"],
-                    "weightsfrom":"nn_gauss"},
-},
+                    "weightsfrom":"nn_gauss"}},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_bl",
