@@ -25,32 +25,35 @@ if __name__=='__main__':
         months=config.months)
     logger.info('Retrieving ERA5 and IMERG data...')
     era5  = downloader.retrieve_era5()
-    imerg = downloader.retrieve_imerg()
+    # imerg = downloader.retrieve_imerg()
     logger.info('Extracting variable data...')
-    tdata   = era5.temperature
-    qdata   = era5.specific_humidity
-    psdata  = era5.surface_pressure/100.0
-    lfdata  = era5.land_sea_mask
-    lhfdata = era5.mean_surface_latent_heat_flux
-    shfdata = era5.mean_surface_sensible_heat_flux
-    sstdata = era5.sea_surface_temperature
-    sdodata = era5.standard_deviation_of_orography
-    tpdata  = era5.total_precipitation*1000
-    prdata  = imerg.precipitationCal
-    del era5,imerg
+    # tdata   = era5.temperature
+    # qdata   = era5.specific_humidity
+    # psdata  = era5.surface_pressure/100.0
+    # lfdata  = era5.land_sea_mask
+    sedata   = era5.geopotential_at_surface/9.81
+    # lhfdata = era5.mean_surface_latent_heat_flux
+    # shfdata = era5.mean_surface_sensible_heat_flux
+    # sstdata = era5.sea_surface_temperature
+    # sdodata = era5.standard_deviation_of_orography
+    # tpdata  = era5.total_precipitation*1000
+    # prdata  = imerg.precipitationCal
+    # del era5,imerg
     logger.info('Creating datasets...')
     dslist = [
-        downloader.process(tdata,'t','ERA5 air temperature','K',radius=4),
-        downloader.process(qdata,'q','ERA5 specific humidity','kg/kg',radius=4),
-        downloader.process(psdata,'ps','ERA5 surface pressure','hPa',radius=4),
-        downloader.process(lfdata,'lf','ERA5 land fraction','0-1',radius=4),
-        downloader.process(lhfdata,'lhf','ERA5 mean surface latent heat flux','W/m²',radius=4),
-        downloader.process(shfdata,'shf','ERA5 mean surface sensible heat flux','W/m²',radius=4),
-        downloader.process(sstdata,'sst','ERA5 sea surface temperature','K',radius=4),
-        downloader.process(sdodata,'sdo','ERA5 standard deviation of orography','m',radius=4),
-        downloader.process(tpdata,'tp','ERA5 total accumulated precipitation','mm',radius=4),
-        downloader.process(prdata,'pr','IMERG V06 precipitation rate','mm/hr',radius=10)]
-    del tdata,qdata,psdata,lfdata,lhfdata,shfdata,prdata,tpdata
+        # downloader.process(tdata,'t','ERA5 air temperature','K',radius=4),
+        # downloader.process(qdata,'q','ERA5 specific humidity','kg/kg',radius=4),
+        # downloader.process(psdata,'ps','ERA5 surface pressure','hPa',radius=4),
+        # downloader.process(lfdata,'lf','ERA5 land fraction','0-1',radius=4),
+        # downloader.process(lhfdata,'lhf','ERA5 mean surface latent heat flux','W/m²',radius=4),
+        # downloader.process(shfdata,'shf','ERA5 mean surface sensible heat flux','W/m²',radius=4),
+        # downloader.process(sstdata,'sst','ERA5 sea surface temperature','K',radius=4),
+        # downloader.process(sdodata,'sdo','ERA5 standard deviation of orography','m',radius=4),
+        downloader.process(sedata,'se','ERA5 surface elevation','m',radius=4),
+        # downloader.process(tpdata,'tp','ERA5 total accumulated precipitation','mm',radius=4),
+        # downloader.process(prdata,'pr','IMERG V06 precipitation rate','mm/hr',radius=10)
+    ]
+    # del tdata,qdata,psdata,lfdata,lhfdata,shfdata,prdata,tpdata
     logger.info('Saving datasets...')
     for ds in dslist:
         downloader.save(ds)
