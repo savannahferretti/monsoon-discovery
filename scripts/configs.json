@@ -126,11 +126,7 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["sef","sdo"],
                     "weightsfrom":"nn_gauss"},
-                "sr_rot": {
-                    "fieldvars": ["rh", "thetae", "thetaestar"],
-                    "localvars": ["lf", "shf", "lhf"],
-                    "weightsfrom": "nn_gauss",
-                    "rotatefields": {"thetaerot": {"vars": ["thetae", "thetaestar"], "weights": [0.562, 0.827]}}}},
+},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_bl",
