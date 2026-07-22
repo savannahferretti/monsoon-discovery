@@ -93,7 +93,7 @@
                 "batchsize":500,
                 "cyclesperiteration":50,
                 "weightoptimize":0.2,
-                "parsimony":0.008},
+                "parsimony":0.004},
             "operators":{
                 "binary":["+","-","*","/","^","min","max"],
                 "unary":["neg","abs","square","cube","exp"],
@@ -125,6 +125,10 @@
                 "sr_gauss_v2":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf","sef","bow","se","sdo"],
+                    "weightsfrom":"nn_gauss"}
+                "sr_gauss_v3":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["se","sdo"],
                     "weightsfrom":"nn_gauss"}},
             "optimizedeqs":{
                 "sr_bl":{
