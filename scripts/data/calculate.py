@@ -29,6 +29,7 @@ if __name__=='__main__':
     shf = calculator.retrieve('ERA5_mean_surface_sensible_heat_flux')
     sst = calculator.retrieve('ERA5_sea_surface_temperature')
     sdo = calculator.retrieve('ERA5_standard_deviation_of_orography')
+    se  = calculator.retrieve('ERA5_surface_elevation')
     tp  = calculator.retrieve('ERA5_total_accumulated_precipitation')
     pr  = calculator.retrieve('IMERG_V06_precipitation_rate')
     logger.info('Regridding variables...')
@@ -40,6 +41,7 @@ if __name__=='__main__':
     shf = calculator.regrid(shf).load()
     sst = calculator.regrid(sst).load()
     sdo = calculator.regrid(sdo).load()
+    se  = calculator.regrid(se).load()
     tp  = calculator.regrid(tp)
     pr  = calculator.regrid(pr)
     logger.info('Resampling variables to 3-hourly...')
@@ -84,6 +86,7 @@ if __name__=='__main__':
         calculator.create_dataset(lhf+shf,'sef','Surface enthalpy flux','W/m²'),
         calculator.create_dataset(sst,'sst','Sea surface temperature','K'),
         calculator.create_dataset(sdo,'sdo','Standard deviation of orography','m'),
+        calculator.create_dataset(se,'se','Surface elevation','m'),
         calculator.create_dataset(pr,'pr','Precipitation rate','mm/hr'),
         calculator.create_dataset(tp,'tp','Total precipitation','mm'),
         calculator.create_dataset(dsig,'dsig','Sigma thickness weights','0-1')]
