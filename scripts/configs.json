@@ -99,7 +99,7 @@
                 "unary":["neg","abs","square","cube","exp"],
                 "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":2,"max":2,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
             "complexity":{
-                "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"thetaerot":2,"lf":2,"shf":2,"lhf":2},
+                "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"thetaerot":2,"lf":2,"shf":2,"lhf":2,"sef":2,"bow":2,"sdo":2,"se":2},
                 "ofconstants":1},
             "constraints":{
                 "^":[-10,10]},
