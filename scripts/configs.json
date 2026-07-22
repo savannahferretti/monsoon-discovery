@@ -125,7 +125,7 @@
                 "sr_gauss_v2":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf","sef","bow","se","sdo"],
-                    "weightsfrom":"nn_gauss"}
+                    "weightsfrom":"nn_gauss"},
                 "sr_gauss_v3":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["se","sdo"],
