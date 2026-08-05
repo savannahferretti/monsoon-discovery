@@ -18,6 +18,40 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=UserWarning)
 
+SRFUNCTIONS = {
+    'cube':  lambda x: x**3,
+    'square':lambda x: x**2,
+    'neg':   lambda x: -x,
+    'sqrt':  np.sqrt,
+    'exp':   np.exp,
+    'log':   np.log,
+    'abs':   np.abs,
+    'sin':   np.sin,
+    'cos':   np.cos,
+    'max':   np.maximum,
+    'min':   np.minimum}
+
+def eval_baseline(form,columns,constants):
+    '''
+    Purpose: Evaluate an SR equation form over a dict of named numpy arrays.
+    Args:
+    - form (str): Python expression string (e.g., 'a * cube(max(rh, thetae - b * thetaestar - c))')
+    - columns (dict[str, np.ndarray]): mapping from variable name to flat array; 'timeidx' is skipped
+    - constants (dict[str, float]): mapping from constant name to value
+    Returns:
+    - np.ndarray: evaluated result with the same length as the input arrays
+    '''
+    ns = dict(SRFUNCTIONS,__builtins__={})
+    for col,vals in columns.items():
+        if col != 'timeidx':
+            ns[col] = np.asarray(vals,dtype=float)
+    ns.update(constants)
+    out = eval(form,ns)
+    if np.ndim(out) == 0:
+        n = len(next(v for v in columns.values() if hasattr(v,'__len__')))
+        out = np.full(n,float(out))
+    return np.asarray(out,dtype=float)
+
 def select_pareto_elbow(equations,mincomplexity=3):
     '''
     Purpose: Select the equation at the elbow of the Pareto frontier, where marginal loss
@@ -131,6 +165,20 @@ def load_data(splitname,runconfig,config,time_offset=0):
     for var in localvars:
         da = splitds[var]
         columns[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
+    baselinefrom = runconfig.get('baselinefrom')
+    if baselinefrom:
+        baselinespec      = config.sr['optimizedeqs'][baselinefrom]
+        baselineform      = baselinespec['form']
+        registrypath      = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
+        if os.path.exists(registrypath):
+            with open(registrypath,'rb') as f:
+                registry = pickle.load(f)
+            baselineconstants = registry.get(baselinefrom,{}).get('constants') or baselinespec['init']
+        else:
+            baselineconstants = baselinespec['init']
+        columns['srmed'] = eval_baseline(baselineform,columns,baselineconstants)
+        for var in fieldvars:
+            columns.pop(var,None)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
