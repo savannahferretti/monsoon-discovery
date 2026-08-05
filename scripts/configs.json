@@ -142,7 +142,21 @@
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_med",
                     "baselinemode":"multiplicative",
-                    "searchparams":{"maxsize":20,"loss":"plainmse"}}},
+                    "searchparams":{"maxsize":20,"loss":"plainmse"}},
+                "sr_gauss_gap":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["lf","shf","lhf","sef","sdo","se"],
+                    "weightsfrom":"nn_gauss",
+                    "baselinefrom":"sr_med",
+                    "gapfrom":"nn_gauss",
+                    "gaptemp":1.0,
+                    "searchparams":{"maxsize":20}},
+                "sr_gauss_distil":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["lf","shf","lhf","sef","sdo","se"],
+                    "weightsfrom":"nn_gauss",
+                    "targetfrom":"nn_gauss",
+                    "searchparams":{"maxsize":20}}},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_bl",

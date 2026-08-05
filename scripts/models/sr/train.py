@@ -167,7 +167,10 @@ def load_data(splitname,runconfig,config,time_offset=0):
         columns[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
     baselinefrom     = runconfig.get('baselinefrom')
     baselinemode     = runconfig.get('baselinemode','feature')
+    gapfrom          = runconfig.get('gapfrom')
+    targetfrom       = runconfig.get('targetfrom')
     srmed_for_target = None
+    srmed_raw        = None
     if baselinefrom:
         baselinespec      = config.sr['optimizedeqs'][baselinefrom]
         baselineform      = baselinespec['form']
@@ -189,32 +192,56 @@ def load_data(splitname,runconfig,config,time_offset=0):
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
-    if srmed_for_target is not None:
+    if srmed_for_target is not None or gapfrom or targetfrom:
         statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
         with open(statsfile,'r',encoding='utf-8') as f:
             stats = json.load(f)
-        zmin      = (0.0 - stats[f'{config.targetvar}_mean']) / stats[f'{config.targetvar}_std']
+        tp_mean = stats[f'{config.targetvar}_mean']
+        tp_std  = stats[f'{config.targetvar}_std']
+        zmin    = (0.0 - tp_mean) / tp_std
+    if srmed_for_target is not None:
         validmask = validmask & (srmed_for_target > 0)
         target    = target.copy()
         target[validmask] = (target[validmask] - zmin) / srmed_for_target[validmask]
+    if gapfrom:
+        predsfile = os.path.join(config.predsdir,f'{gapfrom}_{splitname}_predictions.nc')
+        with xr.open_dataset(predsfile,engine='h5netcdf') as predsds:
+            nn_pred_mm = predsds[config.targetvar].transpose('time','lat','lon','seed').mean('seed').values.ravel()
+        nn_pred_z  = (np.log1p(nn_pred_mm) - tp_mean) / tp_std
+        if srmed_raw is None:
+            raise ValueError('`gapfrom` requires `baselinefrom` to also be set in the run config')
+        raw_target = refda.values.ravel()
+        gap_score  = np.abs(raw_target - srmed_raw) - np.abs(raw_target - nn_pred_z)
+        features['__gapscore__'] = np.where(np.isfinite(gap_score),gap_score,0.0)
+    if targetfrom:
+        predsfile = os.path.join(config.predsdir,f'{targetfrom}_{splitname}_predictions.nc')
+        with xr.open_dataset(predsfile,engine='h5netcdf') as predsds:
+            nn_pred_mm = predsds[config.targetvar].transpose('time','lat','lon','seed').mean('seed').values.ravel()
+        target    = (np.log1p(nn_pred_mm) - tp_mean) / tp_std
+        validmask = validmask & np.isfinite(target)
     splitds.close()
     return features,target,refda,validmask
 
-def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
+def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2,gaptemp=1.0):
     '''
     Purpose: Subsample complete timesteps with proportional coverage of the precipitation
         distribution. Timesteps are grouped by their domain-maximum precipitation and drawn
-        from each log-decade bin in proportion to its share of the full dataset. All valid
+        from each log-decade bin in proportion to its share of the full dataset. If a
+        '__gapscore__' column is present in features, sampling within each bin is biased
+        toward timesteps with higher mean learnability gap using softmax weighting. All valid
         spatial points within each selected timestep are retained.
     Args:
-    - features (pd.DataFrame): predictor features including a 'timeidx' column added by load_data
+    - features (pd.DataFrame): predictor features including a 'timeidx' column added by load_data,
+        and optionally a '__gapscore__' column added when gapfrom is configured
     - target (np.ndarray): z-scored log1p(tp) target values with shape (nsamples,)
     - subsetfrac (float): target fraction of total available samples
     - seed (int): random seed for reproducibility
     - logmin (float): log10 lower bound of wet bins in mm (default -4)
     - logmax (float): log10 upper bound of wet bins in mm (default 2)
+    - gaptemp (float): softmax temperature for gap-weighted sampling within bins; higher values
+        approach uniform sampling, lower values concentrate on highest-gap timesteps (default 1.0)
     Returns:
-    - tuple[pd.DataFrame, np.ndarray]: subsampled features (without 'timeidx') and target
+    - tuple[pd.DataFrame, np.ndarray]: subsampled features (without 'timeidx' or '__gapscore__') and target
     '''
     statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
@@ -222,31 +249,47 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     precip        = np.expm1(np.asarray(target)*stats['tp_std']+stats['tp_mean'])
     rng           = np.random.default_rng(seed)
     timeidx       = features['timeidx'].values
-    uniquetimes,startindices,_ = np.unique(timeidx,return_index=True,return_counts=True)
-    sortedprecip  = precip[np.argsort(timeidx,kind='stable')]
+    hasgap        = '__gapscore__' in features.columns
+    uniquetimes,startindices,timecounts = np.unique(timeidx,return_index=True,return_counts=True)
+    sort_order    = np.argsort(timeidx,kind='stable')
+    sortedprecip  = precip[sort_order]
     peakprecip    = np.maximum.reduceat(sortedprecip,startindices)
+    if hasgap:
+        sorted_gaps  = np.maximum(features['__gapscore__'].values[sort_order],0.0)
+        gap_per_time = np.add.reduceat(sorted_gaps,startindices) / timecounts
+        timegapmap   = dict(zip(uniquetimes,gap_per_time))
     nbins         = int(logmax-logmin)
     ntimesteps    = max(1,int(round(subsetfrac*len(uniquetimes))))
     logbins       = np.linspace(logmin,logmax,nbins+1)
     logpeakprecip = np.log10(peakprecip.clip(min=10**(logmin-1)))
     drymask       = peakprecip<=10**logmin
-    def drawfrompool(pool,n):
+    def drawfrompool(pool,n,gaps=None):
+        if gaps is not None and gaps.sum() > 0:
+            logits = gaps / gaptemp
+            logits = logits - logits.max()
+            probs  = np.exp(logits)
+            probs  = probs / probs.sum()
+            return rng.choice(pool,n,replace=len(pool)<n,p=probs)
         return rng.choice(pool,n,replace=len(pool)<n)
     binpools = []
     if drymask.any():
-        binpools.append(uniquetimes[drymask])
+        pool = uniquetimes[drymask]
+        gaps = np.array([timegapmap[t] for t in pool]) if hasgap else None
+        binpools.append((pool,gaps))
     for i in range(nbins):
         lo,hi = logbins[i],logbins[i+1]
-        inbin = uniquetimes[(logpeakprecip>lo)&(logpeakprecip<=hi)]
-        if len(inbin)>0:
-            binpools.append(inbin)
-    totalavailable = sum(len(p) for p in binpools)
-    selected       = [drawfrompool(pool,max(1,round(len(pool)/totalavailable*ntimesteps))) for pool in binpools]
+        pool  = uniquetimes[(logpeakprecip>lo)&(logpeakprecip<=hi)]
+        if len(pool)>0:
+            gaps = np.array([timegapmap[t] for t in pool]) if hasgap else None
+            binpools.append((pool,gaps))
+    totalavailable = sum(len(p) for p,_ in binpools)
+    selected       = [drawfrompool(pool,max(1,round(len(pool)/totalavailable*ntimesteps)),gaps) for pool,gaps in binpools]
     selectedtimes  = np.unique(np.concatenate(selected))
     keep           = np.isin(timeidx,selectedtimes)
     subsetindices  = np.where(keep)[0]
     rng.shuffle(subsetindices)
-    return features.iloc[subsetindices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[subsetindices]
+    dropcols = ['timeidx']+(['__gapscore__'] if hasgap else [])
+    return features.iloc[subsetindices].drop(columns=dropcols).reset_index(drop=True),np.asarray(target)[subsetindices]
 
 def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
     '''
@@ -356,7 +399,7 @@ if __name__=='__main__':
         logger.info(f'Loading normalized training and validation splits for `{name}`...')
         xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
         xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
-        predictors = [c for c in xtrain.columns if c!='timeidx']
+        predictors = [c for c in xtrain.columns if c not in ('timeidx','__gapscore__')]
         xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
         del xtrain,xvalid,ytrain,yvalid,reftrain
@@ -367,7 +410,8 @@ if __name__=='__main__':
                 continue
             logger.info(f'Running `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
             logger.info(f'   Subsampling ~{subsetfrac:.1%} of samples by timestep...')
-            xsub,ysub = subsample_timestep(xfit,yfit,subsetfrac,seed)
+            gaptemp = runconfig.get('gaptemp',1.0)
+            xsub,ysub = subsample_timestep(xfit,yfit,subsetfrac,seed,gaptemp=gaptemp)
             logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
