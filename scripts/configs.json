@@ -135,7 +135,14 @@
                     "localvars":["lf","shf","lhf","sef","sdo","se"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_med",
-                    "searchparams":{"maxsize":20}}},
+                    "searchparams":{"maxsize":20}},
+                "sr_gauss_mul":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["lf","shf","lhf","sef","sdo","se"],
+                    "weightsfrom":"nn_gauss",
+                    "baselinefrom":"sr_med",
+                    "baselinemode":"multiplicative",
+                    "searchparams":{"maxsize":20,"loss":"plainmse"}}},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_bl",

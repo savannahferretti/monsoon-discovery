@@ -165,7 +165,9 @@ def load_data(splitname,runconfig,config,time_offset=0):
     for var in localvars:
         da = splitds[var]
         columns[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
-    baselinefrom = runconfig.get('baselinefrom')
+    baselinefrom     = runconfig.get('baselinefrom')
+    baselinemode     = runconfig.get('baselinemode','feature')
+    srmed_for_target = None
     if baselinefrom:
         baselinespec      = config.sr['optimizedeqs'][baselinefrom]
         baselineform      = baselinespec['form']
@@ -176,13 +178,25 @@ def load_data(splitname,runconfig,config,time_offset=0):
             baselineconstants = registry.get(baselinefrom,{}).get('constants') or baselinespec['init']
         else:
             baselineconstants = baselinespec['init']
-        columns['srmed'] = eval_baseline(baselineform,columns,baselineconstants)
-        for var in fieldvars:
-            columns.pop(var,None)
+        srmed_raw = eval_baseline(baselineform,columns,baselineconstants)
+        if baselinemode == 'multiplicative':
+            srmed_for_target = srmed_raw
+        else:
+            columns['srmed'] = srmed_raw
+            for var in fieldvars:
+                columns.pop(var,None)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
+    if srmed_for_target is not None:
+        statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+        with open(statsfile,'r',encoding='utf-8') as f:
+            stats = json.load(f)
+        zmin      = (0.0 - stats[f'{config.targetvar}_mean']) / stats[f'{config.targetvar}_std']
+        validmask = validmask & (srmed_for_target > 0)
+        target    = target.copy()
+        target[validmask] = (target[validmask] - zmin) / srmed_for_target[validmask]
     splitds.close()
     return features,target,refda,validmask
 
@@ -264,7 +278,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
     zmin = (0.0-stats['tp_mean'])/stats['tp_std']
-    loss = f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
+    loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss') == 'plainmse' else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor
     model = PySRRegressor(
