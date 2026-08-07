@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repo.
 
 ## Project Overview
 
@@ -12,7 +12,7 @@ Research code for data-driven discovery of thermodynamic controls on South Asian
 conda env create -f environment.yml && conda activate monsoon-discovery
 ```
 
-Julia is required for PySR. On NERSC, Julia packages live at `/global/cfs/cdirs/m4334/sferrett/.julia` and are synced to `$SCRATCH/.julia` before SR jobs.
+Julia is required for PySR. On NERSC, Julia packages live at `/global/cfs/cdirs/m4334/sferrett/.julia`, synced to `$SCRATCH/.julia` before SR jobs.
 
 ## Running Scripts
 
@@ -37,35 +37,47 @@ python -m scripts.models.sr.evaluate --runs all --split test
 python -m scripts.models.sr.optimize --equations all --splits test
 ```
 
-On NERSC use the SLURM wrappers: `sbatch train_sr.sh [run_name]`, `sbatch optimize_sr.sh`.
+NERSC: `sbatch train_sr.sh [run_name]`, `sbatch optimize_sr.sh`.
 
-## Verifying Changes Before Pushing
+## Before Committing
 
-There is no test suite. The paths in `configs.json` point to NERSC CFS directories, so most scripts cannot run end-to-end outside Perlmutter. So, before committing, at minimum:
-- `python -m py_compile <changed files>` — catches syntax errors
-- `python -c 'import scripts.models.nn.train'` (etc.) — catches bad imports, circular imports, and module-level failures. Note that `architectures.py` and several scripts read `data/splits/stats.json` at import time, so an import check also confirms that file resolves.
-- Confirm any new `configs.json` keys are actually read by the code that consumes them, and that existing runs still parse (`python -c 'from scripts.utils import Config; Config()'`)
+No test suite; `configs.json` points to NERSC CFS paths, so most scripts can't run end-to-end off Perlmutter. Minimum checks:
 
-Where data is available, run the affected script with the smallest possible workload (`--runs <one_run>`, `--iterations 5`, `--subsetfrac 0.001`) rather than a full job. State plainly what was and wasn't verified. If a change could only be checked for syntax and imports, say that — do not describe untested code as working.
+- `python -m py_compile <changed files>` — syntax
+- `python -c 'import scripts.models.nn.train'` (etc.) — imports, circular imports, module-level failures. Also confirms `data/splits/stats.json` resolves (read at import time by `architectures.py` and other scripts).
+- New `configs.json` keys are actually read by consuming code; `python -c 'from scripts.utils import Config; Config()'` still parses.
+- If data is available: run the affected script at smallest scale (`--runs <one_run>`, `--iterations 5`, `--subsetfrac 0.001`).
+
+State exactly what was/wasn't verified — never describe untested code as working.
+
+## Guardrails
+
+- `data/{raw,interim,splits,predictions,features,weights}/`, `*.nc`, `*.h5`, `*.pkl`, `*.pth`, `*.npz`, and `*.sh` (except `train_sr.sh`/`optimize_sr.sh`) are gitignored — `git add` won't pick them up; don't add new `.sh` files without updating `.gitignore` too.
+- `filepaths` in `configs.json` is NERSC-specific — update locally for testing, never commit personal path overrides.
+- Scripts skip runs whose outputs already exist — don't delete existing checkpoints/predictions to force a rerun without asking first.
+
+## Git Workflow
+
+Claude Code works on a `claude` branch and cannot run experiments here (no NERSC access from this environment) — treat results as unverified until the user confirms them. Don't commit to or push `main` directly. After changes are committed to `claude`, the user merges `claude` → local `main` → pushes to remote `main`; only then is `main` up to date. If asked to check the "latest" state of something, confirm you're looking at `claude`, not an unmerged `main`.
 
 ## Configuration
 
-`scripts/configs.json` holds all parameters; `scripts/utils.py:Config` exposes them as attributes. Key blocks: `filepaths` (NERSC CFS paths — update locally), `domain` (JJA 2000–2020, 5–25°N 60–90°E), `splits` (train 2000–2014, valid 2015–2017, test 2018–2020), `variables`, and `experiments` (per-run configs for `pod`, `nn`, `sr`). To add a run, add an entry to `experiments.<type>.runs`.
+`scripts/configs.json` holds all parameters; `scripts/utils.py:Config` exposes them as attributes. Key blocks: `filepaths` (NERSC CFS paths — update locally), `domain` (JJA 2000–2020, 5–25°N 60–90°E), `splits` (train 2000–2014, valid 2015–2017, test 2018–2020), `variables`, `experiments` (per-run configs for `pod`/`nn`/`sr`). New run → add entry to `experiments.<type>.runs`.
 
 ## Architecture
 
-**Data Pipeline:** raw ERA5/IMERG → thermodynamic variables (`rh`, `thetae`, `thetaestar`, `bl`, surface fluxes, `dsig`) → HDF5 splits with raw and normalized versions. Stats saved to `data/splits/stats.json`. All split files use `h5netcdf` engine.
+**Data Pipeline:** raw ERA5/IMERG → thermodynamic variables (`rh`, `thetae`, `thetaestar`, `bl`, surface fluxes, `dsig`) → HDF5 splits, raw + normalized. Stats → `data/splits/stats.json`. Splits use `h5netcdf` engine.
 
 **POD** (`scripts/models/pod/`): ramp model `alpha * max(0, bl - xcrit)`, fit to binned training data. Saved as `.npz`.
 
-**NN** (`scripts/models/nn/`): three variants keyed by `kind` in the run config — `baseline` (flattened profiles + local vars), `nonparametric` (free-form learned vertical kernel), `parametric` (Gaussian kernel with learnable mu/sigma). All share the same 4-layer GELU backbone and output `zmin + ReLU(f(x))` (enforces non-negative precip). Target is z-scored `log1p(tp)`. Kernel models save integration weights to `data/weights/` — reused by SR. Checkpoints: `{run}_{seed}.pth`. Training logged to W&B.
+**NN** (`scripts/models/nn/`): three `kind` variants — `baseline` (flattened profiles + local vars), `nonparametric` (free-form learned vertical kernel), `parametric` (Gaussian kernel, learnable mu/sigma). Shared 4-layer GELU backbone; output `zmin + ReLU(f(x))` (non-negative precip). Target: z-scored `log1p(tp)`. Kernel models save integration weights to `data/weights/`, reused by SR. Checkpoints: `{run}_{seed}.pth`. Logged to W&B.
 
-**SR** (`scripts/models/sr/`): two-stage — `train.py` runs PySR search (Julia backend), saving Pareto frontiers (`.pkl`) and equation tables (`.csv`); `optimize.py` fits constants of hand-specified forms from `sr.optimizedeqs` in configs via L-BFGS-B multistart, writing an `optimized_equations.pkl` registry. SR runs can use NN kernel-integrated features (`weightsfrom`) or target residuals from a prior SR equation (`baselinefrom`).
+**SR** (`scripts/models/sr/`): `train.py` runs PySR search (Julia backend) → Pareto frontiers (`.pkl`) + equation tables (`.csv`). `optimize.py` fits constants of hand-specified forms (`sr.optimizedeqs` in configs) via L-BFGS-B multistart → `optimized_equations.pkl` registry. Can use NN kernel-integrated features (`weightsfrom`) or target residuals from a prior SR equation (`baselinefrom`).
 
-**Predictions:** Saved to `data/predictions/{run}_{split}_predictions.nc`. NN output has a `seed` dimension; SR output has `seed` and `complexity` dims (full Pareto frontier). All in native mm units post-denormalization.
+**Predictions:** `data/predictions/{run}_{split}_predictions.nc`. NN → `seed` dim; SR → `seed` + `complexity` dims (full Pareto frontier). Native mm units, post-denormalization.
 
 ## Code Style
 
-**Python:** No comments; no spaces after commas (`np.sqrt(a,b)`); variables have no underscores (`ntime`, `fieldvars`); functions do (`load_split`, `calc_rh`); single quotes; `if __name__=='__main__'` guards in entry-point scripts only; logging via `logging` module, not `print`; file writes verified by reopening; scripts skip runs where outputs already exist.
+**Python:** no comments; no spaces after commas (`np.sqrt(a,b)`); variables have no underscores (`ntime`, `fieldvars`), functions do (`load_split`, `calc_rh`); single quotes; `if __name__=='__main__'` in entry-point scripts only; `logging` not `print`; verify file writes by reopening; skip runs whose outputs already exist.
 
-**Notebooks:** Imports → ALL_CAPS config fields (no underscores, e.g. `SAVEDIR`, `TARGETVAR`) → helper functions → analysis/plotting. The `notebooks/` directory is for analysis and visualization and is not part of the pipeline.
+**Notebooks:** imports → ALL_CAPS config fields (no underscores, e.g. `SAVEDIR`, `TARGETVAR`) → helper functions → analysis/plotting. `notebooks/` is for analysis/viz, not the pipeline.
