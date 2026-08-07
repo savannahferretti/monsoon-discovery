@@ -296,7 +296,6 @@ if __name__=='__main__':
             continue
         runname        = eqspec['runfrom']
         runconfig      = sr['runs'][runname]
-        predictornames = runconfig['fieldvars']+runconfig.get('localvars',[])
         form           = eqspec['form']
         refcomplexity  = eqspec.get('refcomplexity')
         logger.info(f'Optimizing `{name}`...')
@@ -309,6 +308,7 @@ if __name__=='__main__':
             datacache[runname] = (xfit,yfit,xvalid,yvalid,validmask)
             del xtrain,ytrain,reftrain
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
+        predictornames = [c for c in xfitfull.columns if c != 'timeidx']
         xfit       = xfitfull[predictornames]
         nrestarts     = eqspec.get('nrestarts',1)
         initscale     = eqspec.get('initscale',5.0)

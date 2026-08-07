@@ -168,7 +168,31 @@
                     "nrestarts":50,
                     "color":"blood",
                     "description":"SR-HI",
-                    "refcomplexity":23}
+                    "refcomplexity":23},
+                "sr_resid_lin":{
+                    "runfrom":"sr_gauss_resid",
+                    "form":"srmed + a * min(lf, b) * (shf - c) - d * sef",
+                    "init":{"a":2.3546,"b":0.1330,"c":0.0621,"d":0.1878},
+                    "nrestarts":50,
+                    "color":"#577590",
+                    "description":"SR-RESID-LIN",
+                    "refcomplexity":19},
+                "sr_resid_cube":{
+                    "runfrom":"sr_gauss_resid",
+                    "form":"srmed + a * shf * min(lf, b) - c * (max(d, cube(sef)) - e)",
+                    "init":{"a":2.6748,"b":0.1912,"c":0.2837,"d":-0.4350,"e":0.6908},
+                    "nrestarts":50,
+                    "color":"#277da1",
+                    "description":"SR-RESID-CUBE",
+                    "refcomplexity":26},
+                "sr_resid_full":{
+                    "runfrom":"sr_gauss_resid",
+                    "form":"srmed + a * min(lf, b) * (shf - c) - d * (max(e, cube(sef)) - f) - g * lhf",
+                    "init":{"a":2.6748,"b":0.1912,"c":0.0621,"d":0.2837,"e":-0.4350,"f":0.6908,"g":0.1470},
+                    "nrestarts":50,
+                    "color":"#4d908e",
+                    "description":"SR-RESID-FULL",
+                    "refcomplexity":30}
             }
         }
     }
