@@ -82,19 +82,18 @@ def parse():
     '''
     Purpose: Parse command-line arguments for running the training script.
     Returns:
-    - tuple[set[str]|None, int, int, int|None, float|None]: selected run names (or None for
-        all), number of Julia worker processes, search timeout in seconds, and optional
-        overrides for iterations and subsetfrac (None means use the value from configs.json)
+    - tuple[set[str]|None, int, int|None, float|None]: selected run names (or None for
+        all), number of Julia worker processes, and optional overrides for iterations and
+        subsetfrac (None means use the value from configs.json)
     '''
     parser = argparse.ArgumentParser(description='Train PySR symbolic regression models.')
     parser.add_argument('--runs',type=str,default='all',help='Comma-separated run names to train, or `all`')
     parser.add_argument('--procs',type=int,default=50,help='Number of Julia worker processes (default: 50)')
-    parser.add_argument('--timeout',type=int,default=19800,help='PySR search timeout in seconds (default: 19800)')
     parser.add_argument('--iterations',type=int,default=None,help='Override iterations from config (useful for quick tests)')
     parser.add_argument('--subsetfrac',type=float,default=None,help='Override subsetfrac from config (useful for quick tests)')
     args = parser.parse_args()
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
-    return selectedruns,args.procs,args.timeout,args.iterations,args.subsetfrac
+    return selectedruns,args.procs,args.iterations,args.subsetfrac
 
 def kernel_integrate(fields,weights,dsig,mask=None):
     '''
@@ -234,7 +233,9 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     rng.shuffle(subsetindices)
     return features.iloc[subsetindices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[subsetindices]
 
-def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
+TIMEOUT = 19800
+
+def fit(xsub,ysub,predictors,srconfig,seed,procs,tmpdir):
     '''
     Purpose: Instantiate and fit a PySRRegressor on the given data subset. Operators,
         complexity penalties, and operator constraints are read from srconfig so they can be
@@ -248,7 +249,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
         'complexity', 'constraints', and 'nestedconstraints'
     - seed (int): random seed for PySR search
     - procs (int): number of Julia worker processes
-    - timeout (int): search timeout in seconds; acts as a safety net alongside iterations
+    - tmpdir (str): temporary directory for Julia equation files (timeout uses the module-level TIMEOUT constant)
     - tmpdir (str): temporary directory for Julia equation files
     Returns:
     - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
@@ -295,7 +296,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,timeout,tmpdir):
         tempdir=tmpdir,
         temp_equation_file=True,
         delete_tempfiles=True,
-        timeout_in_seconds=timeout,
+        timeout_in_seconds=TIMEOUT,
         progress=False)
     model.fit(xsub.values,ysub,variable_names=predictors)
     return model
@@ -327,7 +328,7 @@ if __name__=='__main__':
     runs   = sr['runs']
     seeds  = sr['seeds']
     logger.info('Spinning up...')
-    selectedruns,procs,timeout,iterationsoverride,subsetfracoverride = parse()
+    selectedruns,procs,iterationsoverride,subsetfracoverride = parse()
     for name,runconfig in runs.items():
         if selectedruns is not None and name not in selectedruns:
             continue
@@ -357,7 +358,7 @@ if __name__=='__main__':
             logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
-                model = fit(xsub,ysub,predictors,srrun,seed,procs,timeout,tempdirpath)
+                model = fit(xsub,ysub,predictors,srrun,seed,procs,tempdirpath)
             finally:
                 shutil.rmtree(tempdirpath,ignore_errors=True)
             save(model,name,seed,config)
