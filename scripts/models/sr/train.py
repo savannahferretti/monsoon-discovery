@@ -176,8 +176,9 @@ def load_data(splitname,runconfig,config,time_offset=0):
         else:
             baselineconstants = baselinespec['init']
         columns['srmed'] = eval_baseline(baselineform,columns,baselineconstants)
-        for var in fieldvars:
-            columns.pop(var,None)
+        if not runconfig.get('keepfields',False):
+            for var in fieldvars:
+                columns.pop(var,None)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()

@@ -134,7 +134,13 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf","sef","sdo","se"],
                     "weightsfrom":"nn_gauss",
-                    "baselinefrom":"sr_med"}},
+                    "baselinefrom":"sr_med"},
+                "sr_gauss_resid_v2":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["lf","shf","lhf","sef","sdo","se"],
+                    "weightsfrom":"nn_gauss",
+                    "baselinefrom":"sr_med",
+                    "keepfields":true}},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_bl",
