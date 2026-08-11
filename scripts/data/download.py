@@ -31,11 +31,10 @@ if __name__=='__main__':
     qdata   = era5.specific_humidity
     psdata  = era5.surface_pressure/100.0
     lfdata  = era5.land_sea_mask
-    sedata   = era5.geopotential_at_surface/9.81
-    lhfdata = era5.mean_surface_latent_heat_flux
-    shfdata = era5.mean_surface_sensible_heat_flux
-    sstdata = era5.sea_surface_temperature
+    sedata  = era5.geopotential_at_surface/9.81
     sdodata = era5.standard_deviation_of_orography
+    lhfdata = -era5.mean_surface_latent_heat_flux
+    shfdata = -era5.mean_surface_sensible_heat_flux
     tpdata  = era5.total_precipitation*1000
     prdata  = imerg.precipitationCal
     del era5,imerg
@@ -45,11 +44,10 @@ if __name__=='__main__':
         downloader.process(qdata,'q','ERA5 specific humidity','kg/kg',radius=4),
         downloader.process(psdata,'ps','ERA5 surface pressure','hPa',radius=4),
         downloader.process(lfdata,'lf','ERA5 land fraction','0-1',radius=4),
+        downloader.process(sedata,'se','ERA5 surface elevation','m',radius=4),
+        downloader.process(sdodata,'sdo','ERA5 standard deviation of orography','m',radius=4),
         downloader.process(lhfdata,'lhf','ERA5 mean surface latent heat flux','W/m²',radius=4),
         downloader.process(shfdata,'shf','ERA5 mean surface sensible heat flux','W/m²',radius=4),
-        downloader.process(sstdata,'sst','ERA5 sea surface temperature','K',radius=4),
-        downloader.process(sdodata,'sdo','ERA5 standard deviation of orography','m',radius=4),
-        downloader.process(sedata,'se','ERA5 surface elevation','m',radius=4),
         downloader.process(tpdata,'tp','ERA5 total accumulated precipitation','mm',radius=4),
         downloader.process(prdata,'pr','IMERG V06 precipitation rate','mm/hr',radius=10)]
     del tdata,qdata,psdata,lfdata,lhfdata,shfdata,prdata,tpdata
