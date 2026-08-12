@@ -138,7 +138,6 @@
                 "sr_atm":{
                     "runfrom":"sr_atm",
                     "form":"a * cube(max(rh, thetae - b * thetaestar - c))",
-                    "init":{"a":1.5576,"b":1.4706,"c":0.3756},
                     "nrestarts":50,
                     "color":"#D42028",
                     "description":"SR-ATM",
@@ -147,7 +146,6 @@
                     "runfrom":"sr_sfc",
                     "seeds":[42,102],
                     "form":"cube(a * max(rh, thetae + b * thetaestar + c) + max(lf, shf) * d)",
-                    "init":{"a":1.3070,"b":-1.3594,"c":-0.4173,"d":-0.1270},
                     "nrestarts":50,
                     "color":"blood",
                     "description":"SR-SFC",
@@ -155,7 +153,6 @@
                 "sr_all":{
                     "runfrom":"sr_all",
                     "form":"srmed + a * min(lf, b) * (shf - c) - d * sef",
-                    "init":{"a":2.3546,"b":0.1330,"c":0.0621,"d":0.1878},
                     "nrestarts":50,
                     "color":"#577590",
                     "description":"SR-ALL",
