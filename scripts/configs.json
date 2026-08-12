@@ -111,20 +111,21 @@
                     "fieldvars":["bl"],
                     "localvars":[],
                     "searchparams":{"maxsize":10}},
-                "sr_gauss":{
+                "sr_atm":{
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf"],
-                    "weightsfrom":"nn_gauss"},
-                "sr_gauss_resid":{
-                    "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf","sef","sdo","se"],
+                    "localvars":[],
                     "weightsfrom":"nn_gauss",
-                    "baselinefrom":"sr_med"},
-                "sr_gauss_resid_v2":{
+                    "searchparams":{"maxsize":20}},
+                "sr_sfc":{
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf","sef","sdo","se"],
+                    "localvars":["lf","se","sdo","lhf","shf"],
                     "weightsfrom":"nn_gauss",
-                    "baselinefrom":"sr_med",
+                    "baselinefrom":"sr_atm"},
+                "sr_all":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["lf","se","sdo","lhf","shf"],
+                    "weightsfrom":"nn_gauss",
+                    "baselinefrom":"sr_atm",
                     "keepfields":true}},
             "optimizedeqs":{
                 "sr_bl":{
@@ -135,38 +136,30 @@
                     "nrestarts":50,
                     "color":"#fb992f",
                     "description":"SR-BL"},
-                "sr_lo":{
-                    "runfrom":"sr_gauss",
-                    "refcomplexity":6,
-                    "form":"a * exp(rh) + b",
-                    "init":{"a":1.0,"b":-0.6507},
-                    "nrestarts":50,
-                    "color":"#F2C85E",
-                    "description":"SR-LO"},
-                "sr_med":{
-                    "runfrom":"sr_gauss",
+                "sr_atm":{
+                    "runfrom":"sr_atm",
                     "form":"a * cube(max(rh, thetae - b * thetaestar - c))",
                     "init":{"a":1.5576,"b":1.4706,"c":0.3756},
                     "nrestarts":50,
                     "color":"#D42028",
-                    "description":"SR-MED",
+                    "description":"SR-ATM",
                     "refcomplexity":16},
-                "sr_hi":{
-                    "runfrom":"sr_gauss",
+                "sr_sfc":{
+                    "runfrom":"sr_sfc",
                     "seeds":[42,102],
                     "form":"cube(a * max(rh, thetae + b * thetaestar + c) + max(lf, shf) * d)",
                     "init":{"a":1.3070,"b":-1.3594,"c":-0.4173,"d":-0.1270},
                     "nrestarts":50,
                     "color":"blood",
-                    "description":"SR-HI",
+                    "description":"SR-SFC",
                     "refcomplexity":23},
-                "sr_resid_lin":{
-                    "runfrom":"sr_gauss_resid",
+                "sr_all":{
+                    "runfrom":"sr_all",
                     "form":"srmed + a * min(lf, b) * (shf - c) - d * sef",
                     "init":{"a":2.3546,"b":0.1330,"c":0.0621,"d":0.1878},
                     "nrestarts":50,
                     "color":"#577590",
-                    "description":"SR-RESID-LIN",
+                    "description":"SR-ALL",
                     "refcomplexity":19}
             }
         }
