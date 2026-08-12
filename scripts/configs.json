@@ -55,20 +55,20 @@
                 "nn_full":{
                     "kind":"baseline",
                     "fieldvars":["rh", "thetae","thetaestar"],
-                    "localvars":[ "lf","shf","lhf"],
+                    "localvars":["lf","se","sdo","shf","lhf","sef"],
                     "color":"#1B2C61",
                     "description":"NN-FULL"},
                 "nn_nonparam":{
                     "kind":"nonparametric",
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf"],
+                    "localvars":["lf","se","sdo","shf","lhf","sef"],
                     "color":"#539ed4",
                     "description":"NN-NONPARAM"},
                 "nn_gauss":{
                     "kind":"parametric",
                     "kernel":"gaussian",
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf"],
+                    "localvars":["lf","se","sdo","shf","lhf","sef"],
                     "color":"#2355a1",
                     "description":"NN-GAUSS"}}},
         "sr":{
