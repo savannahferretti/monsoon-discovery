@@ -8,6 +8,7 @@ import logging
 import argparse
 import numpy as np
 import pandas as pd
+import sympy as sp
 import xarray as xr
 from joblib import Parallel, delayed
 from scipy.optimize import minimize
@@ -30,6 +31,19 @@ SRFUNCTIONS = {
     'cos':np.cos,
     'max':np.maximum,
     'min':np.minimum}
+
+SRSYMPY = {
+    'cube':lambda x:x**3,
+    'square':lambda x:x**2,
+    'neg':lambda x:-x,
+    'sqrt':sp.sqrt,
+    'exp':sp.exp,
+    'log':sp.log,
+    'abs':sp.Abs,
+    'sin':sp.sin,
+    'cos':sp.cos,
+    'max':sp.Max,
+    'min':sp.Min}
 
 def parse():
     '''
@@ -163,15 +177,14 @@ def save_registry(registry,config):
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
     logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
 
-def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,subsample=50000):
+def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     '''
-    Purpose: Initialize constants by fitting the parametric form against PySR equations
-        at refcomplexity, averaged over seeds that have a matching equation.
-        For forms where all constants are linear (e.g. a*f(x) + b), uses fast lstsq.
-        For forms with multiplicative structure (e.g. a*cube(max(x, b*y + c))), the linear
-        design matrix has all-zero columns for constants nested inside nonlinear functions,
-        so falls back to nonlinear scipy minimization to match PySR predictions. Seeds whose
-        PySR equation is structurally too different (residual variance > 50%) are skipped.
+    Purpose: Initialize constants by structurally unifying the parametric form with
+        each seed's PySR equation at refcomplexity, then averaging matched constants
+        across seeds. Uses SymPy's Wild + match so trivial algebraic rearrangements
+        (e.g. `- -b` vs `+ b`, `a + x` vs `x + a`) don't count as structural mismatches.
+        Seeds whose PySR equation cannot be unified with the form — or whose matched
+        constants are not purely numeric — are skipped.
     Args:
     - form (str): Python expression string with named constants
     - predictornames (list[str]): predictor column names
@@ -179,24 +192,24 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,sub
     - runname (str): SR run name (used to locate per-seed equation CSVs)
     - seeds (list[int]): list of random seeds
     - modelsdir (str): path to models directory
-    - xfit (pd.DataFrame): full train+valid feature matrix
-    - subsample (int): max samples to use (default 50000)
     Returns:
-    - dict: constant name → float value, or {} if no PySR equations found
+    - dict: constant name → averaged float value, or {} if no seeds unify
     '''
     if refcomplexity is None:
         return {}
     constantnames = extract_constants(form,predictornames)
     if not constantnames:
         return {}
-    rng = np.random.default_rng(0)
-    idx = rng.choice(len(xfit),min(subsample,len(xfit)),replace=False)
-    xsub = xfit.iloc[idx].reset_index(drop=True)
-    X = np.column_stack([
-        eval_form(form,xsub,predictornames,{c:(1.0 if c==ci else 0.0) for c in constantnames})
-        for ci in constantnames])
-    has_zero_cols = np.any(np.all(np.abs(X) < 1e-10,axis=0))
-    seed_consts = []
+    predictorsyms = {p:sp.Symbol(p) for p in predictornames}
+    wildsyms      = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in constantnames}
+    formns        = dict(SRSYMPY,**predictorsyms,**wildsyms)
+    parsens       = dict(SRSYMPY,**predictorsyms)
+    try:
+        formexpr = sp.sympify(form,locals=formns)
+    except Exception as e:
+        logger.warning(f'   Could not parse form `{form}`: {e}')
+        return {}
+    seedconsts = []
     for seed in seeds:
         filepath = os.path.join(modelsdir,'sr',f'{runname}_{seed}_equations.csv')
         if not os.path.exists(filepath):
@@ -205,41 +218,30 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,xfit,sub
         row = df[df['complexity']==refcomplexity]
         if row.empty:
             continue
-        pysr_eq = str(row.iloc[0]['equation'])
-        ns = dict(SRFUNCTIONS,__builtins__={})
-        for pname in predictornames:
-            ns[pname] = xsub[pname].values
+        pysreq = str(row.iloc[0]['equation']).replace('^','**')
         try:
-            y_pred = np.asarray(eval(pysr_eq,ns),dtype=float)
-            if np.ndim(y_pred)==0:
-                y_pred = np.full(len(xsub),float(y_pred))
+            pysrexpr = sp.sympify(pysreq,locals=parsens)
+            match    = pysrexpr.match(formexpr)
         except Exception:
+            match = None
+        if match is None:
+            logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
             continue
-        if not has_zero_cols:
-            coeffs,_,_,_ = np.linalg.lstsq(X,y_pred,rcond=None)
-            seed_consts.append(dict(zip(constantnames,coeffs)))
-        else:
-            y_var = float(np.nanvar(y_pred)) + 1e-12
-            def match_obj(params):
-                consts = dict(zip(constantnames,params))
-                try:
-                    out = eval_form(form,xsub,predictornames,consts)
-                    return float(np.nanmean((out - y_pred)**2))
-                except Exception:
-                    return 1e10
-            rng2 = np.random.default_rng(seed)
-            starts = [np.ones(len(constantnames))] + list(rng2.uniform(-3,3,(9,len(constantnames))))
-            best_res = None
-            for start in starts:
-                res = minimize(match_obj,start,method='L-BFGS-B',
-                               options={'maxiter':5000,'ftol':1e-12,'gtol':1e-8})
-                if best_res is None or res.fun < best_res.fun:
-                    best_res = res
-            if best_res.fun < y_var * 0.5:
-                seed_consts.append(dict(zip(constantnames,best_res.x)))
-    if not seed_consts:
+        vals = {}
+        for c in constantnames:
+            v = match.get(wildsyms[c])
+            if v is None or not v.is_Number:
+                vals = None
+                break
+            vals[c] = float(v)
+        if vals is None:
+            logger.info(f'   Seed {seed}: match found but constants are non-numeric, skipping')
+            continue
+        logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
+        seedconsts.append(vals)
+    if not seedconsts:
         return {}
-    return {c:float(np.mean([sc[c] for sc in seed_consts])) for c in constantnames}
+    return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
 
 def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin):
     '''
@@ -320,9 +322,9 @@ if __name__=='__main__':
             init = explicit_init
             logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,xfit)
+            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir)
             if init:
-                logger.info(f'   PySR init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
+                logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:
                 logger.info(f'   No PySR init found; defaulting all constants to 1.0')
         # Anchor starts: for each already-optimized equation whose constant set is a strict

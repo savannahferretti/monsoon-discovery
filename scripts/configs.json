@@ -132,7 +132,6 @@
                     "runfrom":"sr_bl",
                     "refcomplexity":7,
                     "form":"cube(bl + a) + b",
-                    "init":{"a":0.2957,"b":0.1421},
                     "nrestarts":50,
                     "color":"#fb992f",
                     "description":"SR-BL"},
