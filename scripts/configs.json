@@ -124,7 +124,7 @@
                     "localvars":["lf","se","sdo","lhf","shf"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_atm",
-                    "searchparams":{"maxsize":20}},
+                    "searchparams":{"maxsize":20}}},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_bl",
