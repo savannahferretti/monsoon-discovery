@@ -60,9 +60,16 @@ def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr',subset=Non
     '''
     filepath = os.path.join(splitsdir,f'norm_{splitname}.h5')
     ds = xr.open_dataset(filepath,engine='h5netcdf')
-    hassig = 'sig' in ds[fieldvars[0]].dims
     ntime = ds.sizes['time']
-    if hassig:
+    nlat  = ds.sizes['lat']
+    nlon  = ds.sizes['lon']
+    ntotal = ntime*nlat*nlon
+    pr = ds[targetvar].transpose('time','lat','lon').values.reshape(-1)
+    if not fieldvars:
+        nlevs  = 1
+        fields = np.empty((ntotal,0,1),dtype=np.float32)
+        dsig   = torch.tensor([1.0],dtype=torch.float32)
+    elif 'sig' in ds[fieldvars[0]].dims:
         nlevs = ds.sizes['sig']
         fieldarrays = []
         for v in fieldvars:
@@ -80,8 +87,6 @@ def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr',subset=Non
             fieldarrays.append(arr)
         fields = np.stack(fieldarrays,axis=1)
         dsig = torch.tensor([1.0],dtype=torch.float32)
-    pr = ds[targetvar].transpose('time','lat','lon').values.reshape(-1)
-    ntotal = fields.shape[0]
     if localvars:
         localarrays = []
         for v in localvars:

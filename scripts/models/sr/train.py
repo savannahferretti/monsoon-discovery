@@ -172,9 +172,9 @@ def load_data(splitname,runconfig,config,time_offset=0):
         if os.path.exists(registrypath):
             with open(registrypath,'rb') as f:
                 registry = pickle.load(f)
-            baselineconstants = registry.get(baselinefrom,{}).get('constants') or baselinespec['init']
+            baselineconstants = registry.get(baselinefrom,{}).get('constants') or baselinespec.get('init',{})
         else:
-            baselineconstants = baselinespec['init']
+            baselineconstants = baselinespec.get('init',{})
         columns['srmed'] = eval_baseline(baselineform,columns,baselineconstants)
         if not runconfig.get('keepfields',False):
             for var in fieldvars:

@@ -17,7 +17,6 @@ class Config:
             self.metadata    = config['metadata']
             self.domain      = config['domain']
             self.splits      = config['splits']
-            self.variables   = config['variables']
             self.experiments = config['experiments']
 
     @property
@@ -96,7 +95,7 @@ class Config:
 
     @property
     def targetvar(self):
-        return self.variables['target']
+        return self.domain['target']
 
     @property
     def pod(self):

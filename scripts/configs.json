@@ -15,15 +15,12 @@
         "lonrange":[60.0,90.0],
         "levrange":[500.0,1000.0],
         "years":[2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015, 2016,2017,2018,2019,2020],
-        "months":[6,7,8]},
+        "months":[6,7,8],
+        "target":"tp"},
     "splits":{
         "trainyears":[2000,2014],
         "validyears":[2015,2017],
         "testyears":[2018,2020]},
-    "variables":{
-        "field":["bl","rh","thetae","thetaestar"],
-        "local":["lf","shf","lhf"],
-        "target":"tp"},
     "experiments":{
         "pod":{
             "bins":{
