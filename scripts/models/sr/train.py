@@ -124,8 +124,9 @@ def load_data(splitname,runconfig,config,time_offset=0):
     - config (Config): project configuration object
     - time_offset (int): added to each time index so that train and valid indices are globally unique
     Returns:
-    - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray]: predictor features, target
-        values, reference DataArray, and boolean mask of finite samples
+    - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray, np.ndarray|None]:
+        (features, target, refda, validmask, baseline) where baseline is the flat srmed
+        array when baselinefrom is set (target is the residual y - srmed), or None otherwise
     '''
     fieldvars    = runconfig['fieldvars']
     localvars    = runconfig.get('localvars',[])
@@ -164,6 +165,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
     for var in localvars:
         da = splitds[var]
         columns[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
+    baseline = None
     baselinefrom = runconfig.get('baselinefrom')
     if baselinefrom:
         baselinespec      = config.sr['optimizedeqs'][baselinefrom]
@@ -180,16 +182,15 @@ def load_data(splitname,runconfig,config,time_offset=0):
             raise RuntimeError(
                 f'No optimized constants found for baseline `{baselinefrom}`. '
                 f'Run `python -m scripts.models.sr.optimize --equations {baselinefrom}` first.')
-        columns['srmed'] = eval_baseline(baselineform,columns,baselineconstants)
-        if not runconfig.get('keepfields',False):
-            for var in fieldvars:
-                columns.pop(var,None)
+        baseline = eval_baseline(baselineform,columns,baselineconstants)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
+    if baseline is not None:
+        target = target - baseline
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
     splitds.close()
-    return features,target,refda,validmask
+    return features,target,refda,validmask,baseline
 
 def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     '''
@@ -347,8 +348,8 @@ if __name__=='__main__':
         populations  = searchparams.get('populations',3*procs)
         niterations  = searchparams.get('targettotal',searchparams['iterations']*populations)//populations
         logger.info(f'Loading normalized training and validation splits for `{name}`...')
-        xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
-        xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
+        xtrain,ytrain,reftrain,trainmask,_ = load_data('train',runconfig,config,time_offset=0)
+        xvalid,yvalid,_,validmask,_       = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
         predictors = [c for c in xtrain.columns if c != 'timeidx']
         xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
