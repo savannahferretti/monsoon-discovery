@@ -138,7 +138,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
     nlat        = splitds.sizes.get('lat',1)
     nlon        = splitds.sizes.get('lon',1)
     columns     = {}
-    if weightsfrom:
+    if weightsfrom and fieldvars:
         nsig         = splitds.sizes['sig']
         dsig         = splitds['dsig'].values
         fieldarrays  = [splitds[var].transpose('time','lat','lon','sig').values.reshape(-1,nsig) for var in fieldvars]
@@ -169,12 +169,17 @@ def load_data(splitname,runconfig,config,time_offset=0):
         baselinespec      = config.sr['optimizedeqs'][baselinefrom]
         baselineform      = baselinespec['form']
         registrypath      = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
+        baselineconstants = {}
         if os.path.exists(registrypath):
             with open(registrypath,'rb') as f:
                 registry = pickle.load(f)
-            baselineconstants = registry.get(baselinefrom,{}).get('constants') or baselinespec.get('init',{})
-        else:
+            baselineconstants = registry.get(baselinefrom,{}).get('constants',{})
+        if not baselineconstants:
             baselineconstants = baselinespec.get('init',{})
+        if not baselineconstants:
+            raise RuntimeError(
+                f'No optimized constants found for baseline `{baselinefrom}`. '
+                f'Run `python -m scripts.models.sr.optimize --equations {baselinefrom}` first.')
         columns['srmed'] = eval_baseline(baselineform,columns,baselineconstants)
         if not runconfig.get('keepfields',False):
             for var in fieldvars:
