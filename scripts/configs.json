@@ -137,21 +137,43 @@
                     "color":"#FB992E",
                     "description":"SR-ATM",
                     "refcomplexity":17},
-                "sr_sfc":{
+                "sr_sfc_v1":{
                     "runfrom":"sr_sfc",
-                    "seeds":[42,102],
-                    "form":null,
+                    "form":"sr_atm + a*shf*(b - lf)",
                     "nrestarts":50,
                     "color":"#C44E52",
-                    "description":"SR-SFC",
-                    "refcomplexity":null},
-                "sr_all":{
+                    "description":"SR-SFC-V1",
+                    "refcomplexity":9},
+                "sr_sfc_v2":{
+                    "runfrom":"sr_sfc",
+                    "form":"sr_atm*(a*shf*(b - lf) + c)",
+                    "nrestarts":50,
+                    "color":"#C44E52",
+                    "description":"SR-SFC-V2",
+                    "refcomplexity":11},
+                "sr_sfc_v3":{
+                    "runfrom":"sr_sfc",
+                    "form":"sr_atm*((shf + a)*(b - lf) + c)",
+                    "nrestarts":50,
+                    "color":"#C44E52",
+                    "description":"SR-SFC-V3",
+                    "refcomplexity":13},
+                "sr_all_v1":{
                     "runfrom":"sr_all",
-                    "form":null,
+                    "form":"sr_atm*c + (shf + a)*(b - lf)*exp(rh)",
                     "nrestarts":50,
                     "color":"#577590",
-                    "description":"SR-ALL",
-                    "refcomplexity":null}
+                    "description":"SR-ALL-V1",
+                    "seeds":[72],
+                    "refcomplexity":18},
+                "sr_all_v2":{
+                    "runfrom":"sr_all",
+                    "form":"sr_atm*c + (shf + a)*cube(b - lf)*exp(thetae)",
+                    "nrestarts":50,
+                    "color":"#577590",
+                    "description":"SR-ALL-V2",
+                    "seeds":[102],
+                    "refcomplexity":20}
             }
         }
     }
