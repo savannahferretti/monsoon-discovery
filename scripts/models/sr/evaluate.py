@@ -44,7 +44,7 @@ def load(name,seed,modelsdir):
     with open(filepath,'rb') as f:
         return pickle.load(f)
 
-def predict_pareto(model,x,zmin,writer,validmask,refda,baseline=None):
+def predict_pareto(model,x,zmin,writer,validmask,refda):
     '''
     Purpose: Evaluate every equation on the Pareto frontier and return predictions keyed by complexity.
     Args:
@@ -54,7 +54,6 @@ def predict_pareto(model,x,zmin,writer,validmask,refda,baseline=None):
     - writer (PredictionWriter): used for unflatten and denormalization stats
     - validmask (np.ndarray): boolean mask selecting valid grid points from the full flat array
     - refda (xr.DataArray): reference DataArray supplying (time, lat, lon) coordinates
-    - baseline (np.ndarray|None): baseline prediction for valid samples to add back for residual models
     Returns:
     - dict[int, np.ndarray]: mapping from complexity to gridded array with shape (time, lat, lon)
     '''
@@ -62,10 +61,7 @@ def predict_pareto(model,x,zmin,writer,validmask,refda,baseline=None):
     for i in range(len(model.equations_)):
         row  = model.equations_.iloc[i]
         raw  = model.predict(x,index=i)
-        if baseline is not None:
-            flat = np.maximum(baseline+raw,zmin)
-        else:
-            flat = zmin+np.maximum(raw,0.0)
+        flat = zmin+np.maximum(raw,0.0)
         gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
         preds[int(row['complexity'])] = gridded
     return preds
@@ -120,24 +116,24 @@ if __name__=='__main__':
         fieldvars   = runconfig['fieldvars']
         localvars   = runconfig.get('localvars',[])
         weightsfrom = runconfig.get('weightsfrom')
-        cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,split)
+        baselinefrom = runconfig.get('baselinefrom')
+        cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,baselinefrom,split)
         if cachekey!=cachedkey:
             logger.info(f'   Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
-            x,y,refda,validmask,baseline = load_data(split,runconfig,config)
+            x,y,refda,validmask,_ = load_data(split,runconfig,config)
             cachedkey  = cachekey
-            cacheddata = (x,y,refda,validmask,baseline)
+            cacheddata = (x,y,refda,validmask)
         else:
-            x,y,refda,validmask,baseline = cacheddata
-        predictors     = fieldvars+localvars
+            x,y,refda,validmask = cacheddata
+        predictors     = [c for c in x.columns if c != 'timeidx']
         xvalid         = x[validmask][predictors].reset_index(drop=True)
-        baselinevalid  = baseline[validmask] if baseline is not None else None
         seedpreds  = []
         for seedidx,seed in enumerate(seeds):
             model = load(name,seed,config.modelsdir)
             if model is None:
                 break
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed}) ({validmask.sum()} valid samples, {len(model.equations_)} Pareto equations)...')
-            seedpreds.append(predict_pareto(model,xvalid.values,zmin,writer,validmask,refda,baseline=baselinevalid))
+            seedpreds.append(predict_pareto(model,xvalid.values,zmin,writer,validmask,refda))
             del model
         else:
             logger.info(f'   Saving predictions for `{name}`...')

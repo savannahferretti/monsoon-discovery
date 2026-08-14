@@ -123,11 +123,13 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
     - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
     - config (Config): project configuration object
     - time_offset (int): added to each time index so that train and valid indices are globally unique
-    - include_baseline_vars (bool): if True, baseline variables are added to the feature DataFrame
+    - include_baseline_vars (bool): if True, baseline input variables are added to the feature DataFrame
     Returns:
     - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray, np.ndarray|None]:
         (features, target, refda, validmask, baseline) where baseline is the flat
-        baseline prediction when baselinefrom is set (target is the residual), or None otherwise
+        baseline prediction when baselinefrom is set, or None otherwise; when baselinefrom
+        is set the baseline prediction is added as a feature column (named after baselinefrom)
+        and target is the original y (not a residual)
     '''
     fieldvars    = runconfig['fieldvars']
     localvars    = runconfig.get('localvars',[])
@@ -214,13 +216,12 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
                         blvars[var] = blfeatures[:,i]
         evalcols = {**columns,**blvars}
         baseline = eval_baseline(baselineform,evalcols,baselineconstants)
+        columns[baselinefrom] = baseline
         if include_baseline_vars:
             columns.update(blvars)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
-    if baseline is not None:
-        target = target - baseline
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
     splitds.close()
     return features,target,refda,validmask,baseline
