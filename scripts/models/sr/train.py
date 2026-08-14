@@ -319,7 +319,7 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,tmpdir):
         binary_operators=operators['binary'],
         unary_operators=operators['unary'],
         complexity_of_operators=operators['complexity'],
-        complexity_of_variables=[complexityparams['ofvariables'].get(p,1) for p in predictors]
+        complexity_of_variables=[complexityparams['ofvariables'].get(p,complexityparams.get('ofvariablesdefault',1)) for p in predictors]
             if isinstance(complexityparams['ofvariables'],dict) else complexityparams['ofvariables'],
         complexity_of_constants=complexityparams['ofconstants'],
         maxsize=searchparams['maxsize'],
