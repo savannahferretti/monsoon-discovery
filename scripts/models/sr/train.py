@@ -111,7 +111,7 @@ def kernel_integrate(fields,weights,dsig,mask=None):
         weighted = weighted*mask[:,None,:]
     return weighted.sum(axis=2)
 
-def load_data(splitname,runconfig,config,time_offset=0):
+def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=False):
     '''
     Purpose: Load a normalized data split and construct predictor features for symbolic
         regression. If 'weightsfrom' is set, vertically integrate field variables using kernel
@@ -123,6 +123,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
     - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
     - config (Config): project configuration object
     - time_offset (int): added to each time index so that train and valid indices are globally unique
+    - include_baseline_vars (bool): if True, baseline variables are added to the feature DataFrame
     Returns:
     - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray, np.ndarray|None]:
         (features, target, refda, validmask, baseline) where baseline is the flat
@@ -213,6 +214,8 @@ def load_data(splitname,runconfig,config,time_offset=0):
                         blvars[var] = blfeatures[:,i]
         evalcols = {**columns,**blvars}
         baseline = eval_baseline(baselineform,evalcols,baselineconstants)
+        if include_baseline_vars:
+            columns.update(blvars)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()

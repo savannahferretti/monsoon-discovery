@@ -95,21 +95,18 @@ def eval_form(form,x,predictornames,constants):
         out = np.full(len(x),float(out))
     return np.asarray(out,dtype=float)
 
-def optimize_constants(form,predictornames,x,y,zmin,init,baseline=None):
+def optimize_constants(form,predictornames,x,y,zmin,init):
     '''
     Purpose: Optimize named constants in an SR equation form via scipy L-BFGS-B.
         The objective is MSE in z-scored log1p space, consistent with neural network
-        training. For non-residual models, predictions are zmin + ReLU(f(x)); for
-        residual models (baseline provided), predictions are max(baseline + f(x), zmin)
-        compared against the full (non-residual) target y.
+        training. Predictions are zmin + ReLU(f(x)).
     Args:
     - form (str): Python expression string using predictor names and constant names
     - predictornames (list[str]): predictor column names in x
     - x (pd.DataFrame): full train+valid feature matrix (valid samples only)
-    - y (np.ndarray): z-scored log1p target for the same samples (full target, not residual)
+    - y (np.ndarray): z-scored log1p full target for the same samples
     - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
     - init (dict): initial constant values; constants absent from dict default to 1.0
-    - baseline (np.ndarray|None): baseline prediction for valid samples (residual models only)
     Returns:
     - tuple[dict, OptimizeResult]: optimized constants and scipy optimization result
     '''
@@ -118,15 +115,12 @@ def optimize_constants(form,predictornames,x,y,zmin,init,baseline=None):
     def objective(params):
         constants = dict(zip(constantnames,params))
         raw       = eval_form(form,x,predictornames,constants)
-        if baseline is not None:
-            pred = np.maximum(baseline+raw,zmin)
-        else:
-            pred = zmin+np.maximum(raw,0.0)
+        pred      = zmin+np.maximum(raw,0.0)
         return float(np.nanmean((pred-y)**2))
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None,baseline=None):
+def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None):
     '''
     Purpose: Optimize named constants via L-BFGS-B with optional random restarts.
         The first restart uses `init`; any extra_inits follow; remaining slots are
@@ -136,7 +130,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
     - form (str): Python expression string using predictor names and constant names
     - predictornames (list[str]): predictor column names in x
     - x (pd.DataFrame): full train+valid feature matrix (valid samples only)
-    - y (np.ndarray): z-scored log1p target for the same samples
+    - y (np.ndarray): z-scored log1p full target for the same samples
     - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
     - init (dict): initial constant values for the first restart
     - nrestarts (int): total number of optimization runs (default 1 = single run from init)
@@ -145,7 +139,6 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
     - nworkers (int): number of parallel threads for restarts (default 1)
     - extra_inits (list[dict]|None): additional anchor starting points inserted after init
         and before random draws; counted against nrestarts
-    - baseline (np.ndarray|None): baseline prediction for valid samples (residual models only)
     Returns:
     - tuple[dict, OptimizeResult]: best constants and corresponding scipy result
     '''
@@ -157,7 +150,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
         {c:float(v) for c,v in zip(constantnames,rng.uniform(-initscale,initscale,len(constantnames)))}
         for _ in range(nrandom)]
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
-        delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit,baseline=baseline)
+        delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit)
         for restartinit in inits)
     bestconstants,bestresult = None,None
     for i,(constants,res) in enumerate(resultslist):
@@ -250,7 +243,7 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
         return {}
     return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
 
-def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,combined=False):
+def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin):
     '''
     Purpose: Generate native-unit gridded predictions for a data split using an optimized equation.
     Args:
@@ -262,19 +255,13 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
     - writer (PredictionWriter): used for denormalization and saving
     - split (str): 'train' | 'valid' | 'test'
     - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
-    - combined (bool): if True, form predicts full target (ignore baseline from load_data)
     Returns:
     - xr.Dataset: predictions in native units with dims (time, lat, lon)
     '''
-    x,y,refda,validmask,baseline = load_data(split,runconfig,config)
-    if combined:
-        baseline = None
+    x,y,refda,validmask,baseline = load_data(split,runconfig,config,include_baseline_vars=True)
     xvalid = x[validmask][predictornames].reset_index(drop=True)
     raw    = eval_form(form,xvalid,predictornames,constants)
-    if baseline is not None:
-        pred = np.maximum(baseline[validmask]+raw,zmin)
-    else:
-        pred = zmin+np.maximum(raw,0.0)
+    pred   = zmin+np.maximum(raw,0.0)
     grid   = np.maximum(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
     da     = xr.DataArray(grid,dims=refda.dims,coords=refda.coords)
     da.attrs = dict(long_name=writer.longname,units=writer.units)
@@ -317,24 +304,19 @@ if __name__=='__main__':
         logger.info(f'Optimizing `{name}`...')
         if runname not in datacache:
             logger.info(f'   Loading training + validation sets...')
-            xtrain,ytrain,reftrain,trainmask,btrain = load_data('train',runconfig,config,time_offset=0)
-            xvalid,yvalid,_,validmask,bvalid        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
+            xtrain,ytrain,reftrain,trainmask,btrain = load_data('train',runconfig,config,time_offset=0,include_baseline_vars=True)
+            xvalid,yvalid,_,validmask,bvalid        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']),include_baseline_vars=True)
             xfit  = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
-            yfit_resid = np.concatenate([ytrain[trainmask],yvalid[validmask]])
             if btrain is not None:
                 bfit = np.concatenate([btrain[trainmask],bvalid[validmask]])
-                yfit = yfit_resid + bfit
+                yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]]) + bfit
                 yvalid_full = yvalid + bvalid
             else:
-                bfit = None
-                yfit = yfit_resid
+                yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
                 yvalid_full = yvalid
-            datacache[runname] = (xfit,yfit,xvalid,yvalid_full,validmask,bfit,bvalid)
-            del xtrain,ytrain,reftrain,btrain
-        xfitfull,yfit,xvalid,yvalid,validmask,bfit,bvalid = datacache[runname]
-        combined = eqspec.get('combined',False)
-        if combined:
-            bfit,bvalid = None,None
+            datacache[runname] = (xfit,yfit,xvalid,yvalid_full,validmask)
+            del xtrain,ytrain,reftrain,btrain,bvalid
+        xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
         xfit       = xfitfull[predictornames]
         nrestarts     = eqspec.get('nrestarts',1)
@@ -367,32 +349,18 @@ if __name__=='__main__':
         logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s) '
                     f'({len(anchor_inits)} anchor(s)), {nworkers} worker(s)...')
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,
-                                            nworkers=nworkers,extra_inits=anchor_inits,baseline=bfit)
+                                            nworkers=nworkers,extra_inits=anchor_inits)
         trainloss  = float(res.fun)
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
-        raw        = eval_form(form,xvalidsub,predictornames,constants)
-        if bvalid is not None:
-            bvalidsub = bvalid[validmask]
-            validpred = np.maximum(bvalidsub+raw,zmin)
-        else:
-            validpred = zmin+np.maximum(raw,0.0)
+        validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
         validloss  = float(np.nanmean((validpred-validtgt)**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
         logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
-        constants = {k:round(float(v),2) for k,v in constants.items()}
-        raw        = eval_form(form,xfit,predictornames,constants)
-        if bfit is not None:
-            trainpred = np.maximum(bfit+raw,zmin)
-        else:
-            trainpred = zmin+np.maximum(raw,0.0)
+        constants  = {k:round(float(v),2) for k,v in constants.items()}
+        trainpred  = zmin+np.maximum(eval_form(form,xfit,predictornames,constants),0.0)
         trainloss  = float(np.nanmean((trainpred-yfit)**2))
-        raw        = eval_form(form,xvalidsub,predictornames,constants)
-        if bvalid is not None:
-            bvalidsub = bvalid[validmask]
-            validpred = np.maximum(bvalidsub+raw,zmin)
-        else:
-            validpred = zmin+np.maximum(raw,0.0)
+        validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
         validloss  = float(np.nanmean((validpred-validtgt)**2))
         logger.info(f'   Rounded constants: {", ".join(f"{k}={v:.2f}" for k,v in constants.items())}')
         logger.info(f'   Rounded Training Loss: {trainloss:.6f} | Rounded Validation Loss: {validloss:.6f}')
@@ -405,6 +373,6 @@ if __name__=='__main__':
                 logger.info(f'   Skipping {split} predictions, already exist')
                 continue
             logger.info(f'   Generating {split} predictions...')
-            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,combined=combined)
+            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds
