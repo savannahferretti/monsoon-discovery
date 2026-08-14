@@ -54,7 +54,7 @@ def predict_pareto(model,x,zmin,writer,validmask,refda,baseline=None):
     - writer (PredictionWriter): used for unflatten and denormalization stats
     - validmask (np.ndarray): boolean mask selecting valid grid points from the full flat array
     - refda (xr.DataArray): reference DataArray supplying (time, lat, lon) coordinates
-    - baseline (np.ndarray|None): srmed values for valid samples to add back for residual models
+    - baseline (np.ndarray|None): baseline prediction for valid samples to add back for residual models
     Returns:
     - dict[int, np.ndarray]: mapping from complexity to gridded array with shape (time, lat, lon)
     '''

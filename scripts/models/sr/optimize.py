@@ -109,7 +109,7 @@ def optimize_constants(form,predictornames,x,y,zmin,init,baseline=None):
     - y (np.ndarray): z-scored log1p target for the same samples (full target, not residual)
     - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
     - init (dict): initial constant values; constants absent from dict default to 1.0
-    - baseline (np.ndarray|None): srmed values for valid samples (residual models only)
+    - baseline (np.ndarray|None): baseline prediction for valid samples (residual models only)
     Returns:
     - tuple[dict, OptimizeResult]: optimized constants and scipy optimization result
     '''
@@ -145,7 +145,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
     - nworkers (int): number of parallel threads for restarts (default 1)
     - extra_inits (list[dict]|None): additional anchor starting points inserted after init
         and before random draws; counted against nrestarts
-    - baseline (np.ndarray|None): srmed values for valid samples (residual models only)
+    - baseline (np.ndarray|None): baseline prediction for valid samples (residual models only)
     Returns:
     - tuple[dict, OptimizeResult]: best constants and corresponding scipy result
     '''

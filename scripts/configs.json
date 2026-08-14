@@ -89,7 +89,7 @@
                 "unary":["neg","abs","square","cube","exp"],
                 "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":2,"max":2,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
             "complexity":{
-                "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":2,"shf":2,"lhf":2,"sef":2,"sdo":2,"se":2,"srmed":1},
+                "ofvariables":{"rh":2,"thetae":2,"thetaestar":2,"lf":2,"shf":2,"lhf":2,"sef":2,"sdo":2,"se":2},
                 "ofconstants":1},
             "constraints":{
                 "^":[-10,10]},
@@ -147,7 +147,7 @@
                     "refcomplexity":23},
                 "sr_all":{
                     "runfrom":"sr_all",
-                    "form":"srmed + a * min(lf, b) * (shf - c) - d * sef",
+                    "form":"a * min(lf, b) * (shf - c) - d * sef",
                     "nrestarts":50,
                     "color":"#577590",
                     "description":"SR-ALL",

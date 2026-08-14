@@ -125,8 +125,8 @@ def load_data(splitname,runconfig,config,time_offset=0):
     - time_offset (int): added to each time index so that train and valid indices are globally unique
     Returns:
     - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray, np.ndarray|None]:
-        (features, target, refda, validmask, baseline) where baseline is the flat srmed
-        array when baselinefrom is set (target is the residual y - srmed), or None otherwise
+        (features, target, refda, validmask, baseline) where baseline is the flat
+        baseline prediction when baselinefrom is set (target is the residual), or None otherwise
     '''
     fieldvars    = runconfig['fieldvars']
     localvars    = runconfig.get('localvars',[])
@@ -176,9 +176,9 @@ def load_data(splitname,runconfig,config,time_offset=0):
         if os.path.exists(registrypath):
             with open(registrypath,'rb') as f:
                 registry = pickle.load(f)
-            baselineconstants = registry.get(baselinefrom,{}).get('constants',{})
+            baselineconstants = {k:round(v,2) for k,v in registry.get(baselinefrom,{}).get('constants',{}).items()}
         if not baselineconstants:
-            baselineconstants = baselinespec.get('init',{})
+            baselineconstants = {k:round(v,2) for k,v in baselinespec.get('init',{}).items()}
         if not baselineconstants:
             raise RuntimeError(
                 f'No optimized constants found for baseline `{baselinefrom}`. '
