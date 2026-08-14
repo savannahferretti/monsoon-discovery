@@ -138,20 +138,22 @@
                     "description":"SR-ATM",
                     "refcomplexity":17},
                 "sr_sfc":{
-                    "runfrom":"sr_sfc",
+                    "runfrom":"sr_all",
+                    "combined":true,
                     "seeds":[42,102],
-                    "form":"a*cube(max(rh,thetae-b*thetaestar-c)) + max(lf, shf) * d)",
+                    "form":null,
                     "nrestarts":50,
-                    "color":"blood",
+                    "color":"#C44E52",
                     "description":"SR-SFC",
-                    "refcomplexity":23},
+                    "refcomplexity":null},
                 "sr_all":{
                     "runfrom":"sr_all",
-                    "form":"a * min(lf, b) * (shf - c) - d * sef",
+                    "combined":true,
+                    "form":null,
                     "nrestarts":50,
                     "color":"#577590",
                     "description":"SR-ALL",
-                    "refcomplexity":19}
+                    "refcomplexity":null}
             }
         }
     }

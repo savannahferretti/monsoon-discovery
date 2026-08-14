@@ -250,7 +250,7 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
         return {}
     return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
 
-def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin):
+def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,combined=False):
     '''
     Purpose: Generate native-unit gridded predictions for a data split using an optimized equation.
     Args:
@@ -262,10 +262,13 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
     - writer (PredictionWriter): used for denormalization and saving
     - split (str): 'train' | 'valid' | 'test'
     - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
+    - combined (bool): if True, form predicts full target (ignore baseline from load_data)
     Returns:
     - xr.Dataset: predictions in native units with dims (time, lat, lon)
     '''
     x,y,refda,validmask,baseline = load_data(split,runconfig,config)
+    if combined:
+        baseline = None
     xvalid = x[validmask][predictornames].reset_index(drop=True)
     raw    = eval_form(form,xvalid,predictornames,constants)
     if baseline is not None:
@@ -321,12 +324,17 @@ if __name__=='__main__':
             if btrain is not None:
                 bfit = np.concatenate([btrain[trainmask],bvalid[validmask]])
                 yfit = yfit_resid + bfit
+                yvalid_full = yvalid + bvalid
             else:
                 bfit = None
                 yfit = yfit_resid
-            datacache[runname] = (xfit,yfit,xvalid,yvalid,validmask,bfit,bvalid)
+                yvalid_full = yvalid
+            datacache[runname] = (xfit,yfit,xvalid,yvalid_full,validmask,bfit,bvalid)
             del xtrain,ytrain,reftrain,btrain
         xfitfull,yfit,xvalid,yvalid,validmask,bfit,bvalid = datacache[runname]
+        combined = eqspec.get('combined',False)
+        if combined:
+            bfit,bvalid = None,None
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
         xfit       = xfitfull[predictornames]
         nrestarts     = eqspec.get('nrestarts',1)
@@ -362,18 +370,33 @@ if __name__=='__main__':
                                             nworkers=nworkers,extra_inits=anchor_inits,baseline=bfit)
         trainloss  = float(res.fun)
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
+        validtgt   = yvalid[validmask]
         raw        = eval_form(form,xvalidsub,predictornames,constants)
         if bvalid is not None:
             bvalidsub = bvalid[validmask]
             validpred = np.maximum(bvalidsub+raw,zmin)
-            validtgt  = yvalid[validmask]+bvalidsub
         else:
             validpred = zmin+np.maximum(raw,0.0)
-            validtgt  = yvalid[validmask]
         validloss  = float(np.nanmean((validpred-validtgt)**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
         logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
-        registry[name] = dict(form=form,constants={k:float(v) for k,v in constants.items()},
+        constants = {k:round(float(v),2) for k,v in constants.items()}
+        raw        = eval_form(form,xfit,predictornames,constants)
+        if bfit is not None:
+            trainpred = np.maximum(bfit+raw,zmin)
+        else:
+            trainpred = zmin+np.maximum(raw,0.0)
+        trainloss  = float(np.nanmean((trainpred-yfit)**2))
+        raw        = eval_form(form,xvalidsub,predictornames,constants)
+        if bvalid is not None:
+            bvalidsub = bvalid[validmask]
+            validpred = np.maximum(bvalidsub+raw,zmin)
+        else:
+            validpred = zmin+np.maximum(raw,0.0)
+        validloss  = float(np.nanmean((validpred-validtgt)**2))
+        logger.info(f'   Rounded constants: {", ".join(f"{k}={v:.2f}" for k,v in constants.items())}')
+        logger.info(f'   Rounded Training Loss: {trainloss:.6f} | Rounded Validation Loss: {validloss:.6f}')
+        registry[name] = dict(form=form,constants=constants,
                               train_loss=trainloss,valid_loss=validloss)
         save_registry(registry,config)
         for split in splits:
@@ -382,6 +405,6 @@ if __name__=='__main__':
                 logger.info(f'   Skipping {split} predictions, already exist')
                 continue
             logger.info(f'   Generating {split} predictions...')
-            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin)
+            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,combined=combined)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds
