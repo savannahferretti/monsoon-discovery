@@ -170,6 +170,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
     if baselinefrom:
         baselinespec      = config.sr['optimizedeqs'][baselinefrom]
         baselineform      = baselinespec['form']
+        baselinerunconfig = config.sr['runs'][baselinespec['runfrom']]
         registrypath      = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
         baselineconstants = {}
         if os.path.exists(registrypath):
@@ -182,7 +183,36 @@ def load_data(splitname,runconfig,config,time_offset=0):
             raise RuntimeError(
                 f'No optimized constants found for baseline `{baselinefrom}`. '
                 f'Run `python -m scripts.models.sr.optimize --equations {baselinefrom}` first.')
-        baseline = eval_baseline(baselineform,columns,baselineconstants)
+        blvars = {}
+        blfieldvars  = baselinerunconfig['fieldvars']
+        bllocalvars  = baselinerunconfig.get('localvars',[])
+        blweights    = baselinerunconfig.get('weightsfrom')
+        for var in blfieldvars + bllocalvars:
+            if var not in columns:
+                if var in blfieldvars and blweights:
+                    pass
+                else:
+                    da = splitds[var]
+                    blvars[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
+        if blweights and blfieldvars:
+            missing = [v for v in blfieldvars if v not in columns]
+            if missing:
+                nsig_bl      = splitds.sizes['sig']
+                dsig_bl      = splitds['dsig'].values
+                fieldarrays  = [splitds[var].transpose('time','lat','lon','sig').values.reshape(-1,nsig_bl) for var in blfieldvars]
+                fieldstack   = np.stack(fieldarrays,axis=1)
+                surfmask_bl  = splitds['surfmask'].transpose('time','lat','lon','sig').values.reshape(-1,nsig_bl) if 'surfmask' in splitds else None
+                seedfeatures = []
+                for seed in seeds:
+                    weightsds = xr.open_dataset(os.path.join(config.weightsdir,f'{blweights}_{seed}_weights.nc'),engine='h5netcdf')
+                    seedfeatures.append(kernel_integrate(fieldstack,weightsds['k'].values,dsig_bl,surfmask_bl))
+                    weightsds.close()
+                blfeatures = np.mean(seedfeatures,axis=0)
+                for i,var in enumerate(blfieldvars):
+                    if var not in columns:
+                        blvars[var] = blfeatures[:,i]
+        evalcols = {**columns,**blvars}
+        baseline = eval_baseline(baselineform,evalcols,baselineconstants)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
