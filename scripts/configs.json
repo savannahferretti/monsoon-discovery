@@ -104,76 +104,54 @@
                 "cube":{"^":0,"cube":0},
                 "exp":{"^":0,"abs":0,"square":0,"cube":0,"exp":0}},
             "runs": {
-                "sr_bl":{
+                "sr_guass_bl":{
                     "fieldvars":["bl"],
                     "localvars":[],
                     "searchparams":{"maxsize":10}},
-                "sr_atm":{
+                "sr_gauss_atm":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":[],
                     "weightsfrom":"nn_gauss"},
-                "sr_sfc":{
+                "sr_gauss_sfc":{
                     "fieldvars":[],
                     "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_atm"},
-                "sr_all":{
+                "sr_gauss_all":{
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","se","sdo","lhf","shf"],
+                    "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_atm"}},
             "optimizedeqs":{
                 "sr_bl":{
-                    "runfrom":"sr_bl",
+                    "runfrom":"sr_gauss_bl",
                     "refcomplexity":7,
                     "form":"cube(bl+a)+b",
                     "nrestarts":50,
                     "color":"#F2C75E",
                     "description":"SR-BL"},
                 "sr_atm":{
-                    "runfrom":"sr_atm",
+                    "runfrom":"sr_gauss_atm",
                     "form":"a*cube(max(rh,thetae-b*thetaestar-c))",   
                     "nrestarts":50,
                     "color":"#FB992E",
                     "description":"SR-ATM",
                     "refcomplexity":17},
-                "sr_sfc_v1":{
-                    "runfrom":"sr_sfc",
-                    "form":"sr_atm + a*shf*(b - lf)",
+                "sr_sfc":{
+                    "runfrom":"sr_gauss_sfc",
+                    "form":null,
                     "nrestarts":50,
                     "color":"#C44E52",
-                    "description":"SR-SFC-V1",
-                    "refcomplexity":9},
-                "sr_sfc_v2":{
-                    "runfrom":"sr_sfc",
-                    "form":"sr_atm*(a*shf*(b - lf) + c)",
-                    "nrestarts":50,
-                    "color":"#C44E52",
-                    "description":"SR-SFC-V2",
-                    "refcomplexity":11},
-                "sr_sfc_v3":{
-                    "runfrom":"sr_sfc",
-                    "form":"sr_atm*((shf + a)*(b - lf) + c)",
-                    "nrestarts":50,
-                    "color":"#C44E52",
-                    "description":"SR-SFC-V3",
-                    "refcomplexity":13},
-                "sr_all_v1":{
-                    "runfrom":"sr_all",
-                    "form":"sr_atm*c + (shf + a)*(b - lf)*exp(rh)",
+                    "description":"SR-SFC",
+                    "refcomplexity":null},
+                "sr_all":{
+                    "runfrom":"sr_gauss_all",
+                    "form":null,
                     "nrestarts":50,
                     "color":"#577590",
                     "description":"SR-ALL-V1",
                     "seeds":[72],
-                    "refcomplexity":18},
-                "sr_all_v2":{
-                    "runfrom":"sr_all",
-                    "form":"sr_atm*c + (shf + a)*cube(b - lf)*exp(thetae)",
-                    "nrestarts":50,
-                    "color":"#577590",
-                    "description":"SR-ALL-V2",
-                    "seeds":[102],
-                    "refcomplexity":20}
+                    "refcomplexity":null}
             }
         }
     }
