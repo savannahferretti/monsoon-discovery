@@ -76,13 +76,13 @@
             "subsetfrac":0.025,
             "searchparams":{
                 "iterations":500,
-                "populations":20,
+                "populations":30,
                 "populationsize":100,
-                "maxsize":20,
+                "maxsize":30,
                 "maxdepth":10,
                 "batchsize":500,
                 "cyclesperiteration":50,
-                "weightoptimize":0.2,
+                "weightoptimize":0.3,
                 "parsimony":0.004},
             "operators":{
                 "binary":["+","-","*","/","^","min","max"],
