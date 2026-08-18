@@ -29,7 +29,12 @@ SRFUNCTIONS = {
     'sin':   np.sin,
     'cos':   np.cos,
     'max':   np.maximum,
-    'min':   np.minimum}
+    'min':   np.minimum,
+    '_safepow':lambda a,b: np.abs(a)**b}
+
+def _prepare_form(form):
+    import re
+    return re.sub(r'(\w+)\^(\w+)',r'_safepow(\1,\2)',form)
 
 def eval_baseline(form,columns,constants):
     '''
@@ -46,7 +51,7 @@ def eval_baseline(form,columns,constants):
         if col != 'timeidx':
             ns[col] = np.asarray(vals,dtype=float)
     ns.update(constants)
-    out = eval(form.replace('^','**'),ns)
+    out = eval(_prepare_form(form),ns)
     if np.ndim(out) == 0:
         n = len(next(v for v in columns.values() if hasattr(v,'__len__')))
         out = np.full(n,float(out))

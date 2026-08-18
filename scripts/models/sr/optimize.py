@@ -30,7 +30,12 @@ SRFUNCTIONS = {
     'sin':np.sin,
     'cos':np.cos,
     'max':np.maximum,
-    'min':np.minimum}
+    'min':np.minimum,
+    '_safepow':lambda a,b: np.abs(a)**b}
+
+def _prepare_form(form):
+    import re
+    return re.sub(r'(\w+)\^(\w+)',r'_safepow(\1,\2)',form)
 
 SRSYMPY = {
     'cube':lambda x:x**3,
@@ -90,7 +95,7 @@ def eval_form(form,x,predictornames,constants):
     for pname in predictornames:
         ns[pname] = x[pname].values
     ns.update(constants)
-    out = eval(form.replace('^','**'),ns)
+    out = eval(_prepare_form(form),ns)
     if np.ndim(out)==0:
         out = np.full(len(x),float(out))
     return np.asarray(out,dtype=float)
