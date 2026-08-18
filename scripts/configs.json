@@ -125,7 +125,7 @@
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_gauss_bl",
-                    "refcomplexity":8,
+                    "refcomplexity":7,
                     "form":"cube(bl+a)+b",
                     "nrestarts":50,
                     "color":"#F2C75E",
