@@ -46,7 +46,7 @@ def eval_baseline(form,columns,constants):
         if col != 'timeidx':
             ns[col] = np.asarray(vals,dtype=float)
     ns.update(constants)
-    out = eval(form,ns)
+    out = eval(form.replace('^','**'),ns)
     if np.ndim(out) == 0:
         n = len(next(v for v in columns.values() if hasattr(v,'__len__')))
         out = np.full(n,float(out))

@@ -90,7 +90,7 @@ def eval_form(form,x,predictornames,constants):
     for pname in predictornames:
         ns[pname] = x[pname].values
     ns.update(constants)
-    out = eval(form,ns)
+    out = eval(form.replace('^','**'),ns)
     if np.ndim(out)==0:
         out = np.full(len(x),float(out))
     return np.asarray(out,dtype=float)
