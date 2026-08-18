@@ -89,7 +89,7 @@
                 "unary":["neg","abs","square","cube","exp"],
                 "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":2,"max":2,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
             "complexity":{
-                "ofvariables":{"bl":1,"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":1,"lhf":1},
+                "ofvariables":{"bl":1,"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":2,"lhf":2},
                 "ofconstants":1},
             "constraints":{
                 "^":[-10,10]},
@@ -139,14 +139,21 @@
                     "refcomplexity":17},
                 "sr_sfc":{
                     "runfrom":"sr_gauss_sfc",
-                    "form":"sr_atm + a*shf*(b - lf) + c*lhf",
+                    "form":"((shf + a) * (b - lf) + c) * sr_atm",
                     "nrestarts":50,
                     "color":"#C44E52",
                     "description":"SR-SFC",
                     "refcomplexity":12},
+                "sr_sfc_cubic":{
+                    "runfrom":"sr_gauss_sfc",
+                    "form":"sr_atm + a*cube(lf - b)*(shf + c*lhf*lf + d)",
+                    "nrestarts":50,
+                    "color":"#C44E52",
+                    "description":"SR-SFC-CUBIC",
+                    "refcomplexity":18},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
-                    "form":"a*sr_atm + b*(c^lf)*(shf + d*thetae)",
+                    "form":"a*sr_atm + (b^lf)*(shf*(c + thetae) + d*thetae)",
                     "nrestarts":50,
                     "color":"#577590",
                     "description":"SR-ALL",

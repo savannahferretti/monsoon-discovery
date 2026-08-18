@@ -121,7 +121,7 @@ def optimize_constants(form,predictornames,x,y,zmin,init):
         constants = dict(zip(constantnames,params))
         raw       = eval_form(form,x,predictornames,constants)
         pred      = zmin+np.maximum(raw,0.0)
-        return float(np.nanmean((pred-y)**2))
+        return float(np.mean((pred-y)**2))
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
@@ -353,14 +353,14 @@ if __name__=='__main__':
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
         validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
-        validloss  = float(np.nanmean((validpred-validtgt)**2))
+        validloss  = float(np.mean((validpred-validtgt)**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
         logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
         constants  = {k:round(float(v),2) for k,v in constants.items()}
         trainpred  = zmin+np.maximum(eval_form(form,xfit,predictornames,constants),0.0)
-        trainloss  = float(np.nanmean((trainpred-yfit)**2))
+        trainloss  = float(np.mean((trainpred-yfit)**2))
         validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
-        validloss  = float(np.nanmean((validpred-validtgt)**2))
+        validloss  = float(np.mean((validpred-validtgt)**2))
         logger.info(f'   Rounded constants: {", ".join(f"{k}={v:.2f}" for k,v in constants.items())}')
         logger.info(f'   Rounded Training Loss: {trainloss:.6f} | Rounded Validation Loss: {validloss:.6f}')
         registry[name] = dict(form=form,constants=constants,
