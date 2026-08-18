@@ -73,12 +73,12 @@
                     "description":"NN-GAUSS"}}},
         "sr":{
             "seeds":[42,72,102],
-            "subsetfrac":0.05,
+            "subsetfrac":0.025,
             "searchparams":{
                 "iterations":500,
                 "populations":30,
                 "populationsize":200,
-                "maxsize":30,
+                "maxsize":25,
                 "maxdepth":10,
                 "batchsize":500,
                 "cyclesperiteration":100,
@@ -125,7 +125,7 @@
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_gauss_bl",
-                    "refcomplexity":8,
+                    "refcomplexity":7,
                     "form":"cube(bl+a)+b",
                     "nrestarts":50,
                     "color":"#F2C75E",

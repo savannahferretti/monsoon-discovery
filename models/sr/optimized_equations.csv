@@ -1,2 +1,0 @@
-name,form,train_loss,valid_loss,constants
-sr_bl,cube(bl+a)+b,0.62374777577445,0.6227063872909705,"{""a"": 0.41, ""b"": -0.75}"
