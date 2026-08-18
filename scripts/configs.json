@@ -125,7 +125,7 @@
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_gauss_bl",
-                    "refcomplexity":7,
+                    "refcomplexity":8,
                     "form":"cube(bl+a)+b",
                     "nrestarts":50,
                     "color":"#F2C75E",
@@ -137,13 +137,20 @@
                     "color":"#FB992E",
                     "description":"SR-ATM",
                     "refcomplexity":17},
-                "sr_sfc":{
+                "sr_sfc_v1":{
                     "runfrom":"sr_gauss_sfc",
-                    "form":null,
+                    "form":"sr_atm + a*shf*(b - lf)",
                     "nrestarts":50,
                     "color":"#C44E52",
-                    "description":"SR-SFC",
-                    "refcomplexity":null},
+                    "description":"SR-SFC-V1",
+                    "refcomplexity":8},
+                "sr_sfc_v2":{
+                    "runfrom":"sr_gauss_sfc",
+                    "form":"sr_atm + a*shf*(b - lf) + c*lhf",
+                    "nrestarts":50,
+                    "color":"#C44E52",
+                    "description":"SR-SFC-V2",
+                    "refcomplexity":12},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
                     "form":null,
