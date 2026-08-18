@@ -153,12 +153,11 @@
                     "refcomplexity":12},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
-                    "form":null,
+                    "form":"a*sr_atm + b*(c^lf)*(shf + d*thetae)",
                     "nrestarts":50,
                     "color":"#577590",
-                    "description":"SR-ALL-V1",
-                    "seeds":[72],
-                    "refcomplexity":null}
+                    "description":"SR-ALL",
+                    "refcomplexity":18}
             }
         }
     }
