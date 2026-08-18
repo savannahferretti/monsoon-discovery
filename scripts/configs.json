@@ -151,6 +151,13 @@
                     "color":"#C44E52",
                     "description":"SR-SFC-V2",
                     "refcomplexity":12},
+                "sr_sfc_v3":{
+                    "runfrom":"sr_gauss_sfc",
+                    "form":"sr_atm + a*shf*cube(lf - b) + c*lhf",
+                    "nrestarts":50,
+                    "color":"#B07AA1",
+                    "description":"SR-SFC-V3",
+                    "refcomplexity":14},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
                     "form":"a*sr_atm + b*(c^lf)*(shf + d*thetae)",
