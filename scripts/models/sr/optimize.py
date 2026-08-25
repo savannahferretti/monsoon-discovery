@@ -318,7 +318,7 @@ if __name__=='__main__':
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
         xfit       = xfitfull[predictornames]
-        nrestarts     = eqspec.get('nrestarts',1)
+        nrestarts     = 50
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
         refcomplexity = eqspec.get('refcomplexity')

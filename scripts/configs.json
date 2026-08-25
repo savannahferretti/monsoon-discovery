@@ -117,50 +117,45 @@
                     "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_atm"},
-                "sr_gauss_sfc_v2":{
-                    "fieldvars":[],
-                    "localvars":["lhf","shf"],
-                    "weightsfrom":"nn_gauss",
-                    "baselinefrom":"sr_atm"},
                 "sr_gauss_all":{
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","lhf","shf"],
+                    "localvars":[],
                     "weightsfrom":"nn_gauss",
-                    "baselinefrom":"sr_atm"}},
+                    "baselinefrom":"sr_sfc"}},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_gauss_bl",
                     "refcomplexity":7,
                     "form":"cube(bl+a)+b",
-                    "nrestarts":50,
+
                     "color":"#F2C75E",
                     "description":"SR-BL"},
                 "sr_atm":{
                     "runfrom":"sr_gauss_atm",
                     "refcomplexity":17,
                     "form":"a*cube(max(rh,thetae-b*thetaestar-c))",   
-                    "nrestarts":50,
+
                     "color":"#FB992E",
                     "description":"SR-ATM"},
-                "sr_sfc_cub":{
+                "sr_sfc":{
                     "runfrom":"sr_gauss_sfc",
                     "refcomplexity":13,
-                    "form":"sr_atm + (shf + a)*cube(b - lf)",
-                    "nrestarts":50,
+                    "form":"sr_atm+(shf+a)*cube(b-lf)",
+
                     "color":"#C44E52",
-                    "description":"SR-SFC-CUBIC"},
-                "sr_all_cub":{
+                    "description":"SR-SFC"},
+                "sr_all":{
                     "runfrom":"sr_gauss_all",
                     "refcomplexity":18,
                     "form":"a*sr_atm + (thetae + b*shf)*cube(c - lf)",
-                    "nrestarts":50,
+
                     "color":"#577590",
                     "description":"SR-ALL-CUBIC"},
                 "sr_all_mul":{
                     "runfrom":"sr_gauss_all",
                     "refcomplexity":16,
                     "form":"sr_atm * ((a - lf)*(shf + b*thetae) + c)",
-                    "nrestarts":50,
+
                     "color":"#3D5A80",
                     "description":"SR-ALL-MULT"}
             }
