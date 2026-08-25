@@ -117,6 +117,11 @@
                     "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_atm"},
+                "sr_gauss_sfc_v2":{
+                    "fieldvars":[],
+                    "localvars":["lhf","shf"],
+                    "weightsfrom":"nn_gauss",
+                    "baselinefrom":"sr_atm"},
                 "sr_gauss_all":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","lhf","shf"],
@@ -136,21 +141,6 @@
                     "form":"a*cube(max(rh,thetae-b*thetaestar-c))",   
                     "nrestarts":50,
                     "color":"#FB992E",
-                    "description":"SR-ATM"},
-                "sr_sfc":{
-                    "runfrom":"sr_gauss_sfc",
-                    "form":"((shf + a) * (b - lf) + c) * sr_atm",
-                    "nrestarts":50,
-                    "color":"#C44E52",
-                    "description":"SR-SFC",
-                    "refcomplexity":12},
-                "sr_sfc_lin":{
-                    "runfrom":"sr_gauss_sfc",
-                    "form":"sr_atm + shf*(a - lf)",
-                    "nrestarts":50,
-                    "color":"#E07B7B",
-                    "description":"SR-SFC-LINEAR",
-                    "refcomplexity":9},
                 "sr_sfc_cub":{
                     "runfrom":"sr_gauss_sfc",
                     "form":"sr_atm + (shf + a)*cube(b - lf)",
@@ -158,13 +148,6 @@
                     "color":"#C44E52",
                     "description":"SR-SFC-CUBIC",
                     "refcomplexity":13},
-                "sr_sfc_lhf":{
-                    "runfrom":"sr_gauss_sfc",
-                    "form":"sr_atm + ((a - lf)*shf + b*lhf)*c",
-                    "nrestarts":50,
-                    "color":"#A83232",
-                    "description":"SR-SFC-LHF",
-                    "refcomplexity":14},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
                     "form":"a*sr_atm + (b^lf)*(shf*(c + thetae) + d*thetae)",
