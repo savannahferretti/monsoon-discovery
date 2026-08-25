@@ -149,13 +149,20 @@
                     "nrestarts":50,
                     "color":"#C44E52",
                     "description":"SR-SFC-CUBIC"},
-                "sr_all":{
+                "sr_all_cub":{
                     "runfrom":"sr_gauss_all",
                     "refcomplexity":18,
-                    "form":"a*sr_atm + (b^lf)*(shf*(c + thetae) + d*thetae)",
+                    "form":"a*sr_atm + (thetae + b*shf)*cube(c - lf)",
                     "nrestarts":50,
                     "color":"#577590",
-                    "description":"SR-ALL"}
+                    "description":"SR-ALL-CUBIC"},
+                "sr_all_mul":{
+                    "runfrom":"sr_gauss_all",
+                    "refcomplexity":16,
+                    "form":"sr_atm * ((a - lf)*(shf + b*thetae) + c)",
+                    "nrestarts":50,
+                    "color":"#3D5A80",
+                    "description":"SR-ALL-MULT"}
             }
         }
     }
