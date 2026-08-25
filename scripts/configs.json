@@ -117,16 +117,11 @@
                     "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_atm"},
-                "sr_gauss_sfc_v2":{
-                    "fieldvars":[],
-                    "localvars":["lhf","shf"],
-                    "weightsfrom":"nn_gauss",
-                    "baselinefrom":"sr_atm"},
                 "sr_gauss_all":{
                     "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","lhf","shf"],
+                    "localvars":[],
                     "weightsfrom":"nn_gauss",
-                    "baselinefrom":"sr_atm"}},
+                    "baselinefrom":"sr_sfc"}},
             "optimizedeqs":{
                 "sr_bl":{
                     "runfrom":"sr_gauss_bl",
@@ -142,13 +137,13 @@
                     "nrestarts":50,
                     "color":"#FB992E",
                     "description":"SR-ATM"},
-                "sr_sfc_cub":{
+                "sr_sfc":{
                     "runfrom":"sr_gauss_sfc",
                     "refcomplexity":13,
-                    "form":"sr_atm + (shf + a)*cube(b - lf)",
+                    "form":"sr_atm+(shf+a)*cube(b-lf)",
                     "nrestarts":50,
                     "color":"#C44E52",
-                    "description":"SR-SFC-CUBIC"},
+                    "description":"SR-SFC"},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
                     "refcomplexity":18,
