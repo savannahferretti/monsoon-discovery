@@ -141,20 +141,21 @@
                     "form":"a*cube(max(rh,thetae-b*thetaestar-c))",   
                     "nrestarts":50,
                     "color":"#FB992E",
+                    "description":"SR-ATM"},
                 "sr_sfc_cub":{
                     "runfrom":"sr_gauss_sfc",
+                    "refcomplexity":13,
                     "form":"sr_atm + (shf + a)*cube(b - lf)",
                     "nrestarts":50,
                     "color":"#C44E52",
-                    "description":"SR-SFC-CUBIC",
-                    "refcomplexity":13},
+                    "description":"SR-SFC-CUBIC"},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
+                    "refcomplexity":18,
                     "form":"a*sr_atm + (b^lf)*(shf*(c + thetae) + d*thetae)",
                     "nrestarts":50,
                     "color":"#577590",
-                    "description":"SR-ALL",
-                    "refcomplexity":18}
+                    "description":"SR-ALL"}
             }
         }
     }
