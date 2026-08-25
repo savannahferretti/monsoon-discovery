@@ -76,14 +76,14 @@
             "subsetfrac":0.025,
             "searchparams":{
                 "iterations":500,
-                "populations":30,
-                "populationsize":200,
+                "populations":25,
+                "populationsize":150,
                 "maxsize":25,
                 "maxdepth":10,
                 "batchsize":500,
-                "cyclesperiteration":100,
-                "weightoptimize":0.4,
-                "parsimony":0.002},
+                "cyclesperiteration":50,
+                "weightoptimize":0.25,
+                "parsimony":0.0025},
             "operators":{
                 "binary":["+","-","*","/","^","min","max"],
                 "unary":["neg","abs","square","cube","exp"],
@@ -132,11 +132,11 @@
                     "description":"SR-BL"},
                 "sr_atm":{
                     "runfrom":"sr_gauss_atm",
+                    "refcomplexity":17,
                     "form":"a*cube(max(rh,thetae-b*thetaestar-c))",   
                     "nrestarts":50,
                     "color":"#FB992E",
-                    "description":"SR-ATM",
-                    "refcomplexity":17},
+                    "description":"SR-ATM"},
                 "sr_sfc":{
                     "runfrom":"sr_gauss_sfc",
                     "form":"((shf + a) * (b - lf) + c) * sr_atm",
