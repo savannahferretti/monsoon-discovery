@@ -144,14 +144,14 @@
                     "color":"#C44E52",
                     "description":"SR-SFC",
                     "refcomplexity":12},
-                "sr_sfc_linear":{
+                "sr_sfc_lin":{
                     "runfrom":"sr_gauss_sfc",
                     "form":"sr_atm + shf*(a - lf)",
                     "nrestarts":50,
                     "color":"#E07B7B",
                     "description":"SR-SFC-LINEAR",
                     "refcomplexity":9},
-                "sr_sfc_cubic":{
+                "sr_sfc_cub":{
                     "runfrom":"sr_gauss_sfc",
                     "form":"sr_atm + (shf + a)*cube(b - lf)",
                     "nrestarts":50,
