@@ -117,6 +117,18 @@
                     "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_atm"},
+                "sr_gauss_sfc_ocean":{
+                    "fieldvars":[],
+                    "localvars":["shf","lhf"],
+                    "weightsfrom":"nn_gauss",
+                    "baselinefrom":"sr_atm",
+                    "domainmask":{"var":"lf","op":"<","val":0.5}},
+                "sr_gauss_sfc_land":{
+                    "fieldvars":[],
+                    "localvars":["shf","lhf"],
+                    "weightsfrom":"nn_gauss",
+                    "baselinefrom":"sr_atm",
+                    "domainmask":{"var":"lf","op":">=","val":0.5}},
                 "sr_gauss_all":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":[],
@@ -141,6 +153,12 @@
                     "form":"sr_atm+(shf+a)*cube(b-lf)",
                     "color":"#C44E52",
                     "description":"SR-SFC"},
+                "sr_sfc_pw":{
+                    "runfrom":"sr_gauss_sfc",
+                    "refcomplexity":null,
+                    "form":null,
+                    "color":"#9B2948",
+                    "description":"SR-SFC-PW"},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
                     "refcomplexity":14,

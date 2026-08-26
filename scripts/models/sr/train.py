@@ -264,6 +264,12 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
+    domainmaskspec = runconfig.get('domainmask')
+    if domainmaskspec:
+        maskda = splitds[domainmaskspec['var']]
+        maskvals = maskda.transpose('time','lat','lon').values.ravel() if 'time' in maskda.dims else np.tile(maskda.values,(ntime,1,1)).ravel()
+        ops = {'<':np.less,'<=':np.less_equal,'>':np.greater,'>=':np.greater_equal}
+        validmask = validmask & ops[domainmaskspec['op']](maskvals,domainmaskspec['val'])
     splitds.close()
     return features,target,refda,validmask,baseline
 
