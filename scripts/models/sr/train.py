@@ -181,6 +181,7 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
         baselinerunconfig = config.sr['runs'][baselinespec['runfrom']]
         registrypath      = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
         baselineconstants = {}
+        registry          = {}
         if os.path.exists(registrypath):
             with open(registrypath,'rb') as f:
                 registry = pickle.load(f)
@@ -220,6 +221,41 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
                     if var not in columns:
                         blvars[var] = blfeatures[:,i]
         evalcols = {**columns,**blvars}
+        for depname,depspec in config.sr['optimizedeqs'].items():
+            if depname == baselinefrom or depname in evalcols or depname not in baselineform:
+                continue
+            deprun  = config.sr['runs'][depspec['runfrom']]
+            depconst = {k:round(v,2) for k,v in registry.get(depname,{}).get('constants',{}).items()} if registry else {}
+            if not depconst:
+                raise RuntimeError(f'Baseline `{baselinefrom}` references `{depname}` but no constants found.')
+            depcols = dict(evalcols)
+            depfieldvars = deprun['fieldvars']
+            depweights   = deprun.get('weightsfrom')
+            for var in depfieldvars + deprun.get('localvars',[]):
+                if var not in depcols:
+                    if var in depfieldvars and depweights:
+                        pass
+                    else:
+                        da = splitds[var]
+                        depcols[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
+            if depweights and depfieldvars:
+                depmissing = [v for v in depfieldvars if v not in depcols]
+                if depmissing:
+                    nsig_dep     = splitds.sizes['sig']
+                    dsig_dep     = splitds['dsig'].values
+                    fieldarrays_dep = [splitds[v].transpose('time','lat','lon','sig').values.reshape(-1,nsig_dep) for v in depfieldvars]
+                    fieldstack_dep  = np.stack(fieldarrays_dep,axis=1)
+                    surfmask_dep = splitds['surfmask'].transpose('time','lat','lon','sig').values.reshape(-1,nsig_dep) if 'surfmask' in splitds else None
+                    seedfeats = []
+                    for seed in seeds:
+                        wds = xr.open_dataset(os.path.join(config.weightsdir,f'{depweights}_{seed}_weights.nc'),engine='h5netcdf')
+                        seedfeats.append(kernel_integrate(fieldstack_dep,wds['k'].values,dsig_dep,surfmask_dep))
+                        wds.close()
+                    depfeats = np.mean(seedfeats,axis=0)
+                    for i,var in enumerate(depfieldvars):
+                        if var not in depcols:
+                            depcols[var] = depfeats[:,i]
+            evalcols[depname] = eval_baseline(depspec['form'],depcols,depconst)
         baseline = eval_baseline(baselineform,evalcols,baselineconstants)
         columns[baselinefrom] = baseline
         if include_baseline_vars:
