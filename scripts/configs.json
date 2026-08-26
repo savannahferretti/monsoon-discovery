@@ -143,8 +143,8 @@
                     "description":"SR-SFC"},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
-                    "refcomplexity":null,
-                    "form":null,
+                    "refcomplexity":14,
+                    "form":"a*(rh+b)*sr_sfc+c*thetae",
                     "color":"#577590",
                     "description":"SR-ALL"}
             }
