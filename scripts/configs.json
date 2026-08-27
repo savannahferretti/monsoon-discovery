@@ -156,7 +156,8 @@
                 "sr_sfc_pw":{
                     "runfrom":"sr_gauss_sfc",
                     "refcomplexity":null,
-                    "form":null,
+                    "form":"(1-lf)*((sr_atm+a)*(shf+b)+c)+lf*(sr_atm+d*lhf-e*shf)",
+                    "init":{"a":0.47,"b":1.0,"c":-0.36,"d":0.40,"e":0.59},
                     "color":"#9B2948",
                     "description":"SR-SFC-PW"},
                 "sr_all":{
