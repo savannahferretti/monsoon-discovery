@@ -263,6 +263,17 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
+    targetfrom = runconfig.get('targetfrom')
+    if targetfrom:
+        statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+        with open(statsfile,'r',encoding='utf-8') as f:
+            stats = json.load(f)
+        predpath = os.path.join(config.predsdir,f'{targetfrom}_{splitname}_predictions.nc')
+        with xr.open_dataset(predpath) as pds:
+            predtp = pds.tp.load()
+        if 'seed' in predtp.dims:predtp = predtp.mean('seed')
+        predtp = predtp.transpose('time','lat','lon')
+        target = (np.log1p(predtp.values.clip(min=0).ravel())-stats['tp_mean'])/stats['tp_std']
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
     domainmaskspec = runconfig.get('domainmask')
     if domainmaskspec:
