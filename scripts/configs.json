@@ -135,7 +135,7 @@
                     "weightsfrom":"nn_gauss",
                     "baselinefrom":"sr_sfc"},
                 "sr_gauss_direct":{
-                    "fieldvars":["bl","rh","thetae","thetaestar"],
+                    "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss",
                     "searchparams":{"maxsize":35}},
