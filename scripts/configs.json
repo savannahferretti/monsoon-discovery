@@ -156,14 +156,15 @@
                 "sr_sfc_pw":{
                     "runfrom":"sr_gauss_sfc",
                     "refcomplexity":null,
-                    "form":"(1-lf)*((sr_atm+a)*(shf+b)+c)+lf*(sr_atm+d*lhf-e*shf)",
-                    "init":{"a":0.47,"b":1.0,"c":-0.36,"d":0.40,"e":0.59},
+                    "form":"(1-lf)*((sr_atm+a)*min(b,shf+c)+d)+lf*(sr_atm+e*lhf-f*shf)",
+                    "init":{"a":0.73,"b":1.45,"c":1.0,"d":-0.58,"e":0.40,"f":0.59},
                     "color":"#9B2948",
                     "description":"SR-SFC-PW"},
                 "sr_all":{
                     "runfrom":"sr_gauss_all",
                     "refcomplexity":14,
                     "form":"a*(rh+b)*sr_sfc+c*thetae",
+                    "init":{"a":0.18,"b":4.3,"c":0.11},
                     "color":"#577590",
                     "description":"SR-ALL"}
             }
