@@ -177,7 +177,21 @@
                     "form":"a*(rh+b)*sr_sfc+c*thetae",
                     "init":{"a":0.18,"b":4.3,"c":0.11},
                     "color":"#577590",
-                    "description":"SR-ALL"}
+                    "description":"SR-ALL"},
+                "sr_direct":{
+                    "runfrom":"sr_gauss_direct",
+                    "refcomplexity":null,
+                    "form":"cube(rh)+(thetae-a*thetaestar)*(b+(shf+c)*(d*lf+e))+f",
+                    "init":{"a":1.25,"b":1.7,"c":0.3,"d":-3.5,"e":3.3,"f":-0.5},
+                    "color":"#6A4C93",
+                    "description":"SR-DIRECT"},
+                "sr_distill":{
+                    "runfrom":"sr_gauss_direct",
+                    "refcomplexity":null,
+                    "form":"cube(rh)+a*(thetae-b*thetaestar)+(c-lf)*(shf+d)+e",
+                    "init":{"a":2.1,"b":1.0,"c":1.0,"d":0.7,"e":-2.3},
+                    "color":"#1982C4",
+                    "description":"SR-DISTILL"}
             }
         }
     }
