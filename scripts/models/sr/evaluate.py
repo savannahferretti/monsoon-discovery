@@ -116,11 +116,10 @@ if __name__=='__main__':
         fieldvars   = runconfig['fieldvars']
         localvars   = runconfig.get('localvars',[])
         weightsfrom = runconfig.get('weightsfrom')
-        baselinefrom = runconfig.get('baselinefrom')
-        cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,baselinefrom,split)
+        cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,split)
         if cachekey!=cachedkey:
             logger.info(f'   Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
-            x,y,refda,validmask,_ = load_data(split,runconfig,config)
+            x,y,refda,validmask = load_data(split,runconfig,config)
             cachedkey  = cachekey
             cacheddata = (x,y,refda,validmask)
         else:

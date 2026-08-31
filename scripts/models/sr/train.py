@@ -116,26 +116,7 @@ def kernel_integrate(fields,weights,dsig,mask=None):
         weighted = weighted*mask[:,None,:]
     return weighted.sum(axis=2)
 
-def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=False):
-    '''
-    Purpose: Load a normalized data split and construct predictor features for symbolic
-        regression. If 'weightsfrom' is set, vertically integrate field variables using kernel
-        weights from a previously trained NN model, averaging across seeds; otherwise read
-        scalar field variables directly. A 'timeidx' column is appended so that the
-        subsampler can select whole timesteps.
-    Args:
-    - splitname (str): 'train' | 'valid' | 'test'
-    - runconfig (dict): run configuration with keys 'fieldvars', 'localvars', and optionally 'weightsfrom'
-    - config (Config): project configuration object
-    - time_offset (int): added to each time index so that train and valid indices are globally unique
-    - include_baseline_vars (bool): if True, baseline input variables are added to the feature DataFrame
-    Returns:
-    - tuple[pd.DataFrame, np.ndarray, xr.DataArray, np.ndarray, np.ndarray|None]:
-        (features, target, refda, validmask, baseline) where baseline is the flat
-        baseline prediction when baselinefrom is set, or None otherwise; when baselinefrom
-        is set the baseline prediction is added as a feature column (named after baselinefrom)
-        and target is the original y (not a residual)
-    '''
+def load_data(splitname,runconfig,config,time_offset=0):
     fieldvars    = runconfig['fieldvars']
     localvars    = runconfig.get('localvars',[])
     weightsfrom  = runconfig.get('weightsfrom')
@@ -173,93 +154,6 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
     for var in localvars:
         da = splitds[var]
         columns[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
-    baseline = None
-    baselinefrom = runconfig.get('baselinefrom')
-    if baselinefrom:
-        baselinespec      = config.sr['optimizedeqs'][baselinefrom]
-        baselineform      = baselinespec['form']
-        baselinerunconfig = config.sr['runs'][baselinespec['runfrom']]
-        registrypath      = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
-        baselineconstants = {}
-        registry          = {}
-        if os.path.exists(registrypath):
-            with open(registrypath,'rb') as f:
-                registry = pickle.load(f)
-            baselineconstants = {k:round(v,2) for k,v in registry.get(baselinefrom,{}).get('constants',{}).items()}
-        if not baselineconstants:
-            baselineconstants = {k:round(v,2) for k,v in baselinespec.get('init',{}).items()}
-        if not baselineconstants:
-            raise RuntimeError(
-                f'No optimized constants found for baseline `{baselinefrom}`. '
-                f'Run `python -m scripts.models.sr.optimize --equations {baselinefrom}` first.')
-        blvars = {}
-        blfieldvars  = baselinerunconfig['fieldvars']
-        bllocalvars  = baselinerunconfig.get('localvars',[])
-        blweights    = baselinerunconfig.get('weightsfrom')
-        for var in blfieldvars + bllocalvars:
-            if var not in columns:
-                if var in blfieldvars and blweights:
-                    pass
-                else:
-                    da = splitds[var]
-                    blvars[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
-        if blweights and blfieldvars:
-            missing = [v for v in blfieldvars if v not in columns]
-            if missing:
-                nsig_bl      = splitds.sizes['sig']
-                dsig_bl      = splitds['dsig'].values
-                fieldarrays  = [splitds[var].transpose('time','lat','lon','sig').values.reshape(-1,nsig_bl) for var in blfieldvars]
-                fieldstack   = np.stack(fieldarrays,axis=1)
-                surfmask_bl  = splitds['surfmask'].transpose('time','lat','lon','sig').values.reshape(-1,nsig_bl) if 'surfmask' in splitds else None
-                seedfeatures = []
-                for seed in seeds:
-                    weightsds = xr.open_dataset(os.path.join(config.weightsdir,f'{blweights}_{seed}_weights.nc'),engine='h5netcdf')
-                    seedfeatures.append(kernel_integrate(fieldstack,weightsds['k'].values,dsig_bl,surfmask_bl))
-                    weightsds.close()
-                blfeatures = np.mean(seedfeatures,axis=0)
-                for i,var in enumerate(blfieldvars):
-                    if var not in columns:
-                        blvars[var] = blfeatures[:,i]
-        evalcols = {**columns,**blvars}
-        for depname,depspec in config.sr['optimizedeqs'].items():
-            if depname == baselinefrom or depname in evalcols or depname not in baselineform:
-                continue
-            deprun  = config.sr['runs'][depspec['runfrom']]
-            depconst = {k:round(v,2) for k,v in registry.get(depname,{}).get('constants',{}).items()} if registry else {}
-            if not depconst:
-                raise RuntimeError(f'Baseline `{baselinefrom}` references `{depname}` but no constants found.')
-            depcols = dict(evalcols)
-            depfieldvars = deprun['fieldvars']
-            depweights   = deprun.get('weightsfrom')
-            for var in depfieldvars + deprun.get('localvars',[]):
-                if var not in depcols:
-                    if var in depfieldvars and depweights:
-                        pass
-                    else:
-                        da = splitds[var]
-                        depcols[var] = da.transpose('time','lat','lon').values.ravel() if 'time' in da.dims else np.tile(da.values,(ntime,1,1)).ravel()
-            if depweights and depfieldvars:
-                depmissing = [v for v in depfieldvars if v not in depcols]
-                if depmissing:
-                    nsig_dep     = splitds.sizes['sig']
-                    dsig_dep     = splitds['dsig'].values
-                    fieldarrays_dep = [splitds[v].transpose('time','lat','lon','sig').values.reshape(-1,nsig_dep) for v in depfieldvars]
-                    fieldstack_dep  = np.stack(fieldarrays_dep,axis=1)
-                    surfmask_dep = splitds['surfmask'].transpose('time','lat','lon','sig').values.reshape(-1,nsig_dep) if 'surfmask' in splitds else None
-                    seedfeats = []
-                    for seed in seeds:
-                        wds = xr.open_dataset(os.path.join(config.weightsdir,f'{depweights}_{seed}_weights.nc'),engine='h5netcdf')
-                        seedfeats.append(kernel_integrate(fieldstack_dep,wds['k'].values,dsig_dep,surfmask_dep))
-                        wds.close()
-                    depfeats = np.mean(seedfeats,axis=0)
-                    for i,var in enumerate(depfieldvars):
-                        if var not in depcols:
-                            depcols[var] = depfeats[:,i]
-            evalcols[depname] = eval_baseline(depspec['form'],depcols,depconst)
-        baseline = eval_baseline(baselineform,evalcols,baselineconstants)
-        columns[baselinefrom] = baseline
-        if include_baseline_vars:
-            columns.update(blvars)
     columns['timeidx'] = np.repeat(np.arange(ntime),nlat*nlon)+time_offset
     features  = pd.DataFrame(columns)
     target    = refda.values.ravel()
@@ -275,14 +169,8 @@ def load_data(splitname,runconfig,config,time_offset=0,include_baseline_vars=Fal
         predtp = predtp.transpose('time','lat','lon')
         target = (np.log1p(predtp.values.clip(min=0).ravel())-stats['tp_mean'])/stats['tp_std']
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
-    domainmaskspec = runconfig.get('domainmask')
-    if domainmaskspec:
-        maskda = splitds[domainmaskspec['var']]
-        maskvals = maskda.transpose('time','lat','lon').values.ravel() if 'time' in maskda.dims else np.tile(maskda.values,(ntime,1,1)).ravel()
-        ops = {'<':np.less,'<=':np.less_equal,'>':np.greater,'>=':np.greater_equal}
-        validmask = validmask & ops[domainmaskspec['op']](maskvals,domainmaskspec['val'])
     splitds.close()
-    return features,target,refda,validmask,baseline
+    return features,target,refda,validmask
 
 def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     '''
@@ -334,25 +222,20 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
 
 TIMEOUT = 19800
 
-def fit(xsub,ysub,predictors,srconfig,seed,procs,tmpdir):
-    '''
-    Purpose: Instantiate and fit a PySRRegressor on the given data subset. Operators,
-        complexity penalties, and operator constraints are read from srconfig so they can be
-        tuned in configs.json without touching this script. Parallelism is achieved via Julia
-        worker processes rather than threads.
-    Args:
-    - xsub (pd.DataFrame): predictor features with shape (subsetsize, nfeatures)
-    - ysub (np.ndarray): target values with shape (subsetsize,)
-    - predictors (list[str]): variable names corresponding to columns of xsub
-    - srconfig (dict): SR experiment configuration with keys 'searchparams', 'operators',
-        'complexity', 'constraints', and 'nestedconstraints'
-    - seed (int): random seed for PySR search
-    - procs (int): number of Julia worker processes
-    - tmpdir (str): temporary directory for Julia equation files (timeout uses the module-level TIMEOUT constant)
-    - tmpdir (str): temporary directory for Julia equation files
-    Returns:
-    - PySRRegressor: fitted model containing the full Pareto frontier of discovered equations
-    '''
+def build_guesses(runconfig,predictors):
+    guessforms = runconfig.get('guesses',[])
+    if not guessforms:
+        return []
+    varmap = {name:f'x{i}' for i,name in enumerate(predictors)}
+    guesses = []
+    for form in guessforms:
+        expr = form
+        for name,xi in sorted(varmap.items(),key=lambda kv:-len(kv[0])):
+            expr = expr.replace(name,xi)
+        guesses.append(expr)
+    return guesses
+
+def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     searchparams      = srconfig['searchparams']
     operators         = srconfig['operators']
     complexityparams  = srconfig['complexity']
@@ -365,9 +248,10 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,tmpdir):
         stats = json.load(f)
     zmin = (0.0-stats['tp_mean'])/stats['tp_std']
     loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss') == 'plainmse' else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
+    guesses = build_guesses(runconfig,predictors)
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor
-    model = PySRRegressor(
+    kwargs = dict(
         niterations=niterations,
         populations=populations,
         population_size=searchparams['populationsize'],
@@ -385,9 +269,8 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,tmpdir):
         constraints=constraints,
         nested_constraints=nestedconstraints,
         extra_sympy_mappings={'square':lambda x:x**2},
-        loss=loss,
+        elementwise_loss=loss,
         model_selection='best',
-        batching=True,
         batch_size=searchparams['batchsize'],
         random_state=seed,
         parallelism='multithreading',
@@ -397,6 +280,11 @@ def fit(xsub,ysub,predictors,srconfig,seed,procs,tmpdir):
         delete_tempfiles=True,
         timeout_in_seconds=TIMEOUT,
         progress=False)
+    if guesses:
+        kwargs['guesses'] = guesses
+        kwargs['fraction_replaced_guesses'] = searchparams.get('fractionreplacedguesses',0.01)
+        logger.info(f'   Seeding search with {len(guesses)} guess(es)')
+    model = PySRRegressor(**kwargs)
     model.fit(xsub.values,ysub,variable_names=predictors)
     return model
 
@@ -440,8 +328,8 @@ if __name__=='__main__':
         populations  = searchparams.get('populations',3*procs)
         niterations  = searchparams.get('targettotal',searchparams['iterations']*populations)//populations
         logger.info(f'Loading normalized training and validation splits for `{name}`...')
-        xtrain,ytrain,reftrain,trainmask,_ = load_data('train',runconfig,config,time_offset=0)
-        xvalid,yvalid,_,validmask,_       = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
+        xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
+        xvalid,yvalid,_,validmask       = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
         predictors = [c for c in xtrain.columns if c != 'timeidx']
         xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
@@ -457,7 +345,7 @@ if __name__=='__main__':
             logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
-                model = fit(xsub,ysub,predictors,srrun,seed,procs,tempdirpath)
+                model = fit(xsub,ysub,predictors,srrun,runconfig,seed,procs,tempdirpath)
             finally:
                 shutil.rmtree(tempdirpath,ignore_errors=True)
             save(model,name,seed,config)
