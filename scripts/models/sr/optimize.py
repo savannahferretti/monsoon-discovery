@@ -263,7 +263,7 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
     Returns:
     - xr.Dataset: predictions in native units with dims (time, lat, lon)
     '''
-    x,y,refda,validmask,_ = load_data(split,runconfig,config,include_baseline_vars=True)
+    x,y,refda,validmask = load_data(split,runconfig,config)
     xvalid = x[validmask][predictornames].reset_index(drop=True)
     raw    = eval_form(form,xvalid,predictornames,constants)
     pred   = zmin+np.maximum(raw,0.0)
@@ -309,8 +309,8 @@ if __name__=='__main__':
         logger.info(f'Optimizing `{name}`...')
         if runname not in datacache:
             logger.info(f'   Loading training + validation sets...')
-            xtrain,ytrain,reftrain,trainmask,_ = load_data('train',runconfig,config,time_offset=0,include_baseline_vars=True)
-            xvalid,yvalid,_,validmask,_        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']),include_baseline_vars=True)
+            xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
+            xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
             xfit  = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
             yfit  = np.concatenate([ytrain[trainmask],yvalid[validmask]])
             datacache[runname] = (xfit,yfit,xvalid,yvalid,validmask)

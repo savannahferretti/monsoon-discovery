@@ -110,7 +110,7 @@
                      "guesses":["cube(max(rh,thetae-thetaestar))"]}},
             "optimizedeqs":{
                 "sr_bl_eq":{
-                    "runfrom":"sr_gauss_bl",
+                    "runfrom":"sr_bl",
                     "refcomplexity":7,
                     "form":"cube(bl+a)+b",
                     "color":"#F2C75E",
