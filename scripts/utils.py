@@ -98,10 +98,6 @@ class Config:
         return self.domain['target']
 
     @property
-    def pod(self):
-        return self.experiments['pod']
-
-    @property
     def nn(self):
         return self.experiments['nn']
 

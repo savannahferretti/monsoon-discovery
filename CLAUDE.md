@@ -25,11 +25,9 @@ python -m scripts.data.calculate
 python -m scripts.data.split
 
 # Training
-python -m scripts.models.pod.train
 python -m scripts.models.nn.train --runs all # or comma-separated nn_bl,nn_full
 
 # Evaluation
-python -m scripts.models.pod.evaluate --split test
 python -m scripts.models.nn.evaluate --runs all --split test
 python -m scripts.models.sr.evaluate --runs all --split test
 
@@ -62,13 +60,11 @@ Claude Code works on a `claude` branch and cannot run experiments here (no NERSC
 
 ## Configuration
 
-`scripts/configs.json` holds all parameters; `scripts/utils.py:Config` exposes them as attributes. Key blocks: `filepaths` (NERSC CFS paths — update locally), `domain` (JJA 2000–2020, 5–25°N 60–90°E), `splits` (train 2000–2014, valid 2015–2017, test 2018–2020), `variables`, `experiments` (per-run configs for `pod`/`nn`/`sr`). New run → add entry to `experiments.<type>.runs`.
+`scripts/configs.json` holds all parameters; `scripts/utils.py:Config` exposes them as attributes. Key blocks: `filepaths` (NERSC CFS paths — update locally), `domain` (JJA 2000–2020, 5–25°N 60–90°E), `splits` (train 2000–2014, valid 2015–2017, test 2018–2020), `variables`, `experiments` (per-run configs for `nn`/`sr`). New run → add entry to `experiments.<type>.runs`.
 
 ## Architecture
 
 **Data Pipeline:** raw ERA5/IMERG → thermodynamic variables (`rh`, `thetae`, `thetaestar`, `bl`, surface fluxes, `dsig`) → HDF5 splits, raw + normalized. Stats → `data/splits/stats.json`. Splits use `h5netcdf` engine.
-
-**POD** (`scripts/models/pod/`): ramp model `alpha * max(0, bl - xcrit)`, fit to binned training data. Saved as `.npz`.
 
 **NN** (`scripts/models/nn/`): three `kind` variants — `baseline` (flattened profiles + local vars), `nonparametric` (free-form learned vertical kernel), `parametric` (Gaussian kernel, learnable mu/sigma). Shared 4-layer GELU backbone; output `zmin + ReLU(f(x))` (non-negative precip). Target: z-scored `log1p(tp)`. Kernel models save integration weights to `data/weights/`, reused by SR. Checkpoints: `{run}_{seed}.pth`. Logged to W&B.
 
