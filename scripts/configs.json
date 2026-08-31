@@ -64,7 +64,7 @@
                 "iterations":500,
                 "populations":25,
                 "populationsize":150,
-                "maxsize":25,
+                "maxsize":30,
                 "maxdepth":10,
                 "batchsize":500,
                 "cyclesperiteration":50,
@@ -90,66 +90,49 @@
                 "cube":{"^":0,"cube":0},
                 "exp":{"^":0,"abs":0,"square":0,"cube":0,"exp":0}},
             "runs": {
-                "sr_gauss_bl":{
+                "sr_bl":{
                     "fieldvars":["bl"],
                     "localvars":[],
                     "searchparams":{"maxsize":10}},
-                "sr_gauss_atm":{
+                "sr_atm":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":[],
                     "weightsfrom":"nn_gauss"},
-                "sr_gauss_sfc":{
+                "sr_sfc":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
-                    "guesses":["cube(max(rh,thetae-1.47*thetaestar-0.37))"]},
-                "sr_gauss_direct":{
+                    "guesses":["cube(max(rh,thetae-thetaestar))"]},
+                "sr_all":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss",
-                    "searchparams":{"maxsize":35},
-                    "guesses":["cube(max(rh,thetae-1.47*thetaestar-0.37))"]},
-                "sr_gauss_distill":{
-                    "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf"],
-                    "weightsfrom":"nn_gauss",
-                    "targetfrom":"nn_gauss",
-                    "searchparams":{"maxsize":35,"loss":"plainmse"},
-                    "guesses":["cube(max(rh,thetae-1.47*thetaestar-0.37))"]}},
+                     "guesses":["cube(max(rh,thetae-thetaestar))"]}},
             "optimizedeqs":{
-                "sr_bl":{
+                "sr_bl_eq":{
                     "runfrom":"sr_gauss_bl",
                     "refcomplexity":7,
                     "form":"cube(bl+a)+b",
                     "color":"#F2C75E",
                     "description":"SR-BL"},
-                "sr_atm":{
-                    "runfrom":"sr_gauss_atm",
+                "sr_atm_eq":{
+                    "runfrom":"sr_atm",
                     "refcomplexity":17,
                     "form":"a*cube(max(rh,thetae-b*thetaestar-c))",
                     "color":"#FB992E",
                     "description":"SR-ATM"},
-                "sr_sfc":{
-                    "runfrom":"sr_gauss_sfc",
+                "sr_sfc_eq":{
+                    "runfrom":"sr_sfc",
                     "refcomplexity":13,
-                    "form":"a*cube(max(rh,thetae-b*thetaestar-c))+(shf+d)*cube(e-lf)+f",
-                    "init":{"a":1.58,"b":1.47,"c":0.37,"d":0.1,"e":1.18,"f":0.0},
+                    "form":null,
                     "color":"#C44E52",
                     "description":"SR-SFC"},
-                "sr_direct":{
-                    "runfrom":"sr_gauss_direct",
+                "sr_all_eq":{
+                    "runfrom":"sr_all",
                     "refcomplexity":null,
-                    "form":"a*cube(max(rh,thetae-b*thetaestar-c))+(d-lf)*(shf+e)+f",
-                    "init":{"a":1.58,"b":1.47,"c":0.37,"d":1.0,"e":0.1,"f":0.0},
+                    "form":null,
                     "color":"#6A4C93",
-                    "description":"SR-DIRECT"},
-                "sr_distill":{
-                    "runfrom":"sr_gauss_distill",
-                    "refcomplexity":null,
-                    "form":"a*cube(max(rh,thetae-b*thetaestar-c))+(d-lf)*(shf+e)+f",
-                    "init":{"a":1.58,"b":1.47,"c":0.37,"d":1.0,"e":0.1,"f":0.0},
-                    "color":"#1982C4",
-                    "description":"SR-DISTILL"}
+                    "description":"SR-ALL"}
             }
         }
     }
