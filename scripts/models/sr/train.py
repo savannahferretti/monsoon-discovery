@@ -223,17 +223,7 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
 TIMEOUT = 19800
 
 def build_guesses(runconfig,predictors):
-    guessforms = runconfig.get('guesses',[])
-    if not guessforms:
-        return []
-    varmap = {name:f'x{i}' for i,name in enumerate(predictors)}
-    guesses = []
-    for form in guessforms:
-        expr = form
-        for name,xi in sorted(varmap.items(),key=lambda kv:-len(kv[0])):
-            expr = expr.replace(name,xi)
-        guesses.append(expr)
-    return guesses
+    return runconfig.get('guesses',[])
 
 def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     searchparams      = srconfig['searchparams']
