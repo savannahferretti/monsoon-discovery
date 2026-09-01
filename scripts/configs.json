@@ -102,12 +102,12 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","lhf","shf"],
                     "weightsfrom":"nn_gauss",
-                    "guesses":["cube(max(rh,thetae-thetaestar))"]},
+                    "residualfrom":"sr_atm_eq"},
                 "sr_all":{
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss",
-                     "guesses":["cube(max(rh,thetae-thetaestar))"]}},
+                    "residualfrom":"sr_atm_eq"}},
             "optimizedeqs":{
                 "sr_bl_eq":{
                     "runfrom":"sr_bl",

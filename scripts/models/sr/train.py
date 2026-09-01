@@ -168,6 +168,22 @@ def load_data(splitname,runconfig,config,time_offset=0):
         if 'seed' in predtp.dims:predtp = predtp.mean('seed')
         predtp = predtp.transpose('time','lat','lon')
         target = (np.log1p(predtp.values.clip(min=0).ravel())-stats['tp_mean'])/stats['tp_std']
+    residualfrom = runconfig.get('residualfrom')
+    if residualfrom:
+        registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
+        with open(registrypath,'rb') as f:
+            registry = pickle.load(f)
+        entry = registry[residualfrom]
+        srfn = {'cube':lambda x:x**3,'square':lambda x:x**2,'neg':lambda x:-x,
+                'exp':np.exp,'abs':np.abs,'max':np.maximum,'min':np.minimum}
+        ns = dict(srfn,__builtins__={})
+        for col in features.columns:
+            if col != 'timeidx':
+                ns[col] = features[col].values
+        ns.update(entry['constants'])
+        baseline = np.asarray(eval(entry['form'],ns),dtype=float)
+        target = target - baseline
+        logger.info(f'   Subtracted `{residualfrom}` baseline (form: {entry["form"]})')
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
     splitds.close()
     return features,target,refda,validmask
@@ -237,7 +253,8 @@ def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
     zmin = (0.0-stats['tp_mean'])/stats['tp_std']
-    loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss') == 'plainmse' else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
+    residualfrom = runconfig.get('residualfrom')
+    loss = 'loss(x, y) = (x - y)^2' if (searchparams.get('loss') == 'plainmse' or residualfrom) else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
     guesses = build_guesses(runconfig,predictors)
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor

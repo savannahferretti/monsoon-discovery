@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
-from scripts.models.sr.train import load_data
+from scripts.models.sr.train import load_data,eval_baseline
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -44,23 +44,13 @@ def load(name,seed,modelsdir):
     with open(filepath,'rb') as f:
         return pickle.load(f)
 
-def predict_pareto(model,x,zmin,writer,validmask,refda):
-    '''
-    Purpose: Evaluate every equation on the Pareto frontier and return predictions keyed by complexity.
-    Args:
-    - model (PySRRegressor): fitted model whose equations_ DataFrame holds the frontier
-    - x (np.ndarray): feature matrix with shape (nvalidsamples, nfeatures)
-    - zmin (float): z-scored value corresponding to 0 mm precipitation (-mu/sigma)
-    - writer (PredictionWriter): used for unflatten and denormalization stats
-    - validmask (np.ndarray): boolean mask selecting valid grid points from the full flat array
-    - refda (xr.DataArray): reference DataArray supplying (time, lat, lon) coordinates
-    Returns:
-    - dict[int, np.ndarray]: mapping from complexity to gridded array with shape (time, lat, lon)
-    '''
+def predict_pareto(model,x,zmin,writer,validmask,refda,baseline=None):
     preds = {}
     for i in range(len(model.equations_)):
         row  = model.equations_.iloc[i]
         raw  = model.predict(x,index=i)
+        if baseline is not None:
+            raw = baseline + raw
         flat = zmin+np.maximum(raw,0.0)
         gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
         preds[int(row['complexity'])] = gridded
@@ -126,13 +116,21 @@ if __name__=='__main__':
             x,y,refda,validmask = cacheddata
         predictors     = [c for c in x.columns if c != 'timeidx']
         xvalid         = x[validmask][predictors].reset_index(drop=True)
+        residualfrom   = runconfig.get('residualfrom')
+        baseline_valid = None
+        if residualfrom:
+            registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
+            with open(registrypath,'rb') as f:
+                reg = pickle.load(f)
+            entry = reg[residualfrom]
+            baseline_valid = eval_baseline(entry['form'],{c:xvalid[c].values for c in predictors},entry['constants'])
         seedpreds  = []
         for seedidx,seed in enumerate(seeds):
             model = load(name,seed,config.modelsdir)
             if model is None:
                 break
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed}) ({validmask.sum()} valid samples, {len(model.equations_)} Pareto equations)...')
-            seedpreds.append(predict_pareto(model,xvalid.values,zmin,writer,validmask,refda))
+            seedpreds.append(predict_pareto(model,xvalid.values,zmin,writer,validmask,refda,baseline=baseline_valid))
             del model
         else:
             logger.info(f'   Saving predictions for `{name}`...')
