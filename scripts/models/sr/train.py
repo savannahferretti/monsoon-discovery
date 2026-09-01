@@ -174,14 +174,11 @@ def load_data(splitname,runconfig,config,time_offset=0):
         with open(registrypath,'rb') as f:
             registry = pickle.load(f)
         entry = registry[residualfrom]
-        srfn = {'cube':lambda x:x**3,'square':lambda x:x**2,'neg':lambda x:-x,
-                'exp':np.exp,'abs':np.abs,'max':np.maximum,'min':np.minimum}
-        ns = dict(srfn,__builtins__={})
-        for col in features.columns:
-            if col != 'timeidx':
-                ns[col] = features[col].values
-        ns.update(entry['constants'])
-        baseline = np.asarray(eval(entry['form'],ns),dtype=float)
+        eqspec = config.sr['optimizedeqs'][residualfrom]
+        baserunconfig = config.sr['runs'][eqspec['runfrom']]
+        basefeatures,_,_,_ = load_data(splitname,baserunconfig,config,time_offset=time_offset)
+        basecols = {c:basefeatures[c].values for c in basefeatures.columns if c != 'timeidx'}
+        baseline = eval_baseline(entry['form'],basecols,entry['constants'])
         target = target - baseline
         logger.info(f'   Subtracted `{residualfrom}` baseline (form: {entry["form"]})')
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)

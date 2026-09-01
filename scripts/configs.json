@@ -99,9 +99,8 @@
                     "localvars":[],
                     "weightsfrom":"nn_gauss"},
                 "sr_sfc":{
-                    "fieldvars":["rh","thetae","thetaestar"],
+                    "fieldvars":[],
                     "localvars":["lf","lhf","shf"],
-                    "weightsfrom":"nn_gauss",
                     "residualfrom":"sr_atm_eq"},
                 "sr_all":{
                     "fieldvars":["rh","thetae","thetaestar"],

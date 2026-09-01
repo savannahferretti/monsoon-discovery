@@ -226,7 +226,11 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
         with open(registrypath,'rb') as f:
             reg = pickle.load(f)
         entry = reg[residualfrom]
-        baseline = eval_baseline(entry['form'],{c:xvalid[c].values for c in predictornames},entry['constants'])
+        eqspec = config.sr['optimizedeqs'][residualfrom]
+        baserunconfig = config.sr['runs'][eqspec['runfrom']]
+        basex,_,_,bvmask = load_data(split,baserunconfig,config)
+        basecols = {c:basex[bvmask][c].values for c in basex.columns if c != 'timeidx'}
+        baseline = eval_baseline(entry['form'],basecols,entry['constants'])
         raw = baseline + raw
     pred   = zmin+np.maximum(raw,0.0)
     grid   = np.maximum(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)

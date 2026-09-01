@@ -123,7 +123,11 @@ if __name__=='__main__':
             with open(registrypath,'rb') as f:
                 reg = pickle.load(f)
             entry = reg[residualfrom]
-            baseline_valid = eval_baseline(entry['form'],{c:xvalid[c].values for c in predictors},entry['constants'])
+            eqspec = sr['optimizedeqs'][residualfrom]
+            baserunconfig = sr['runs'][eqspec['runfrom']]
+            basex,_,_,bvmask = load_data(split,baserunconfig,config)
+            basecols = {c:basex[bvmask][c].values for c in basex.columns if c != 'timeidx'}
+            baseline_valid = eval_baseline(entry['form'],basecols,entry['constants'])
         seedpreds  = []
         for seedidx,seed in enumerate(seeds):
             model = load(name,seed,config.modelsdir)
