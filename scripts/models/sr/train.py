@@ -272,6 +272,7 @@ def compute_error_weights(config,runconfig,trainmask,validmask,ntraintimes):
     nnmm = np.maximum(np.expm1((zmin+np.maximum(nnall,0.0))*stats['tp_std']+stats['tp_mean']),0.0)
     srmm = np.maximum(np.expm1((zmin+np.maximum(srall,0.0))*stats['tp_std']+stats['tp_mean']),0.0)
     error = np.abs(nnmm-srmm)
+    error = np.nan_to_num(error,nan=0.0)
     p99 = np.percentile(error,99)
     weights = (error/(p99+1e-12)).clip(max=1.0)
     logger.info(f'   Error weights: mean={error.mean():.4f} mm, p90={np.percentile(error,90):.4f} mm, p99={p99:.4f} mm')
