@@ -233,6 +233,60 @@ def subsample_timestep(features,target,subsetfrac,seed,logmin=-4,logmax=2):
     rng.shuffle(subsetindices)
     return features.iloc[subsetindices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[subsetindices]
 
+def compute_error_weights(config,runconfig,trainmask,validmask,ntraintimes):
+    errorsampling = runconfig.get('errorsampling')
+    if not errorsampling:
+        return None
+    residualfrom = runconfig.get('residualfrom')
+    if not residualfrom:
+        logger.warning('   errorsampling requires residualfrom; falling back to uniform sampling')
+        return None
+    statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    with open(statsfile,'r',encoding='utf-8') as f:
+        stats = json.load(f)
+    nnmodel = errorsampling['nn']
+    registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
+    with open(registrypath,'rb') as f:
+        registry = pickle.load(f)
+    entry = registry[residualfrom]
+    eqspec = config.sr['optimizedeqs'][residualfrom]
+    baserunconfig = config.sr['runs'][eqspec['runfrom']]
+    allnn = []
+    allsr = []
+    for split,offset,mask in [('train',0,trainmask),('valid',ntraintimes,validmask)]:
+        nnpath = os.path.join(config.predsdir,f'{nnmodel}_{split}_predictions.nc')
+        with xr.open_dataset(nnpath) as pds:
+            nnpred = pds.tp.load()
+        if 'seed' in nnpred.dims:nnpred = nnpred.mean('seed')
+        nnpred = nnpred.transpose('time','lat','lon')
+        nnmm = nnpred.values.ravel()
+        nnz = (np.log1p(np.maximum(nnmm,0.0))-stats['tp_mean'])/stats['tp_std']
+        allnn.append(nnz[mask])
+        basex,_,_,_ = load_data(split,baserunconfig,config,time_offset=offset)
+        basecols = {c:basex[c].values for c in basex.columns if c != 'timeidx'}
+        srz = eval_baseline(entry['form'],basecols,entry['constants'])
+        allsr.append(srz[mask])
+    nnall = np.concatenate(allnn)
+    srall = np.concatenate(allsr)
+    zmin = (0.0-stats['tp_mean'])/stats['tp_std']
+    nnmm = np.maximum(np.expm1((zmin+np.maximum(nnall,0.0))*stats['tp_std']+stats['tp_mean']),0.0)
+    srmm = np.maximum(np.expm1((zmin+np.maximum(srall,0.0))*stats['tp_std']+stats['tp_mean']),0.0)
+    error = np.abs(nnmm-srmm)
+    p99 = np.percentile(error,99)
+    weights = (error/(p99+1e-12)).clip(max=1.0)
+    logger.info(f'   Error weights: mean={error.mean():.4f} mm, p90={np.percentile(error,90):.4f} mm, p99={p99:.4f} mm')
+    return weights
+
+def subsample_errorweighted(features,target,subsetfrac,seed,weights,alpha=5.0):
+    rng = np.random.default_rng(seed)
+    n = len(target)
+    nsamp = max(1,int(round(subsetfrac*n)))
+    prob = 1.0+alpha*weights
+    prob = prob/prob.sum()
+    indices = rng.choice(n,nsamp,replace=False,p=prob)
+    rng.shuffle(indices)
+    return features.iloc[indices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[indices]
+
 TIMEOUT = 19800
 
 def build_guesses(runconfig,predictors):
@@ -335,6 +389,7 @@ if __name__=='__main__':
         xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
         xvalid,yvalid,_,validmask       = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
         predictors = [c for c in xtrain.columns if c != 'timeidx']
+        errorweights = compute_error_weights(config,runconfig,trainmask,validmask,int(reftrain.sizes['time']))
         xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
         del xtrain,xvalid,ytrain,yvalid,reftrain
@@ -344,8 +399,13 @@ if __name__=='__main__':
                 logger.info(f'Skipping `{name}` seed {seed}, model already exists')
                 continue
             logger.info(f'Running `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
-            logger.info(f'   Subsampling ~{subsetfrac:.1%} of samples by timestep...')
-            xsub,ysub = subsample_timestep(xfit,yfit,subsetfrac,seed)
+            if errorweights is not None:
+                alpha = runconfig.get('errorsampling',{}).get('alpha',5)
+                logger.info(f'   Error-weighted subsampling ~{subsetfrac:.1%} of samples (alpha={alpha})...')
+                xsub,ysub = subsample_errorweighted(xfit,yfit,subsetfrac,seed,errorweights,alpha=alpha)
+            else:
+                logger.info(f'   Subsampling ~{subsetfrac:.1%} of samples by timestep...')
+                xsub,ysub = subsample_timestep(xfit,yfit,subsetfrac,seed)
             logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
