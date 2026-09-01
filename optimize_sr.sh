@@ -24,4 +24,4 @@ conda activate monsoon-discovery
 # scontrol update JobId=${SLURM_JOB_ID} Name=${EQ}
 # echo "Optimizing equations: ${EQ}  |  splits: ${SPLITS}  |  workers: ${SLURM_CPUS_PER_TASK}"
 
-python -m scripts.models.sr.optimize --equations sr_sfc_pw,sr_all --splits test
+python -m scripts.models.sr.optimize --equations sr_sfc_eq,sr_all_eq --splits test
