@@ -1,3 +1,0 @@
-name,form,train_loss,valid_loss,constants
-sr_bl_eq,cube(bl+a)+b,0.4985611451040508,0.5013550036414927,"{""a"": 0.29, ""b"": 0.14}"
-sr_atm_eq,"a*cube(max(rh,thetae-b*thetaestar-c))",0.44475740811402825,0.4519932037035854,"{""a"": 1.58, ""b"": 1.47, ""c"": 0.37}"
