@@ -134,25 +134,25 @@
                 "sr_sfc_eq":{
                     "runfrom":"sr_sfc",
                     "refcomplexity":13,
-                    "form":null,
+                    "form":"a*max(b*lf+shf,c)+d",
                     "color":"#C44E52",
                     "description":"SR-SFC"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
-                    "refcomplexity":null,
-                    "form":null,
+                    "refcomplexity":18,
+                    "form":"a*cube(rh*min(thetaestar,b))+c*lhf+d",
                     "color":"#6A4C93",
                     "description":"SR-ALL"},
                 "sr_sfc_es_eq":{
                     "runfrom":"sr_sfc_es",
-                    "refcomplexity":null,
-                    "form":null,
+                    "refcomplexity":16,
+                    "form":"square((lf+a)*(shf+min(lhf,b)))+c",
                     "color":"#E07B54",
                     "description":"SR-SFC-ES"},
                 "sr_all_es_eq":{
                     "runfrom":"sr_all_es",
-                    "refcomplexity":null,
-                    "form":null,
+                    "refcomplexity":17,
+                    "form":"a*cube(rh*min(b,thetaestar-c*thetae))+d",
                     "color":"#8B6CAE",
                     "description":"SR-ALL-ES"}
             }
