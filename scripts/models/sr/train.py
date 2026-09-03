@@ -179,8 +179,8 @@ def load_data(splitname,runconfig,config,time_offset=0):
         basefeatures,_,_,_ = load_data(splitname,baserunconfig,config,time_offset=time_offset)
         basecols = {c:basefeatures[c].values for c in basefeatures.columns if c != 'timeidx'}
         baseline = eval_baseline(entry['form'],basecols,entry['constants'])
-        target = target - baseline
-        logger.info(f'   Subtracted `{residualfrom}` baseline (form: {entry["form"]})')
+        features[residualfrom] = baseline
+        logger.info(f'   Added `{residualfrom}` as input feature (form: {entry["form"]})')
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
     splitds.close()
     return features,target,refda,validmask
@@ -237,9 +237,9 @@ def compute_error_weights(config,runconfig,trainmask,validmask,ntraintimes):
     errorsampling = runconfig.get('errorsampling')
     if not errorsampling:
         return None
-    residualfrom = runconfig.get('residualfrom')
-    if not residualfrom:
-        logger.warning('   errorsampling requires residualfrom; falling back to uniform sampling')
+    baseline = errorsampling.get('baseline')
+    if not baseline:
+        logger.warning('   errorsampling.baseline not specified; falling back to uniform sampling')
         return None
     statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
@@ -248,8 +248,8 @@ def compute_error_weights(config,runconfig,trainmask,validmask,ntraintimes):
     registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
     with open(registrypath,'rb') as f:
         registry = pickle.load(f)
-    entry = registry[residualfrom]
-    eqspec = config.sr['optimizedeqs'][residualfrom]
+    entry = registry[baseline]
+    eqspec = config.sr['optimizedeqs'][baseline]
     baserunconfig = config.sr['runs'][eqspec['runfrom']]
     allnn = []
     allsr = []
@@ -305,8 +305,7 @@ def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
     zmin = (0.0-stats['tp_mean'])/stats['tp_std']
-    residualfrom = runconfig.get('residualfrom')
-    loss = 'loss(x, y) = (x - y)^2' if (searchparams.get('loss') == 'plainmse' or residualfrom) else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
+    loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss') == 'plainmse' else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
     guesses = build_guesses(runconfig,predictors)
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor

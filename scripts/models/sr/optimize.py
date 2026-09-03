@@ -100,20 +100,18 @@ def eval_form(form,x,predictornames,constants):
         out = np.full(len(x),float(out))
     return np.asarray(out,dtype=float)
 
-def optimize_constants(form,predictornames,x,y,zmin,init,plainmse=False):
+def optimize_constants(form,predictornames,x,y,zmin,init):
     constantnames = extract_constants(form,predictornames)
     initialparams = np.array([init.get(c,1.0) for c in constantnames])
     def objective(params):
         constants = dict(zip(constantnames,params))
         raw       = eval_form(form,x,predictornames,constants)
-        if plainmse:
-            return float(np.mean((raw-y)**2))
         pred      = zmin+np.maximum(raw,0.0)
         return float(np.mean((pred-y)**2))
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None,plainmse=False):
+def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None):
     constantnames = extract_constants(form,predictornames)
     rng           = np.random.default_rng(seed)
     fixed_inits   = [init] + (extra_inits or [])
@@ -122,7 +120,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
         {c:float(v) for c,v in zip(constantnames,rng.uniform(-initscale,initscale,len(constantnames)))}
         for _ in range(nrandom)]
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
-        delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit,plainmse=plainmse)
+        delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit)
         for restartinit in inits)
     bestconstants,bestresult = None,None
     for i,(constants,res) in enumerate(resultslist):
@@ -219,19 +217,6 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
     x,y,refda,validmask = load_data(split,runconfig,config)
     xvalid = x[validmask][predictornames].reset_index(drop=True)
     raw    = eval_form(form,xvalid,predictornames,constants)
-    residualfrom = runconfig.get('residualfrom')
-    if residualfrom:
-        from scripts.models.sr.train import eval_baseline
-        registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
-        with open(registrypath,'rb') as f:
-            reg = pickle.load(f)
-        entry = reg[residualfrom]
-        eqspec = config.sr['optimizedeqs'][residualfrom]
-        baserunconfig = config.sr['runs'][eqspec['runfrom']]
-        basex,_,_,bvmask = load_data(split,baserunconfig,config)
-        basecols = {c:basex[bvmask][c].values for c in basex.columns if c != 'timeidx'}
-        baseline = eval_baseline(entry['form'],basecols,entry['constants'])
-        raw = baseline + raw
     pred   = zmin+np.maximum(raw,0.0)
     grid   = np.maximum(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
     da     = xr.DataArray(grid,dims=refda.dims,coords=refda.coords)
@@ -311,28 +296,20 @@ if __name__=='__main__':
                 anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
                 anchor_inits.append(anchor)
                 logger.info(f'   Anchor start from {prevname}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
-        useplainmse = runconfig.get('residualfrom') is not None
         logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s) '
                     f'({len(anchor_inits)} anchor(s)), {nworkers} worker(s)...')
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,
-                                            nworkers=nworkers,extra_inits=anchor_inits,plainmse=useplainmse)
+                                            nworkers=nworkers,extra_inits=anchor_inits)
         trainloss  = float(res.fun)
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
-        if useplainmse:
-            validpred = eval_form(form,xvalidsub,predictornames,constants)
-        else:
-            validpred = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
+        validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
         validloss  = float(np.mean((validpred-validtgt)**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
         logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
         constants  = {k:round(float(v),2) for k,v in constants.items()}
-        if useplainmse:
-            trainpred = eval_form(form,xfit,predictornames,constants)
-            validpred = eval_form(form,xvalidsub,predictornames,constants)
-        else:
-            trainpred = zmin+np.maximum(eval_form(form,xfit,predictornames,constants),0.0)
-            validpred = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
+        trainpred  = zmin+np.maximum(eval_form(form,xfit,predictornames,constants),0.0)
+        validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
         trainloss  = float(np.mean((trainpred-yfit)**2))
         validloss  = float(np.mean((validpred-validtgt)**2))
         logger.info(f'   Rounded constants: {", ".join(f"{k}={v:.2f}" for k,v in constants.items())}')
