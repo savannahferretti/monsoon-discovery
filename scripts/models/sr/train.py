@@ -171,8 +171,12 @@ def load_data(splitname,runconfig,config,time_offset=0):
     residualfrom = runconfig.get('residualfrom')
     if residualfrom:
         registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
+        if not os.path.exists(registrypath):
+            raise FileNotFoundError(f'residualfrom={residualfrom} requires {registrypath}; run `python -m scripts.models.sr.optimize` for {residualfrom} first')
         with open(registrypath,'rb') as f:
             registry = pickle.load(f)
+        if residualfrom not in registry:
+            raise KeyError(f'residualfrom={residualfrom} not found in registry; optimize it first')
         entry = registry[residualfrom]
         eqspec = config.sr['optimizedeqs'][residualfrom]
         baserunconfig = config.sr['runs'][eqspec['runfrom']]
