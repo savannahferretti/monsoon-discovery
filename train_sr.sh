@@ -31,3 +31,18 @@ scontrol update JobId=${SLURM_JOB_ID} Name=${RUN}
 echo "Training model: ${RUN}"
 
 python -m scripts.models.sr.train --runs ${RUN} "$@"
+
+# scancel $(squeue -u sferrett -h -o "%i") 2>/dev/null
+# find /global/homes/s/sferrett/ -name "lock.pid" -delete 2>/dev/null
+# salloc --account=m4334 --constraint=cpu --qos=interactive --nodes=1 --time=04:00:00
+# cd /global/cfs/cdirs/m4334/sferrett/monsoon-discovery
+# rsync -a --update /global/cfs/cdirs/m4334/sferrett/.julia/ $SCRATCH/.julia/
+# export OMP_NUM_THREADS=1
+# export JULIA_NUM_THREADS=1
+# export JULIA_DEPOT_PATH=$SCRATCH/.julia
+# export PYTHON_JULIAPKG_PROJECT=$SCRATCH/.julia/environments/pyjuliapkg
+# export UCX_ERROR_SIGNALS=""
+# module load python conda
+# source "$(conda info --base)/etc/profile.d/conda.sh"
+# conda activate monsoon-discovery
+# python -m scripts.models.sr.train --runs sr_sfc --procs 50
