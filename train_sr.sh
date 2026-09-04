@@ -45,4 +45,4 @@ python -m scripts.models.sr.train --runs ${RUN} "$@"
 # module load python conda
 # source "$(conda info --base)/etc/profile.d/conda.sh"
 # conda activate monsoon-discovery
-# python -m scripts.models.sr.train --runs sr_sfc --procs 50
+# python -m scripts.models.sr.train --runs <run_name> --procs 50
