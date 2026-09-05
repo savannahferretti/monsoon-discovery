@@ -62,9 +62,9 @@
             "subsetfrac":0.025,
             "searchparams":{
                 "iterations":200,
-                "populations":25,
+                "populations":20,
                 "populationsize":150,
-                "maxsize":30,
+                "maxsize":20,
                 "maxdepth":10,
                 "batchsize":500,
                 "cyclesperiteration":50,
@@ -106,7 +106,7 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss",
-                    "residualfrom":"sr_atm_eq"}
+                    "residualfrom":"sr_atm_eq"},
                 "sr_sfc_nn":{
                     "fieldvars":[],
                     "localvars":["lf","lhf","shf"],
