@@ -12,6 +12,8 @@ TARGETMETA = {
     'pr':{'longname':'Predicted precipitation rate','units':'mm/hr'},
     'tp':{'longname':'Predicted total precipitation','units':'mm'}}
 
+PMAX = 200.0
+
 class PredictionWriter:
 
     def __init__(self,statsdir,targetvar='pr'):
@@ -57,7 +59,7 @@ class PredictionWriter:
         - xr.Dataset: Dataset with predictions in native units on a (time, lat, lon, seed) grid
         '''
         if denormalize:
-            predstack = np.stack([np.maximum(np.expm1(self.unflatten(preds,valid,refda)*self.std+self.mean),0.0) for preds in predslist],axis=-1)
+            predstack = np.stack([np.clip(np.expm1(self.unflatten(preds,valid,refda)*self.std+self.mean),0.0,PMAX) for preds in predslist],axis=-1)
         else:
             predstack = np.stack([np.clip(self.unflatten(preds,valid,refda),0,None) for preds in predslist],axis=-1)
         coords = {dim:refda.coords[dim] for dim in refda.dims}

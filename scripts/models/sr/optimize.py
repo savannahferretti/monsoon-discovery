@@ -100,18 +100,18 @@ def eval_form(form,x,predictornames,constants):
         out = np.full(len(x),float(out))
     return np.asarray(out,dtype=float)
 
-def optimize_constants(form,predictornames,x,y,zmin,init):
+def optimize_constants(form,predictornames,x,y,zmin,zmax,init):
     constantnames = extract_constants(form,predictornames)
     initialparams = np.array([init.get(c,1.0) for c in constantnames])
     def objective(params):
         constants = dict(zip(constantnames,params))
         raw       = eval_form(form,x,predictornames,constants)
-        pred      = zmin+np.maximum(raw,0.0)
+        pred      = np.clip(zmin+np.maximum(raw,0.0),None,zmax)
         return float(np.mean((pred-y)**2))
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None):
+def multistart_optimize(form,predictornames,x,y,zmin,zmax,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None):
     constantnames = extract_constants(form,predictornames)
     rng           = np.random.default_rng(seed)
     fixed_inits   = [init] + (extra_inits or [])
@@ -120,7 +120,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
         {c:float(v) for c,v in zip(constantnames,rng.uniform(-initscale,initscale,len(constantnames)))}
         for _ in range(nrandom)]
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
-        delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit)
+        delayed(optimize_constants)(form,predictornames,x,y,zmin,zmax,restartinit)
         for restartinit in inits)
     bestconstants,bestresult = None,None
     for i,(constants,res) in enumerate(resultslist):
@@ -213,12 +213,13 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
         return {}
     return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
 
-def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin):
+def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,zmax):
     x,y,refda,validmask = load_data(split,runconfig,config)
     xvalid = x[validmask][predictornames].reset_index(drop=True)
     raw    = eval_form(form,xvalid,predictornames,constants)
-    pred   = zmin+np.maximum(raw,0.0)
-    grid   = np.maximum(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
+    pred   = np.clip(zmin+np.maximum(raw,0.0),None,zmax)
+    from scripts.data.classes.writer import PMAX
+    grid   = np.clip(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0,PMAX).astype(np.float32)
     da     = xr.DataArray(grid,dims=refda.dims,coords=refda.coords)
     da.attrs = dict(long_name=writer.longname,units=writer.units)
     return da.to_dataset(name=writer.targetvar)
@@ -235,7 +236,9 @@ if __name__=='__main__':
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
+    from scripts.data.classes.writer import PMAX
     zmin = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
+    zmax = (np.log1p(PMAX)-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
     registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
     registry = {}
@@ -298,18 +301,18 @@ if __name__=='__main__':
                 logger.info(f'   Anchor start from {prevname}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
         logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s) '
                     f'({len(anchor_inits)} anchor(s)), {nworkers} worker(s)...')
-        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,
+        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,zmax,init,nrestarts,initscale,
                                             nworkers=nworkers,extra_inits=anchor_inits)
         trainloss  = float(res.fun)
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
-        validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
+        validpred  = np.clip(zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0),None,zmax)
         validloss  = float(np.mean((validpred-validtgt)**2))
         logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
         logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
         constants  = {k:round(float(v),2) for k,v in constants.items()}
-        trainpred  = zmin+np.maximum(eval_form(form,xfit,predictornames,constants),0.0)
-        validpred  = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
+        trainpred  = np.clip(zmin+np.maximum(eval_form(form,xfit,predictornames,constants),0.0),None,zmax)
+        validpred  = np.clip(zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0),None,zmax)
         trainloss  = float(np.mean((trainpred-yfit)**2))
         validloss  = float(np.mean((validpred-validtgt)**2))
         logger.info(f'   Rounded constants: {", ".join(f"{k}={v:.2f}" for k,v in constants.items())}')
@@ -323,6 +326,6 @@ if __name__=='__main__':
                 logger.info(f'   Skipping {split} predictions, already exist')
                 continue
             logger.info(f'   Generating {split} predictions...')
-            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin)
+            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,zmax)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds

@@ -50,7 +50,8 @@ def predict_pareto(model,x,zmin,writer,validmask,refda):
         row  = model.equations_.iloc[i]
         raw  = model.predict(x,index=i)
         flat = zmin+np.maximum(raw,0.0)
-        gridded = np.maximum(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
+        from scripts.data.classes.writer import PMAX
+        gridded = np.clip(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0,PMAX).astype(np.float32)
         preds[int(row['complexity'])] = gridded
     return preds
 

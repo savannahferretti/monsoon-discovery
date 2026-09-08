@@ -304,8 +304,10 @@ def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
+    from scripts.data.classes.writer import PMAX
     zmin = (0.0-stats['tp_mean'])/stats['tp_std']
-    loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss') == 'plainmse' else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
+    zmax = (np.log1p(PMAX)-stats['tp_mean'])/stats['tp_std']
+    loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss') == 'plainmse' else f'loss(x, y) = (min(({zmin:.8f}) + max(x, 0.0), {zmax:.8f}) - y)^2'
     guesses = build_guesses(runconfig,predictors)
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor

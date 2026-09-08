@@ -34,7 +34,10 @@ class MainNN(torch.nn.Module):
         nfeatures = int(nfeatures)
         self.register_buffer('mean',torch.tensor(mean,dtype=torch.float32))
         self.register_buffer('std',torch.tensor(std,dtype=torch.float32))
+        import numpy as _np
+        from scripts.data.classes.writer import PMAX
         self.register_buffer('zmin',torch.tensor((0.0-mean)/std,dtype=torch.float32))
+        self.register_buffer('zmax',torch.tensor((_np.log1p(PMAX)-mean)/std,dtype=torch.float32))
         self.layers = torch.nn.Sequential(
             torch.nn.Linear(nfeatures,256), torch.nn.GELU(), torch.nn.Dropout(0.1),
             torch.nn.Linear(256,128),       torch.nn.GELU(), torch.nn.Dropout(0.1),
@@ -50,7 +53,7 @@ class MainNN(torch.nn.Module):
         Returns:
         - torch.Tensor: predictions with shape (nbatch,) as zmin + ReLU(f(x))
         '''
-        return self.zmin + F.relu(self.layers(X).squeeze())
+        return torch.clamp(self.zmin + F.relu(self.layers(X).squeeze()),max=self.zmax)
 
 class BaselineNN(torch.nn.Module):
 
