@@ -154,13 +154,7 @@
                     "refcomplexity":15,
                     "form":"sr_atm_eq+a*shf*(b-lf)+c*(rh+lhf)",
                     "color":"#6A4C93",
-                    "description":"SR-ALL-V2"},
-                "sr_sfc_v3":{
-                    "runfrom":"sr_sfc",
-                    "refcomplexity":17,
-                    "form":"sr_atm_eq+min(a*shf,sr_atm_eq)*(lf+min(b,lhf))+c",
-                    "color":"#E8A87C",
-                    "description":"SR-SFC-V3"}
+                    "description":"SR-ALL-V2"}
             }
         }
     }
