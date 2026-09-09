@@ -60,11 +60,12 @@ def parse():
     parser = argparse.ArgumentParser(description='Optimize SR equation constants on full train+valid data.')
     parser.add_argument('--equations',type=str,default='all',help='Comma-separated equation names to optimize, or `all`')
     parser.add_argument('--splits',type=str,default='train,valid,test',help='Comma-separated splits to generate predictions for (default: train,valid,test)')
+    parser.add_argument('--force',action='store_true',help='Re-optimize equations even if already in the registry')
     args        = parser.parse_args()
     selectedeqs = None if args.equations=='all' else {n.strip() for n in args.equations.split(',')}
     splits      = [s.strip() for s in args.splits.split(',')]
     nworkers    = int(os.environ.get('SLURM_CPUS_PER_TASK',1))
-    return selectedeqs,splits,nworkers
+    return selectedeqs,splits,nworkers,args.force
 
 def extract_constants(form,predictornames):
     '''
@@ -230,7 +231,7 @@ if __name__=='__main__':
     targetvar    = config.targetvar
     optimizedeqs = sr.get('optimizedeqs',{})
     logger.info('Spinning up...')
-    selectedeqs,splits,nworkers = parse()
+    selectedeqs,splits,nworkers,force = parse()
     logger.info(f'Using {nworkers} parallel worker(s) for multi-start optimization...')
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
@@ -253,8 +254,8 @@ if __name__=='__main__':
         if eqspec.get('form') is None:
             logger.info(f'Skipping `{name}`, form not yet specified')
             continue
-        if name in registry:
-            logger.info(f'Skipping `{name}`, already optimized')
+        if name in registry and not force:
+            logger.info(f'Skipping `{name}`, already optimized (use --force to re-optimize)')
             continue
         runname        = eqspec['runfrom']
         runconfig      = sr['runs'][runname]
@@ -272,7 +273,7 @@ if __name__=='__main__':
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
         xfit       = xfitfull[predictornames]
-        nrestarts     = 50
+        nrestarts     = eqspec.get('nrestarts',50)
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
         refcomplexity = eqspec.get('refcomplexity')
@@ -287,11 +288,15 @@ if __name__=='__main__':
                 logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:
                 logger.info(f'   No PySR init found; defaulting all constants to 1.0')
-        # Anchor starts: for each already-optimized equation whose constant set is a strict
-        # subset of this one's, inject its constants (new constants default to 1.0) as an
-        # additional guaranteed starting point — without making it the primary init.
         anchor_inits = []
+        if force and name in registry:
+            prevconsts = registry[name]['constants']
+            anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
+            anchor_inits.append(anchor)
+            logger.info(f'   Anchor start from previous {name}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
         for prevname,preventry in registry.items():
+            if prevname == name:
+                continue
             if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
                 continue
             prevconsts = preventry['constants']
@@ -322,8 +327,8 @@ if __name__=='__main__':
         save_registry(registry,config)
         for split in splits:
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
-            if os.path.exists(predpath):
-                logger.info(f'   Skipping {split} predictions, already exist')
+            if os.path.exists(predpath) and not force:
+                logger.info(f'   Skipping {split} predictions, already exist (use --force to regenerate)')
                 continue
             logger.info(f'   Generating {split} predictions...')
             predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,zmax)
