@@ -10,8 +10,9 @@ import numpy as np
 import pandas as pd
 import sympy as sp
 import xarray as xr
-from joblib import Parallel, delayed
+from joblib import Parallel,delayed
 from scipy.optimize import minimize
+from scipy.stats.qmc import LatinHypercube
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
 from scripts.models.sr.train import load_data
@@ -37,26 +38,7 @@ def _prepare_form(form):
     import re
     return re.sub(r'(\w+)\^(\w+)',r'_safepow(\1,\2)',form)
 
-SRSYMPY = {
-    'cube':lambda x:x**3,
-    'square':lambda x:x**2,
-    'neg':lambda x:-x,
-    'sqrt':sp.sqrt,
-    'exp':sp.exp,
-    'log':sp.log,
-    'abs':sp.Abs,
-    'sin':sp.sin,
-    'cos':sp.cos,
-    'max':sp.Max,
-    'min':sp.Min}
-
 def parse():
-    '''
-    Purpose: Parse command-line arguments for running the optimization script.
-    Returns:
-    - tuple[set[str]|None, list[str], int, bool]: selected equation names (or None for all),
-        list of splits for which to save predictions, number of parallel workers, and force flag
-    '''
     parser = argparse.ArgumentParser(description='Optimize SR equation constants on full train+valid data.')
     parser.add_argument('--equations',type=str,default='all',help='Comma-separated equation names to optimize, or `all`')
     parser.add_argument('--splits',type=str,default='train,valid,test',help='Comma-separated splits to generate predictions for (default: train,valid,test)')
@@ -103,23 +85,30 @@ def eval_form(form,x,predictornames,constants):
 
 def optimize_constants(form,predictornames,x,y,zmin,zmax,init):
     constantnames = extract_constants(form,predictornames)
-    initialparams = np.array([init.get(c,1.0) for c in constantnames])
+    initialparams = np.array([init[c] for c in constantnames])
+    bounds        = [(-10.0,10.0) for _ in constantnames]
     def objective(params):
         constants = dict(zip(constantnames,params))
         raw       = eval_form(form,x,predictornames,constants)
         pred      = np.clip(zmin+np.maximum(raw,0.0),None,zmax)
         return float(np.mean((pred-y)**2))
-    res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
+    res = minimize(objective,initialparams,method='L-BFGS-B',bounds=bounds,
+                   options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zmin,zmax,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None):
+def multistart_optimize(form,predictornames,x,y,zmin,zmax,nrestarts,seed=0,nworkers=1):
+    '''
+    Purpose: Optimize constants via L-BFGS-B from many starting points sampled
+        uniformly across [-10, 10] using Latin Hypercube Sampling for thorough
+        coverage of the search space.
+    '''
     constantnames = extract_constants(form,predictornames)
-    rng           = np.random.default_rng(seed)
-    fixed_inits   = [init] + (extra_inits or [])
-    nrandom       = max(0, nrestarts - len(fixed_inits))
-    inits         = fixed_inits + [
-        {c:float(v) for c,v in zip(constantnames,rng.uniform(-initscale,initscale,len(constantnames)))}
-        for _ in range(nrandom)]
+    nconstants    = len(constantnames)
+    sampler       = LatinHypercube(d=nconstants,seed=seed)
+    samples       = sampler.random(n=nrestarts)
+    samples       = samples*20.0-10.0
+    inits = [{c:float(samples[i,j]) for j,c in enumerate(constantnames)}
+             for i in range(nrestarts)]
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
         delayed(optimize_constants)(form,predictornames,x,y,zmin,zmax,restartinit)
         for restartinit in inits)
@@ -130,8 +119,8 @@ def multistart_optimize(form,predictornames,x,y,zmin,zmax,init,nrestarts=1,inits
             nconverged += 1
         if bestresult is None or res.fun < bestresult.fun:
             bestconstants,bestresult = constants,res
-        logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
-    logger.info(f'   {nconverged}/{len(inits)} restarts converged; best loss={bestresult.fun:.6f}')
+        logger.debug(f'     restart {i+1}/{nrestarts}: loss={res.fun:.6f} converged={res.success}')
+    logger.info(f'   {nconverged}/{nrestarts} restarts converged; best loss={bestresult.fun:.6f}')
     return bestconstants,bestresult
 
 def save_registry(registry,config):
@@ -151,72 +140,6 @@ def save_registry(registry,config):
                  constants=json.dumps(entry['constants'])) for name,entry in registry.items()]
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
     logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
-
-def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
-    '''
-    Purpose: Initialize constants by structurally unifying the parametric form with
-        each seed's PySR equation at refcomplexity, then averaging matched constants
-        across seeds. Uses SymPy's Wild + match so trivial algebraic rearrangements
-        (e.g. `- -b` vs `+ b`, `a + x` vs `x + a`) don't count as structural mismatches.
-        Seeds whose PySR equation cannot be unified with the form — or whose matched
-        constants are not purely numeric — are skipped.
-    Args:
-    - form (str): Python expression string with named constants
-    - predictornames (list[str]): predictor column names
-    - refcomplexity (int|None): target complexity level to read from per-seed CSVs
-    - runname (str): SR run name (used to locate per-seed equation CSVs)
-    - seeds (list[int]): list of random seeds
-    - modelsdir (str): path to models directory
-    Returns:
-    - dict: constant name → averaged float value, or {} if no seeds unify
-    '''
-    if refcomplexity is None:
-        return {}
-    constantnames = extract_constants(form,predictornames)
-    if not constantnames:
-        return {}
-    predictorsyms = {p:sp.Symbol(p) for p in predictornames}
-    wildsyms      = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in constantnames}
-    formns        = dict(SRSYMPY,**predictorsyms,**wildsyms)
-    parsens       = dict(SRSYMPY,**predictorsyms)
-    try:
-        formexpr = sp.sympify(form,locals=formns)
-    except Exception as e:
-        logger.warning(f'   Could not parse form `{form}`: {e}')
-        return {}
-    seedconsts = []
-    for seed in seeds:
-        filepath = os.path.join(modelsdir,'sr',f'{runname}_{seed}_equations.csv')
-        if not os.path.exists(filepath):
-            continue
-        df  = pd.read_csv(filepath)
-        row = df[df['complexity']==refcomplexity]
-        if row.empty:
-            continue
-        pysreq = str(row.iloc[0]['equation']).replace('^','**')
-        try:
-            pysrexpr = sp.sympify(pysreq,locals=parsens)
-            match    = pysrexpr.match(formexpr)
-        except Exception:
-            match = None
-        if match is None:
-            logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
-            continue
-        vals = {}
-        for c in constantnames:
-            v = match.get(wildsyms[c])
-            if v is None or not v.is_Number:
-                vals = None
-                break
-            vals[c] = float(v)
-        if vals is None:
-            logger.info(f'   Seed {seed}: match found but constants are non-numeric, skipping')
-            continue
-        logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
-        seedconsts.append(vals)
-    if not seedconsts:
-        return {}
-    return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
 
 def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,zmax):
     x,y,refda,validmask = load_data(split,runconfig,config)
@@ -261,15 +184,12 @@ if __name__=='__main__':
         if name in registry and not force:
             logger.info(f'Skipping `{name}`, already optimized (use --force to re-optimize)')
             continue
-        prevconsts = None
         if name in registry and force:
-            prevconsts = registry[name]['constants']
             logger.info(f'Re-optimizing `{name}` (--force)')
             del registry[name]
         runname        = eqspec['runfrom']
         runconfig      = sr['runs'][runname]
         form           = eqspec['form']
-        refcomplexity  = eqspec.get('refcomplexity')
         logger.info(f'Optimizing `{name}`...')
         if runname not in datacache:
             logger.info(f'   Loading training + validation sets...')
@@ -281,44 +201,15 @@ if __name__=='__main__':
             del xtrain,ytrain,reftrain
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
-        xfit       = xfitfull[predictornames]
-        nrestarts     = eqspec.get('nrestarts',50)
-        initscale     = eqspec.get('initscale',5.0)
-        constantnames = extract_constants(form,predictornames)
-        refcomplexity = eqspec.get('refcomplexity')
-        eq_seeds = eqspec.get('seeds', sr['seeds'])
-        explicit_init = eqspec.get('init')
-        if explicit_init is not None:
-            init = explicit_init
-            logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
-        else:
-            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir)
-            if init:
-                logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
-            else:
-                logger.info(f'   No PySR init found; defaulting all constants to 1.0')
-        anchor_inits = []
-        if prevconsts is not None:
-            anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
-            anchor_inits.append(anchor)
-            logger.info(f'   Anchor start from previous {name}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
-            if not init:
-                init = anchor
-                logger.info(f'   Using previous constants as primary init (PySR match failed)')
-        for prevname,preventry in registry.items():
-            if prevname == name:
-                continue
-            if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
-                continue
-            prevconsts = preventry['constants']
-            if set(prevconsts.keys()) < set(constantnames):
-                anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
-                anchor_inits.append(anchor)
-                logger.info(f'   Anchor start from {prevname}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
+        xfit           = xfitfull[predictornames]
+        nrestarts      = eqspec.get('nrestarts',50)
+        constantnames  = extract_constants(form,predictornames)
+        logger.info(f'   Form: {form}')
+        logger.info(f'   Constants to optimize: {constantnames}')
         logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s) '
-                    f'({len(anchor_inits)} anchor(s)), {nworkers} worker(s)...')
-        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,zmax,init,nrestarts,initscale,
-                                            nworkers=nworkers,extra_inits=anchor_inits)
+                    f'(LHS over [-10,10]), {nworkers} worker(s)...')
+        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,zmax,
+                                            nrestarts,nworkers=nworkers)
         trainloss  = float(res.fun)
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
@@ -339,11 +230,7 @@ if __name__=='__main__':
         for split in splits:
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
             if os.path.exists(predpath) and not force:
-<<<<<<< HEAD
-                logger.info(f'   Skipping {split} predictions, already exist')
-=======
                 logger.info(f'   Skipping {split} predictions, already exist (use --force to regenerate)')
->>>>>>> origin/main
                 continue
             logger.info(f'   Generating {split} predictions...')
             predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,zmax)
