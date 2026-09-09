@@ -54,17 +54,18 @@ def parse():
     '''
     Purpose: Parse command-line arguments for running the optimization script.
     Returns:
-    - tuple[set[str]|None, list[str], int]: selected equation names (or None for all),
-        list of splits for which to save predictions, and number of parallel workers
+    - tuple[set[str]|None, list[str], int, bool]: selected equation names (or None for all),
+        list of splits for which to save predictions, number of parallel workers, and force flag
     '''
     parser = argparse.ArgumentParser(description='Optimize SR equation constants on full train+valid data.')
     parser.add_argument('--equations',type=str,default='all',help='Comma-separated equation names to optimize, or `all`')
     parser.add_argument('--splits',type=str,default='train,valid,test',help='Comma-separated splits to generate predictions for (default: train,valid,test)')
+    parser.add_argument('--force',action='store_true',help='Re-optimize equations even if they already exist in the registry')
     args        = parser.parse_args()
     selectedeqs = None if args.equations=='all' else {n.strip() for n in args.equations.split(',')}
     splits      = [s.strip() for s in args.splits.split(',')]
     nworkers    = int(os.environ.get('SLURM_CPUS_PER_TASK',1))
-    return selectedeqs,splits,nworkers
+    return selectedeqs,splits,nworkers,args.force
 
 def extract_constants(form,predictornames):
     '''
@@ -230,7 +231,7 @@ if __name__=='__main__':
     targetvar    = config.targetvar
     optimizedeqs = sr.get('optimizedeqs',{})
     logger.info('Spinning up...')
-    selectedeqs,splits,nworkers = parse()
+    selectedeqs,splits,nworkers,force = parse()
     logger.info(f'Using {nworkers} parallel worker(s) for multi-start optimization...')
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
@@ -253,9 +254,12 @@ if __name__=='__main__':
         if eqspec.get('form') is None:
             logger.info(f'Skipping `{name}`, form not yet specified')
             continue
-        if name in registry:
-            logger.info(f'Skipping `{name}`, already optimized')
+        if name in registry and not force:
+            logger.info(f'Skipping `{name}`, already optimized (use --force to re-optimize)')
             continue
+        if name in registry and force:
+            logger.info(f'Re-optimizing `{name}` (--force)')
+            del registry[name]
         runname        = eqspec['runfrom']
         runconfig      = sr['runs'][runname]
         form           = eqspec['form']
@@ -322,7 +326,7 @@ if __name__=='__main__':
         save_registry(registry,config)
         for split in splits:
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
-            if os.path.exists(predpath):
+            if os.path.exists(predpath) and not force:
                 logger.info(f'   Skipping {split} predictions, already exist')
                 continue
             logger.info(f'   Generating {split} predictions...')
