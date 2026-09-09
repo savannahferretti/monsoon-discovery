@@ -60,7 +60,7 @@ def parse():
     parser = argparse.ArgumentParser(description='Optimize SR equation constants on full train+valid data.')
     parser.add_argument('--equations',type=str,default='all',help='Comma-separated equation names to optimize, or `all`')
     parser.add_argument('--splits',type=str,default='train,valid,test',help='Comma-separated splits to generate predictions for (default: train,valid,test)')
-    parser.add_argument('--force',action='store_true',help='Re-optimize equations even if they already exist in the registry')
+    parser.add_argument('--force',action='store_true',help='Re-optimize equations even if already in the registry')
     args        = parser.parse_args()
     selectedeqs = None if args.equations=='all' else {n.strip() for n in args.equations.split(',')}
     splits      = [s.strip() for s in args.splits.split(',')]
@@ -124,10 +124,14 @@ def multistart_optimize(form,predictornames,x,y,zmin,zmax,init,nrestarts=1,inits
         delayed(optimize_constants)(form,predictornames,x,y,zmin,zmax,restartinit)
         for restartinit in inits)
     bestconstants,bestresult = None,None
+    nconverged = 0
     for i,(constants,res) in enumerate(resultslist):
+        if res.success:
+            nconverged += 1
         if bestresult is None or res.fun < bestresult.fun:
             bestconstants,bestresult = constants,res
         logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
+    logger.info(f'   {nconverged}/{len(inits)} restarts converged; best loss={bestresult.fun:.6f}')
     return bestconstants,bestresult
 
 def save_registry(registry,config):
@@ -257,7 +261,9 @@ if __name__=='__main__':
         if name in registry and not force:
             logger.info(f'Skipping `{name}`, already optimized (use --force to re-optimize)')
             continue
+        prevconsts = None
         if name in registry and force:
+            prevconsts = registry[name]['constants']
             logger.info(f'Re-optimizing `{name}` (--force)')
             del registry[name]
         runname        = eqspec['runfrom']
@@ -276,7 +282,7 @@ if __name__=='__main__':
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
         xfit       = xfitfull[predictornames]
-        nrestarts     = 50
+        nrestarts     = eqspec.get('nrestarts',50)
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
         refcomplexity = eqspec.get('refcomplexity')
@@ -291,11 +297,17 @@ if __name__=='__main__':
                 logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:
                 logger.info(f'   No PySR init found; defaulting all constants to 1.0')
-        # Anchor starts: for each already-optimized equation whose constant set is a strict
-        # subset of this one's, inject its constants (new constants default to 1.0) as an
-        # additional guaranteed starting point — without making it the primary init.
         anchor_inits = []
+        if prevconsts is not None:
+            anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
+            anchor_inits.append(anchor)
+            logger.info(f'   Anchor start from previous {name}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
+            if not init:
+                init = anchor
+                logger.info(f'   Using previous constants as primary init (PySR match failed)')
         for prevname,preventry in registry.items():
+            if prevname == name:
+                continue
             if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
                 continue
             prevconsts = preventry['constants']
@@ -327,7 +339,11 @@ if __name__=='__main__':
         for split in splits:
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
             if os.path.exists(predpath) and not force:
+<<<<<<< HEAD
                 logger.info(f'   Skipping {split} predictions, already exist')
+=======
+                logger.info(f'   Skipping {split} predictions, already exist (use --force to regenerate)')
+>>>>>>> origin/main
                 continue
             logger.info(f'   Generating {split} predictions...')
             predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,zmax)
