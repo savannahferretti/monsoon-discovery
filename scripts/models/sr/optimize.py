@@ -134,7 +134,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,zmax,init,nrestarts,seed=0,
             if c in init:
                 restart[c] = init[c] + (samples[i,j]*6.0-3.0)
             else:
-                restart[c] = samples[i,j]*20.0-10.0
+                restart[c] = samples[i,j]*10.0-5.0
         inits.append(restart)
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
         delayed(optimize_constants)(form,predictornames,x,y,zmin,zmax,restartinit)
