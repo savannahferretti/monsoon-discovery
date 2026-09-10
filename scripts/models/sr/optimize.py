@@ -147,7 +147,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,zmax,init,nrestarts,seed=0,
         if bestresult is None or res.fun < bestresult.fun:
             bestconstants,bestresult = constants,res
         logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
-    logger.info(f'   {nconverged}/{len(inits)} restarts converged; best loss={bestresult.fun:.6f}')
+    logger.debug(f'   {nconverged}/{len(inits)} restarts converged; best loss={bestresult.fun:.6f}')
     return bestconstants,bestresult
 
 def save_registry(registry,config):
@@ -166,7 +166,7 @@ def save_registry(registry,config):
     rows = [dict(name=name,form=entry['form'],train_loss=entry['train_loss'],valid_loss=entry['valid_loss'],
                  constants=json.dumps(entry['constants'])) for name,entry in registry.items()]
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
-    logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
+    logger.info(f'   Optimized equation saved in registry → optimized_equations.pkl')
 
 def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     '''
@@ -216,7 +216,7 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
         except Exception:
             match = None
         if match is None:
-            logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
+            logger.debug(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
             continue
         vals = {}
         for c in constantnames:
@@ -226,9 +226,9 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
                 break
             vals[c] = float(v)
         if vals is None:
-            logger.info(f'   Seed {seed}: match found but constants are non-numeric, skipping')
+            logger.debug(f'   Seed {seed}: match found but constants are non-numeric, skipping')
             continue
-        logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
+        logger.debug(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
         seedconsts.append(vals)
     if not seedconsts:
         return {}
@@ -246,13 +246,12 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
     return da.to_dataset(name=writer.targetvar)
 
 if __name__=='__main__':
+    import time
     config       = Config()
     sr           = config.sr
     targetvar    = config.targetvar
     optimizedeqs = sr.get('optimizedeqs',{})
-    logger.info('Spinning up...')
     selectedeqs,splits,nworkers,force = parse()
-    logger.info(f'Using {nworkers} parallel worker(s) for multi-start optimization...')
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
@@ -266,27 +265,26 @@ if __name__=='__main__':
     if os.path.exists(registrypath):
         with open(registrypath,'rb') as f:
             registry = pickle.load(f)
-        logger.info(f'Loaded existing registry with {len(registry)} equation(s)')
     datacache = {}
     for name,eqspec in optimizedeqs.items():
         if selectedeqs is not None and name not in selectedeqs:
             continue
         if eqspec.get('form') is None:
-            logger.info(f'Skipping `{name}`, form not yet specified')
             continue
         if name in registry and not force:
-            logger.info(f'Skipping `{name}`, already optimized (use --force to re-optimize)')
             continue
         if name in registry and force:
-            logger.info(f'Re-optimizing `{name}` (--force)')
             del registry[name]
         runname        = eqspec['runfrom']
         runconfig      = sr['runs'][runname]
         form           = eqspec['form']
         refcomplexity  = eqspec.get('refcomplexity')
-        logger.info(f'Optimizing `{name}`...')
+        nrestarts      = eqspec.get('nrestarts',50)
+        logger.info(f'Optimizing {name} with form {form}...')
+        logger.info('Spinning up...')
+        if registry:
+            logger.info(f'   Loaded existing registry with {len(registry)} equation(s)...')
         if runname not in datacache:
-            logger.info(f'   Loading training + validation sets...')
             xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
             xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
             xfit  = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
@@ -296,46 +294,35 @@ if __name__=='__main__':
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
         xfit           = xfitfull[predictornames]
-        nrestarts      = eqspec.get('nrestarts',50)
+        logger.info(f'   Loading training + validation sets ({len(yfit):,} samples)...')
         constantnames  = extract_constants(form,predictornames)
         eq_seeds       = eqspec.get('seeds',sr['seeds'])
         init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir)
-        if init:
-            logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
-            unmatched = [c for c in constantnames if c not in init]
-            if unmatched:
-                logger.info(f'   New constants (no PySR match, init=1.0): {unmatched}')
-        else:
-            logger.info(f'   No PySR init found; all constants start from LHS over [-10,10]')
-        logger.info(f'   Form: {form}')
-        logger.info(f'   Constants to optimize: {constantnames}')
-        logger.info(f'   Running two-phase L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s), '
-                    f'{nworkers} worker(s)...')
+        initdisplay = {c:init.get(c,1.0) for c in constantnames}
+        logger.info(f'   Initial Constants: {", ".join(f"{k}={v:.4f}" for k,v in initdisplay.items())}')
+        logger.info(f'Running two-phase L-BFGS-B with {nrestarts} restarts and {nworkers} workers...')
+        t0 = time.time()
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,zmax,
                                             init,nrestarts,nworkers=nworkers)
-        trainloss  = float(res.fun)
+        elapsed = time.time()-t0
+        logger.info(f'   Time to Completion: {elapsed:.0f} s')
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
-        validpred  = np.clip(zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0),None,zmax)
-        validloss  = float(np.mean((validpred-validtgt)**2))
-        logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
-        logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
         constants  = {k:round(float(v),2) for k,v in constants.items()}
         trainpred  = np.clip(zmin+np.maximum(eval_form(form,xfit,predictornames,constants),0.0),None,zmax)
         validpred  = np.clip(zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0),None,zmax)
         trainloss  = float(np.mean((trainpred-yfit)**2))
         validloss  = float(np.mean((validpred-validtgt)**2))
-        logger.info(f'   Rounded constants: {", ".join(f"{k}={v:.2f}" for k,v in constants.items())}')
-        logger.info(f'   Rounded Training Loss: {trainloss:.6f} | Rounded Validation Loss: {validloss:.6f}')
+        logger.info(f'   Optimized Constants: {", ".join(f"{k}={v}" for k,v in constants.items())}')
+        logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f}')
         registry[name] = dict(form=form,constants=constants,
                               train_loss=trainloss,valid_loss=validloss)
         save_registry(registry,config)
         for split in splits:
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
             if os.path.exists(predpath) and not force:
-                logger.info(f'   Skipping {split} predictions, already exist (use --force to regenerate)')
                 continue
-            logger.info(f'   Generating {split} predictions...')
+            logger.info(f'Generating {split} predictions...')
             predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin,zmax)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds
