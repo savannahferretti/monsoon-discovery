@@ -86,15 +86,21 @@ def eval_form(form,x,predictornames,constants):
 def optimize_constants(form,predictornames,x,y,zmin,zmax,init):
     constantnames = extract_constants(form,predictornames)
     initialparams = np.array([init[c] for c in constantnames])
-    bounds        = [(-10.0,10.0) for _ in constantnames]
-    def objective(params):
+    def softplus_objective(params):
+        constants = dict(zip(constantnames,params))
+        raw       = eval_form(form,x,predictornames,constants)
+        pred      = np.clip(zmin+np.log1p(np.exp(raw)),None,zmax)
+        return float(np.mean((pred-y)**2))
+    def relu_objective(params):
         constants = dict(zip(constantnames,params))
         raw       = eval_form(form,x,predictornames,constants)
         pred      = np.clip(zmin+np.maximum(raw,0.0),None,zmax)
         return float(np.mean((pred-y)**2))
-    res = minimize(objective,initialparams,method='L-BFGS-B',bounds=bounds,
-                   options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
-    return dict(zip(constantnames,res.x)),res
+    res1 = minimize(softplus_objective,initialparams,method='L-BFGS-B',
+                    options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
+    res2 = minimize(relu_objective,res1.x,method='L-BFGS-B',
+                    options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
+    return dict(zip(constantnames,res2.x)),res2
 
 def multistart_optimize(form,predictornames,x,y,zmin,zmax,nrestarts,seed=0,nworkers=1):
     '''
