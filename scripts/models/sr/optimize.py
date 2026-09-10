@@ -102,7 +102,8 @@ def optimize_constants(form,predictornames,x,y,zmin,zmax,init):
     def softplus_objective(params):
         constants = dict(zip(constantnames,params))
         raw       = eval_form(form,x,predictornames,constants)
-        pred      = np.clip(zmin+np.log1p(np.exp(raw)),None,zmax)
+        softplus  = np.where(raw>20.0,raw,np.log1p(np.exp(np.minimum(raw,20.0))))
+        pred      = np.clip(zmin+softplus,None,zmax)
         return float(np.mean((pred-y)**2))
     def relu_objective(params):
         constants = dict(zip(constantnames,params))
