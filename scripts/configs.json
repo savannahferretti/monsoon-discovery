@@ -64,7 +64,7 @@
                 "iterations":200,
                 "populations":50,
                 "populationsize":150,
-                "maxsize":25,
+                "maxsize":20,
                 "maxdepth":10,
                 "batchsize":500,
                 "cyclesperiteration":50,
@@ -75,10 +75,9 @@
                 "unary":["neg","abs","square","cube","exp"],
                 "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":2,"max":2,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
             "complexity":{
-                "ofvariables":{"bl":1,"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":2,"lhf":2,"sr_atm_eq":2},
+                "ofvariables":{"bl":1,"lf":1,"rh":2,"thetae":2,"thetaestar":2,"shf":2,"lhf":2,"sr_atm_eq":2},
                 "ofconstants":1},
-            "constraints":{
-                "^":[-10,10]},
+            "constraints":{"^":[-10,10]},
             "nestedconstraints":{
                 "/":{"/":0},
                 "^":{"^":0},
