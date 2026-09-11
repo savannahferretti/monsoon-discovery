@@ -24,4 +24,4 @@ SPLITS=${2:-test}
 scontrol update JobId=${SLURM_JOB_ID} Name=${EQ}
 echo "Optimizing equations: ${EQ}  |  splits: ${SPLITS}  |  workers: ${SLURM_CPUS_PER_TASK}"
 
-python -m scripts.models.sr.optimize --equations ${EQ} --splits ${SPLITS} --force
+python -m scripts.models.sr.optimize --equations ${EQ} --splits ${SPLITS}

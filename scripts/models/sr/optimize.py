@@ -10,8 +10,9 @@ import numpy as np
 import pandas as pd
 import sympy as sp
 import xarray as xr
-from joblib import Parallel, delayed
+from joblib import Parallel,delayed
 from scipy.optimize import minimize
+from scipy.stats.qmc import LatinHypercube
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
 from scripts.models.sr.train import load_data
@@ -54,17 +55,18 @@ def parse():
     '''
     Purpose: Parse command-line arguments for running the optimization script.
     Returns:
-    - tuple[set[str]|None, list[str], int]: selected equation names (or None for all),
-        list of splits for which to save predictions, and number of parallel workers
+    - tuple[set[str]|None, list[str], int, bool]: selected equation names (or None for all),
+        list of splits for which to save predictions, number of parallel workers, and force flag
     '''
     parser = argparse.ArgumentParser(description='Optimize SR equation constants on full train+valid data.')
     parser.add_argument('--equations',type=str,default='all',help='Comma-separated equation names to optimize, or `all`')
     parser.add_argument('--splits',type=str,default='train,valid,test',help='Comma-separated splits to generate predictions for (default: train,valid,test)')
+    parser.add_argument('--force',action='store_true',help='Re-optimize equations even if already in the registry')
     args        = parser.parse_args()
     selectedeqs = None if args.equations=='all' else {n.strip() for n in args.equations.split(',')}
     splits      = [s.strip() for s in args.splits.split(',')]
     nworkers    = int(os.environ.get('SLURM_CPUS_PER_TASK',1))
-    return selectedeqs,splits,nworkers
+    return selectedeqs,splits,nworkers,args.force
 
 def extract_constants(form,predictornames):
     '''
@@ -113,22 +115,40 @@ def optimize_constants(form,predictornames,x,y,zmin,init,plainmse=False):
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=5.0,seed=0,nworkers=1,extra_inits=None,plainmse=False):
+def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=50,seed=0,nworkers=1,extra_inits=None,plainmse=False):
+    '''
+    Purpose: Optimize constants via L-BFGS-B from multiple starting points. The primary
+        start uses PySR-derived constants (init); remaining restarts perturb those values
+        via LHS over [-5, 5] for constants not in init, and within +/-3 of init values
+        for known ones.
+    '''
     constantnames = extract_constants(form,predictornames)
-    rng           = np.random.default_rng(seed)
+    nconstants    = len(constantnames)
     fixed_inits   = [init] + (extra_inits or [])
-    nrandom       = max(0, nrestarts - len(fixed_inits))
-    inits         = fixed_inits + [
-        {c:float(v) for c,v in zip(constantnames,rng.uniform(-initscale,initscale,len(constantnames)))}
-        for _ in range(nrandom)]
+    nrandom       = max(0,nrestarts - len(fixed_inits))
+    sampler       = LatinHypercube(d=nconstants,seed=seed)
+    samples       = sampler.random(n=nrandom)
+    inits = list(fixed_inits)
+    for i in range(nrandom):
+        restart = {}
+        for j,c in enumerate(constantnames):
+            if c in init:
+                restart[c] = init[c] + (samples[i,j]*6.0-3.0)
+            else:
+                restart[c] = samples[i,j]*10.0-5.0
+        inits.append(restart)
     resultslist = Parallel(n_jobs=nworkers,prefer='threads')(
         delayed(optimize_constants)(form,predictornames,x,y,zmin,restartinit,plainmse=plainmse)
         for restartinit in inits)
     bestconstants,bestresult = None,None
+    nconverged = 0
     for i,(constants,res) in enumerate(resultslist):
+        if res.success:
+            nconverged += 1
         if bestresult is None or res.fun < bestresult.fun:
             bestconstants,bestresult = constants,res
         logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
+    logger.debug(f'   {nconverged}/{len(inits)} restarts converged; best loss={bestresult.fun:.6f}')
     return bestconstants,bestresult
 
 def save_registry(registry,config):
@@ -239,13 +259,12 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
     return da.to_dataset(name=writer.targetvar)
 
 if __name__=='__main__':
+    import time
     config       = Config()
     sr           = config.sr
     targetvar    = config.targetvar
     optimizedeqs = sr.get('optimizedeqs',{})
-    logger.info('Spinning up...')
-    selectedeqs,splits,nworkers = parse()
-    logger.info(f'Using {nworkers} parallel worker(s) for multi-start optimization...')
+    selectedeqs,splits,nworkers,force = parse()
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
     with open(statsfile,'r',encoding='utf-8') as f:
@@ -257,24 +276,27 @@ if __name__=='__main__':
     if os.path.exists(registrypath):
         with open(registrypath,'rb') as f:
             registry = pickle.load(f)
-        logger.info(f'Loaded existing registry with {len(registry)} equation(s)')
     datacache = {}
     for name,eqspec in optimizedeqs.items():
         if selectedeqs is not None and name not in selectedeqs:
             continue
         if eqspec.get('form') is None:
-            logger.info(f'Skipping `{name}`, form not yet specified')
             continue
-        if name in registry:
-            logger.info(f'Skipping `{name}`, already optimized')
+        if name in registry and not force:
             continue
+        if name in registry and force:
+            del registry[name]
         runname        = eqspec['runfrom']
         runconfig      = sr['runs'][runname]
         form           = eqspec['form']
         refcomplexity  = eqspec.get('refcomplexity')
-        logger.info(f'Optimizing `{name}`...')
+        nrestarts      = eqspec.get('nrestarts',50)
+        useplainmse    = runconfig.get('residualfrom') is not None
+        logger.info(f'Optimizing {name} with form {form}...')
+        logger.info('Spinning up...')
+        if registry:
+            logger.info(f'   Loaded existing registry with {len(registry)} equation(s)...')
         if runname not in datacache:
-            logger.info(f'   Loading training + validation sets...')
             xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
             xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
             xfit  = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
@@ -283,13 +305,11 @@ if __name__=='__main__':
             del xtrain,ytrain,reftrain
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
-        xfit       = xfitfull[predictornames]
-        nrestarts     = 50
-        initscale     = eqspec.get('initscale',5.0)
-        constantnames = extract_constants(form,predictornames)
-        refcomplexity = eqspec.get('refcomplexity')
-        eq_seeds = eqspec.get('seeds', sr['seeds'])
-        explicit_init = eqspec.get('init')
+        xfit           = xfitfull[predictornames]
+        logger.info(f'   Loading training + validation sets ({len(yfit):,} samples)...')
+        constantnames  = extract_constants(form,predictornames)
+        eq_seeds       = eqspec.get('seeds',sr['seeds'])
+        explicit_init  = eqspec.get('init')
         if explicit_init is not None:
             init = explicit_init
             logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
@@ -299,9 +319,8 @@ if __name__=='__main__':
                 logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:
                 logger.info(f'   No PySR init found; defaulting all constants to 1.0')
-        # Anchor starts: for each already-optimized equation whose constant set is a strict
-        # subset of this one's, inject its constants (new constants default to 1.0) as an
-        # additional guaranteed starting point — without making it the primary init.
+        initdisplay = {c:init.get(c,1.0) for c in constantnames}
+        logger.info(f'   Initial Constants: {", ".join(f"{k}={v:.4f}" for k,v in initdisplay.items())}')
         anchor_inits = []
         for prevname,preventry in registry.items():
             if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
@@ -311,21 +330,14 @@ if __name__=='__main__':
                 anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
                 anchor_inits.append(anchor)
                 logger.info(f'   Anchor start from {prevname}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
-        useplainmse = runconfig.get('residualfrom') is not None
-        logger.info(f'   Running L-BFGS-B with {len(xfit):,} samples, {nrestarts} restart(s) '
-                    f'({len(anchor_inits)} anchor(s)), {nworkers} worker(s)...')
-        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,initscale,
+        logger.info(f'Running L-BFGS-B with {nrestarts} restarts and {nworkers} workers...')
+        t0 = time.time()
+        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,
                                             nworkers=nworkers,extra_inits=anchor_inits,plainmse=useplainmse)
-        trainloss  = float(res.fun)
+        elapsed = time.time()-t0
+        logger.info(f'   Time to Completion: {elapsed:.0f} s')
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
-        if useplainmse:
-            validpred = eval_form(form,xvalidsub,predictornames,constants)
-        else:
-            validpred = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
-        validloss  = float(np.mean((validpred-validtgt)**2))
-        logger.info(f'   Constants: {", ".join(f"{k}={v:.6f}" for k,v in constants.items())}')
-        logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f} | Converged: {res.success}')
         constants  = {k:round(float(v),2) for k,v in constants.items()}
         if useplainmse:
             trainpred = eval_form(form,xfit,predictornames,constants)
@@ -335,17 +347,16 @@ if __name__=='__main__':
             validpred = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
         trainloss  = float(np.mean((trainpred-yfit)**2))
         validloss  = float(np.mean((validpred-validtgt)**2))
-        logger.info(f'   Rounded constants: {", ".join(f"{k}={v:.2f}" for k,v in constants.items())}')
-        logger.info(f'   Rounded Training Loss: {trainloss:.6f} | Rounded Validation Loss: {validloss:.6f}')
+        logger.info(f'   Optimized Constants: {", ".join(f"{k}={v}" for k,v in constants.items())}')
+        logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f}')
         registry[name] = dict(form=form,constants=constants,
                               train_loss=trainloss,valid_loss=validloss)
         save_registry(registry,config)
         for split in splits:
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
-            if os.path.exists(predpath):
-                logger.info(f'   Skipping {split} predictions, already exist')
+            if os.path.exists(predpath) and not force:
                 continue
-            logger.info(f'   Generating {split} predictions...')
+            logger.info(f'Generating {split} predictions...')
             predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds
