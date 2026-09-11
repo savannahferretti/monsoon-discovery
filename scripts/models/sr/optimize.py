@@ -170,14 +170,36 @@ def save_registry(registry,config):
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
     logger.info(f'   Registry saved → {registrypath}')
 
+def _extract_match(match,constantnames,wildsyms):
+    '''
+    Purpose: Extract numeric constant values from a SymPy match result.
+    Args:
+    - match (dict|None): result of SymPy expr.match()
+    - constantnames (list[str]): constant names to extract
+    - wildsyms (dict): mapping from constant name to sp.Wild symbol
+    Returns:
+    - dict|None: constant name → float, or None if any constant is missing or non-numeric
+    '''
+    if match is None:
+        return None
+    vals = {}
+    for c in constantnames:
+        v = match.get(wildsyms[c])
+        if v is None or not v.is_Number:
+            return None
+        vals[c] = float(v)
+    return vals
+
 def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     '''
     Purpose: Initialize constants by structurally unifying the parametric form with
         each seed's PySR equation at refcomplexity, then averaging matched constants
         across seeds. Uses SymPy's Wild + match so trivial algebraic rearrangements
         (e.g. `- -b` vs `+ b`, `a + x` vs `x + a`) don't count as structural mismatches.
-        Seeds whose PySR equation cannot be unified with the form — or whose matched
-        constants are not purely numeric — are skipped.
+        When the direct match fails, tries dropping each constant (setting it to zero)
+        and matching the simplified form plus an additive catch-all, which handles PySR
+        equations with minor structural differences (e.g. an offset outside the cube
+        instead of inside). Seeds that cannot be unified with any pattern are skipped.
     Args:
     - form (str): Python expression string with named constants
     - predictornames (list[str]): predictor column names
@@ -202,6 +224,17 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     except Exception as e:
         logger.warning(f'   Could not parse form `{form}`: {e}')
         return {}
+    junk = sp.Wild('_junk')
+    fallbacks = []
+    for drop in constantnames:
+        kept      = [c for c in constantnames if c != drop]
+        keptwilds = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in kept}
+        ns        = dict(SRSYMPY,**predictorsyms,**keptwilds)
+        ns[drop]  = sp.Integer(0)
+        try:
+            fallbacks.append((sp.sympify(form,locals=ns)+junk,kept,keptwilds,drop))
+        except Exception:
+            pass
     seedconsts = []
     for seed in seeds:
         filepath = os.path.join(modelsdir,'sr',f'{runname}_{seed}_equations.csv')
@@ -216,23 +249,21 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
         pysreq = str(row.iloc[0]['equation']).replace('^','**')
         try:
             pysrexpr = sp.sympify(pysreq,locals=parsens)
-            match    = pysrexpr.match(formexpr)
         except Exception:
-            match = None
-        if match is None:
+            logger.info(f'   Seed {seed}: could not parse equation, skipping')
+            continue
+        vals = _extract_match(pysrexpr.match(formexpr),constantnames,wildsyms)
+        if vals is None:
+            for reduced,kept,keptwilds,drop in fallbacks:
+                fvals = _extract_match(pysrexpr.match(reduced),kept,keptwilds)
+                if fvals is not None:
+                    vals = {c:fvals[c] for c in kept}
+                    vals[drop] = 0.0
+                    break
+        if vals is None:
             logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
             continue
-        vals = {}
-        for c in constantnames:
-            v = match.get(wildsyms[c])
-            if v is None or not v.is_Number:
-                vals = None
-                break
-            vals[c] = float(v)
-        if vals is None:
-            logger.info(f'   Seed {seed}: match found but constants are non-numeric, skipping')
-            continue
-        logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
+        logger.info(f'   Seed {seed}: {", ".join(f"{c}={vals[c]:.4f}" for c in constantnames)}')
         seedconsts.append(vals)
     if not seedconsts:
         return {}
