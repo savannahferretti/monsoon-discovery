@@ -1,0 +1,2 @@
+name,form,train_loss,valid_loss,constants
+sr_atm_eq,"a*cube(max(b*rh,c*thetae-d*thetaestar-e))",0.47927686501303063,0.48152242081657987,"{""a"": 1.27, ""b"": 1.0, ""c"": 1.0, ""d"": 1.48, ""e"": 0.37}"
