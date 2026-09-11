@@ -132,7 +132,7 @@
                     "form":"a*cube(max(b*rh,thetae-c*thetaestar-d))",
                     "matchform":"a*cube(max(b*rh,_k*thetae-c*thetaestar-d))",
                     "reparameterize":{"a":"a*_k**3","b":"b/_k","c":"c/_k","d":"d/_k"},
-                    "nrestarts":500,
+                    "nrestarts":50,
                     "color":"#FB992E",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
