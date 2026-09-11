@@ -167,7 +167,7 @@ def save_registry(registry,config):
     rows = [dict(name=name,form=entry['form'],train_loss=entry['train_loss'],valid_loss=entry['valid_loss'],
                  constants=json.dumps(entry['constants'])) for name,entry in registry.items()]
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
-    logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
+    logger.info(f'   Registry saved → {registrypath}')
 
 def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     '''
@@ -294,8 +294,6 @@ if __name__=='__main__':
         useplainmse    = runconfig.get('residualfrom') is not None
         logger.info(f'Optimizing {name} with form {form}...')
         logger.info('Spinning up...')
-        if registry:
-            logger.info(f'   Loaded existing registry with {len(registry)} equation(s)...')
         if runname not in datacache:
             xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
             xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
@@ -312,15 +310,11 @@ if __name__=='__main__':
         explicit_init  = eqspec.get('init')
         if explicit_init is not None:
             init = explicit_init
-            logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
             init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir)
-            if init:
-                logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
-            else:
-                logger.info(f'   No PySR init found; defaulting all constants to 1.0')
         initdisplay = {c:init.get(c,1.0) for c in constantnames}
-        logger.info(f'   Initial Constants: {", ".join(f"{k}={v:.4f}" for k,v in initdisplay.items())}')
+        initsource = 'configured' if explicit_init is not None else 'averaged across seeds'
+        logger.info(f'   Initial constants ({initsource}): {", ".join(f"{k}={v:.4f}" for k,v in initdisplay.items())}')
         anchor_inits = []
         for prevname,preventry in registry.items():
             if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
@@ -335,7 +329,7 @@ if __name__=='__main__':
         constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,
                                             nworkers=nworkers,extra_inits=anchor_inits,plainmse=useplainmse)
         elapsed = time.time()-t0
-        logger.info(f'   Time to Completion: {elapsed:.0f} s')
+        logger.info(f'   Time to completion: {elapsed:.0f} s')
         xvalidsub  = xvalid[validmask][predictornames].reset_index(drop=True)
         validtgt   = yvalid[validmask]
         constants  = {k:round(float(v),2) for k,v in constants.items()}
@@ -347,7 +341,7 @@ if __name__=='__main__':
             validpred = zmin+np.maximum(eval_form(form,xvalidsub,predictornames,constants),0.0)
         trainloss  = float(np.mean((trainpred-yfit)**2))
         validloss  = float(np.mean((validpred-validtgt)**2))
-        logger.info(f'   Optimized Constants: {", ".join(f"{k}={v}" for k,v in constants.items())}')
+        logger.info(f'   Optimized constants: {", ".join(f"{k}={v}" for k,v in constants.items())}')
         logger.info(f'   Training Loss: {trainloss:.6f} | Validation Loss: {validloss:.6f}')
         registry[name] = dict(form=form,constants=constants,
                               train_loss=trainloss,valid_loss=validloss)
@@ -356,7 +350,7 @@ if __name__=='__main__':
             predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
             if os.path.exists(predpath) and not force:
                 continue
-            logger.info(f'Generating {split} predictions...')
+            logger.info(f'   Generating {split} predictions...')
             predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds
