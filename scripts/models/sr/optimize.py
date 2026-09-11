@@ -115,7 +115,7 @@ def optimize_constants(form,predictornames,x,y,zmin,init,plainmse=False):
     res = minimize(objective,initialparams,method='L-BFGS-B',options={'maxiter':10000,'ftol':1e-14,'gtol':1e-10})
     return dict(zip(constantnames,res.x)),res
 
-def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=50,seed=0,nworkers=1,extra_inits=None,plainmse=False):
+def multistart_optimize(form,predictornames,x,y,zmin,init,seed=0,nworkers=1,extra_inits=None,plainmse=False):
     '''
     Purpose: Optimize constants via L-BFGS-B from multiple starting points. The primary
         start uses PySR-derived constants (init); remaining restarts perturb those values
@@ -124,6 +124,7 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=50,seed=0,nw
     '''
     constantnames = extract_constants(form,predictornames)
     nconstants    = len(constantnames)
+    nrestarts     = 50
     fixed_inits   = [init] + (extra_inits or [])
     nrandom       = max(0,nrestarts - len(fixed_inits))
     sampler       = LatinHypercube(d=nconstants,seed=seed)
@@ -169,27 +170,21 @@ def save_registry(registry,config):
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
     logger.info(f'   Registry saved → {registrypath}')
 
-def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,matchform=None,reparameterize=None):
+def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     '''
     Purpose: Initialize constants by structurally unifying the parametric form with
         each seed's PySR equation at refcomplexity, then averaging matched constants
         across seeds. Uses SymPy's Wild + match so trivial algebraic rearrangements
         (e.g. `- -b` vs `+ b`, `a + x` vs `x + a`) don't count as structural mismatches.
         Seeds whose PySR equation cannot be unified with the form — or whose matched
-        constants are not purely numeric — are skipped. When a matchform is provided
-        (a more general pattern with extra constants), matching uses that form and then
-        reparameterizes the matched constants to the optimization form.
+        constants are not purely numeric — are skipped.
     Args:
-    - form (str): Python expression string with named constants (optimization form)
+    - form (str): Python expression string with named constants
     - predictornames (list[str]): predictor column names
     - refcomplexity (int|None): target complexity level to read from per-seed CSVs
     - runname (str): SR run name (used to locate per-seed equation CSVs)
     - seeds (list[int]): list of random seeds
     - modelsdir (str): path to models directory
-    - matchform (str|None): optional generalized form for PySR matching (has extra constants
-        not in the optimization form, e.g. a coefficient on a bare predictor)
-    - reparameterize (dict|None): when matchform is used, maps each optimization constant name
-        to a Python expression in terms of the matchform's constant names
     Returns:
     - dict: constant name → averaged float value, or {} if no seeds unify
     '''
@@ -198,16 +193,14 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,matchfor
     constantnames = extract_constants(form,predictornames)
     if not constantnames:
         return {}
-    useform        = matchform if matchform is not None else form
-    matchconstants = extract_constants(useform,predictornames)
-    predictorsyms  = {p:sp.Symbol(p) for p in predictornames}
-    wildsyms       = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in matchconstants}
-    formns         = dict(SRSYMPY,**predictorsyms,**wildsyms)
-    parsens        = dict(SRSYMPY,**predictorsyms)
+    predictorsyms = {p:sp.Symbol(p) for p in predictornames}
+    wildsyms      = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in constantnames}
+    formns        = dict(SRSYMPY,**predictorsyms,**wildsyms)
+    parsens       = dict(SRSYMPY,**predictorsyms)
     try:
-        formexpr = sp.sympify(useform,locals=formns)
+        formexpr = sp.sympify(form,locals=formns)
     except Exception as e:
-        logger.warning(f'   Could not parse form `{useform}`: {e}')
+        logger.warning(f'   Could not parse form `{form}`: {e}')
         return {}
     seedconsts = []
     for seed in seeds:
@@ -229,20 +222,16 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,matchfor
         if match is None:
             logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
             continue
-        rawvals = {}
-        for c in matchconstants:
+        vals = {}
+        for c in constantnames:
             v = match.get(wildsyms[c])
             if v is None or not v.is_Number:
-                rawvals = None
+                vals = None
                 break
-            rawvals[c] = float(v)
-        if rawvals is None:
+            vals[c] = float(v)
+        if vals is None:
             logger.info(f'   Seed {seed}: match found but constants are non-numeric, skipping')
             continue
-        if reparameterize is not None:
-            vals = {c:float(eval(reparameterize[c],{'__builtins__':{}},rawvals)) for c in constantnames}
-        else:
-            vals = rawvals
         logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
         seedconsts.append(vals)
     if not seedconsts:
@@ -304,7 +293,6 @@ if __name__=='__main__':
         runconfig      = sr['runs'][runname]
         form           = eqspec['form']
         refcomplexity  = eqspec.get('refcomplexity')
-        nrestarts      = eqspec.get('nrestarts',50)
         useplainmse    = runconfig.get('residualfrom') is not None
         logger.info(f'Optimizing {name} with form {form}...')
         logger.info('Spinning up...')
@@ -321,14 +309,11 @@ if __name__=='__main__':
         logger.info(f'   Loading training + validation sets ({len(yfit):,} samples)...')
         constantnames  = extract_constants(form,predictornames)
         eq_seeds       = eqspec.get('seeds',sr['seeds'])
-        matchform      = eqspec.get('matchform')
-        reparameterize = eqspec.get('reparameterize')
         explicit_init  = eqspec.get('init')
         if explicit_init is not None:
             init = explicit_init
         else:
-            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,
-                             matchform=matchform,reparameterize=reparameterize)
+            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir)
         initdisplay = {c:init.get(c,1.0) for c in constantnames}
         initsource = 'configured' if explicit_init is not None else 'averaged across seeds'
         logger.info(f'   Initial constants ({initsource}): {", ".join(f"{k}={v:.4f}" for k,v in initdisplay.items())}')
@@ -341,9 +326,9 @@ if __name__=='__main__':
                 anchor = {c:(prevconsts[c] if c in prevconsts else 1.0) for c in constantnames}
                 anchor_inits.append(anchor)
                 logger.info(f'   Anchor start from {prevname}: {", ".join(f"{k}={v:.4f}" for k,v in anchor.items())}')
-        logger.info(f'Running L-BFGS-B with {nrestarts} restarts and {nworkers} workers...')
+        logger.info(f'Running L-BFGS-B with 50 restarts and {nworkers} workers...')
         t0 = time.time()
-        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,nrestarts,
+        constants,res = multistart_optimize(form,predictornames,xfit,yfit,zmin,init,
                                             nworkers=nworkers,extra_inits=anchor_inits,plainmse=useplainmse)
         elapsed = time.time()-t0
         logger.info(f'   Time to completion: {elapsed:.0f} s')
