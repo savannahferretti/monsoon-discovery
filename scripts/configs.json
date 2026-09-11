@@ -123,7 +123,7 @@
                     "runfrom":"sr_bl",
                     "refcomplexity":7,
                     "form":"cube(bl+a)+b",
-                    "nrestarts":500,
+                    "nrestarts":50,
                     "color":"#F2C75E",
                     "description":"SR-BL"},
                 "sr_atm_eq":{
@@ -139,14 +139,14 @@
                     "runfrom":"sr_sfc",
                     "refcomplexity":13,
                     "form":"sr_atm_eq+a*shf*(b-lf)+c*lhf",
-                    "nrestarts":500,
+                    "nrestarts":50,
                     "color":"#C44E52",
                     "description":"SR-SFC"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":17,
                     "form":"sr_atm_eq+(a*thetae+b*shf)*cube(c-lf)+d",
-                    "nrestarts":500,
+                    "nrestarts":50,
                     "color":"#8B6FB0",
                     "description":"SR-ALL"}
             }
