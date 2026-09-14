@@ -19,8 +19,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate monsoon-discovery
 
 EQ=${1:-all}
-SPLITS=${2:-test}
 
 scontrol update JobId=${SLURM_JOB_ID} Name=${EQ}
 
-python -m scripts.models.sr.optimize --equations ${EQ} --splits ${SPLITS}
+python -m scripts.models.sr.optimize --equations ${EQ} --splits test
