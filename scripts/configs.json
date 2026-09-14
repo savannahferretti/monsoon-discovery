@@ -75,7 +75,7 @@
                 "unary":["neg","abs","square","cube","exp"],
                 "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":2,"max":2,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
             "complexity":{
-                "ofvariables":{"bl":1,"lf":1,"rh":2,"thetae":2,"thetaestar":2,"shf":2,"lhf":2,"sr_atm_eq":2},
+                "ofvariables":{"bl":1,"lf":1,"rh":2,"thetae":2,"thetaestar":2,"shf":2,"lhf":2},
                 "ofconstants":1},
             "constraints":{"^":[-10,10]},
             "nestedconstraints":{
@@ -121,16 +121,28 @@
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
                     "runfrom":"sr_sfc",
-                    "refcomplexity":13,
-                    "form":"sr_atm_eq+a*shf*(b-lf)+c*lhf",
+                    "refcomplexity":9,
+                    "form":"sr_atm_eq+a*shf*(b-lf)",
                     "color":"#C44E52",
                     "description":"SR-SFC"},
+                "sr_sfc_mult_eq":{
+                    "runfrom":"sr_sfc",
+                    "refcomplexity":13,
+                    "form":"sr_atm_eq*(a-(shf+b)*(lf-c))",
+                    "color":"#D4787A",
+                    "description":"SR-SFC-MULT"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
-                    "refcomplexity":17,
+                    "refcomplexity":18,
                     "form":"sr_atm_eq+(a*thetae+b*shf)*cube(c-lf)+d",
                     "color":"#8B6FB0",
-                    "description":"SR-ALL"}
+                    "description":"SR-ALL"},
+                "sr_all_mult_eq":{
+                    "runfrom":"sr_all",
+                    "refcomplexity":13,
+                    "form":"sr_atm_eq*(a-(shf+b)*(lf-c))",
+                    "color":"#6A4C93",
+                    "description":"SR-ALL-MULT"}
             }
         }
     }
