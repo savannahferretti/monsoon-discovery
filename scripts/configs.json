@@ -106,18 +106,7 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss",
-                    "residualfrom":"sr_atm_eq"},
-                "sr_sfc_nn":{
-                    "fieldvars":[],
-                    "localvars":["lf","lhf","shf"],
-                    "residualfrom":"sr_atm_eq",
-                    "targetfrom":"nn_gauss"},
-                "sr_all_nn":{
-                    "fieldvars":["rh","thetae","thetaestar"],
-                    "localvars":["lf","shf","lhf"],
-                    "weightsfrom":"nn_gauss",
-                    "residualfrom":"sr_atm_eq",
-                    "targetfrom":"nn_gauss"}},
+                    "residualfrom":"sr_atm_eq"}},
             "optimizedeqs":{
                 "sr_bl_eq":{
                     "runfrom":"sr_bl",
