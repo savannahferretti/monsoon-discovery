@@ -61,10 +61,10 @@
             "seeds":[42,72,102],
             "subsetfrac":0.025,
             "searchparams":{
-                "iterations":500,
-                "populations":25,
+                "iterations":200,
+                "populations":20,
                 "populationsize":150,
-                "maxsize":30,
+                "maxsize":20,
                 "maxdepth":10,
                 "batchsize":500,
                 "cyclesperiteration":50,
@@ -75,9 +75,10 @@
                 "unary":["neg","abs","square","cube","exp"],
                 "complexity":{"+":1,"-":1,"*":1,"/":2,"^":2,"min":2,"max":2,"neg":1,"abs":2,"square":2,"cube":2,"exp":2}},
             "complexity":{
-                "ofvariables":{"bl":1,"lf":1,"rh":2,"thetae":2,"thetaestar":2,"shf":2,"lhf":2,"sr_atm_eq":1},
+                "ofvariables":{"bl":1,"rh":2,"thetae":2,"thetaestar":2,"lf":1,"shf":2,"lhf":2,"sr_atm_eq":1},
                 "ofconstants":1},
-            "constraints":{"^":[-10,10]},
+            "constraints":{
+                "^":[-10,10]},
             "nestedconstraints":{
                 "/":{"/":0},
                 "^":{"^":0},
@@ -105,7 +106,18 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss",
-                    "residualfrom":"sr_atm_eq"}},
+                    "residualfrom":"sr_atm_eq"},
+                "sr_sfc_nn":{
+                    "fieldvars":[],
+                    "localvars":["lf","lhf","shf"],
+                    "residualfrom":"sr_atm_eq",
+                    "targetfrom":"nn_gauss"},
+                "sr_all_nn":{
+                    "fieldvars":["rh","thetae","thetaestar"],
+                    "localvars":["lf","shf","lhf"],
+                    "weightsfrom":"nn_gauss",
+                    "residualfrom":"sr_atm_eq",
+                    "targetfrom":"nn_gauss"}},
             "optimizedeqs":{
                 "sr_bl_eq":{
                     "runfrom":"sr_bl",
@@ -116,19 +128,19 @@
                 "sr_atm_eq":{
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
-                    "form":"a*cube(max(rh,b*thetae-c*thetaestar-d))",
+                    "form":"a*cube(max(rh,thetae-b*thetaestar-c))",
                     "color":"#FB992E",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
                     "runfrom":"sr_sfc",
-                    "refcomplexity":9,
-                    "form":"sr_atm_eq+a*shf*(b-lf)",
+                    "refcomplexity":13,
+                    "form":"sr_atm_eq+a*shf*(b-lf)+c*lhf",
                     "color":"#C44E52",
                     "description":"SR-SFC"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
-                    "refcomplexity":18,
-                    "form":"sr_atm_eq+(a*thetae+b*shf)*cube(c-lf)+d",
+                    "refcomplexity":17,
+                    "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)+c",
                     "color":"#8B6FB0",
                     "description":"SR-ALL"}
             }

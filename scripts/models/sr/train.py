@@ -349,16 +349,22 @@ def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     return model
 
 def save(model,runname,seed,config):
+    '''
+    Purpose: Save a fitted PySRRegressor and its equation Pareto frontier to disk.
+    Args:
+    - model (PySRRegressor): fitted symbolic regression model
+    - runname (str): run identifier used for output filenames
+    - seed (int): training seed used for output filenames
+    - config (Config): project configuration object
+    '''
     outdir       = os.path.join(config.modelsdir,'sr')
     os.makedirs(outdir,exist_ok=True)
     paretopath   = os.path.join(outdir,f'{runname}_{seed}_pareto.pkl')
     equationspath = os.path.join(outdir,f'{runname}_{seed}_equations.csv')
     with open(paretopath,'wb') as f:
         pickle.dump(model,f)
-    eqdf = model.equations_.copy()
-    dropcols = [c for c in ['sympy_format','lambda_format'] if c in eqdf.columns]
-    eqdf = eqdf.drop(columns=dropcols)
-    eqdf.to_csv(equationspath,index=False)
+    dropcols = [c for c in ['sympy_format','lambda_format'] if c in model.equations_.columns]
+    model.equations_.drop(columns=dropcols).to_csv(equationspath,index=False)
     best = select_pareto_elbow(model.equations_)
     logger.info(f'   Elbow equation (complexity {int(best["complexity"])}): {best["equation"]}  loss={best["loss"]:.6f}')
     logger.info(f'   Saved to {paretopath}')
