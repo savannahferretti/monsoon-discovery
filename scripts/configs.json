@@ -117,8 +117,8 @@
                 "sr_atm_eq":{
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
-                    "form":"a*cube(max(rh,d*thetae-e*thetaestar-f))",
-                    "addedconstants":{"d":1},
+                    "form":"a*cube(max(rh,b*thetae-c*thetaestar-d))",
+                    "addedconstants":{"b":1},
                     "color":"#FB992E",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
