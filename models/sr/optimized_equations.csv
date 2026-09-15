@@ -1,0 +1,2 @@
+name,form,train_loss,valid_loss,constants
+sr_bl_eq,cube(bl+a)+b,0.49855180615704336,0.5021249226434958,"{""a"": 0.3, ""b"": 0.14}"
