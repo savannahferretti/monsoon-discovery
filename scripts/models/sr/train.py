@@ -179,8 +179,8 @@ def load_data(splitname,runconfig,config,time_offset=0):
         basefeatures,_,_,_ = load_data(splitname,baserunconfig,config,time_offset=time_offset)
         basecols = {c:basefeatures[c].values for c in basefeatures.columns if c != 'timeidx'}
         baseline = eval_baseline(entry['form'],basecols,entry['constants'])
-        target = target - baseline
-        logger.info(f'   Subtracted `{residualfrom}` from target (form: {entry["form"]})')
+        features[residualfrom] = baseline
+        logger.info(f'   Added `{residualfrom}` as input feature (form: {entry["form"]})')
     validmask = np.isfinite(features.drop(columns=['timeidx'])).all(axis=1).values & np.isfinite(target)
     splitds.close()
     return features,target,refda,validmask
@@ -307,8 +307,7 @@ def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     from scripts.data.classes.writer import PMAX
     zmin = (0.0-stats['tp_mean'])/stats['tp_std']
     zmax = (np.log1p(PMAX)-stats['tp_mean'])/stats['tp_std']
-    useresidual = runconfig.get('residualfrom') is not None
-    loss = 'loss(x, y) = (x - y)^2' if (useresidual or searchparams.get('loss') == 'plainmse') else f'loss(x, y) = (min(({zmin:.8f}) + max(x, 0.0), {zmax:.8f}) - y)^2'
+    loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss') == 'plainmse' else f'loss(x, y) = (min(({zmin:.8f}) + max(x, 0.0), {zmax:.8f}) - y)^2'
     guesses = build_guesses(runconfig,predictors)
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor
@@ -349,7 +348,7 @@ def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
     model.fit(xsub.values,ysub,variable_names=predictors)
     return model
 
-def save(model,runname,seed,config,residualfrom=None):
+def save(model,runname,seed,config):
     outdir       = os.path.join(config.modelsdir,'sr')
     os.makedirs(outdir,exist_ok=True)
     paretopath   = os.path.join(outdir,f'{runname}_{seed}_pareto.pkl')
@@ -359,8 +358,6 @@ def save(model,runname,seed,config,residualfrom=None):
     eqdf = model.equations_.copy()
     dropcols = [c for c in ['sympy_format','lambda_format'] if c in eqdf.columns]
     eqdf = eqdf.drop(columns=dropcols)
-    if residualfrom:
-        eqdf['equation'] = eqdf['equation'].apply(lambda e: f'{residualfrom} + {e}' if not str(e).replace('.','',1).replace('-','',1).isdigit() else e)
     eqdf.to_csv(equationspath,index=False)
     best = select_pareto_elbow(model.equations_)
     logger.info(f'   Elbow equation (complexity {int(best["complexity"])}): {best["equation"]}  loss={best["loss"]:.6f}')
@@ -411,6 +408,6 @@ if __name__=='__main__':
                 model = fit(xsub,ysub,predictors,srrun,runconfig,seed,procs,tempdirpath)
             finally:
                 shutil.rmtree(tempdirpath,ignore_errors=True)
-            save(model,name,seed,config,residualfrom=runconfig.get('residualfrom'))
+            save(model,name,seed,config)
             del model
         del xfit,yfit

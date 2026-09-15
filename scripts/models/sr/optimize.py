@@ -273,19 +273,6 @@ def predict_split(form,predictornames,constants,runconfig,config,writer,split,zm
     x,y,refda,validmask = load_data(split,runconfig,config)
     xvalid = x[validmask][predictornames].reset_index(drop=True)
     raw    = eval_form(form,xvalid,predictornames,constants)
-    residualfrom = runconfig.get('residualfrom')
-    if residualfrom:
-        from scripts.models.sr.train import eval_baseline
-        registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
-        with open(registrypath,'rb') as f:
-            reg = pickle.load(f)
-        entry = reg[residualfrom]
-        eqspec = config.sr['optimizedeqs'][residualfrom]
-        baserunconfig = config.sr['runs'][eqspec['runfrom']]
-        basex,_,_,bvmask = load_data(split,baserunconfig,config)
-        basecols = {c:basex[bvmask][c].values for c in basex.columns if c != 'timeidx'}
-        baseline = eval_baseline(entry['form'],basecols,entry['constants'])
-        raw = baseline + raw
     pred   = zmin+np.maximum(raw,0.0)
     grid   = np.maximum(np.expm1(writer.unflatten(pred,validmask,refda)*writer.std+writer.mean),0.0).astype(np.float32)
     da     = xr.DataArray(grid,dims=refda.dims,coords=refda.coords)
@@ -324,7 +311,7 @@ if __name__=='__main__':
         runconfig      = sr['runs'][runname]
         form           = eqspec['form']
         refcomplexity  = eqspec.get('refcomplexity')
-        useplainmse    = runconfig.get('residualfrom') is not None
+        useplainmse    = False
         logger.info(f'Optimizing {name} with form {form}...')
         logger.info('Spinning up...')
         if runname not in datacache:
