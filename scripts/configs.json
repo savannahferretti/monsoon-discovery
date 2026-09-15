@@ -127,6 +127,12 @@
                     "form":"sr_atm_eq+shf*(a-lf)+b*lhf",
                     "color":"#C44E52",
                     "description":"SR-SFC"},
+                "sr_sfc2_eq":{
+                    "runfrom":"sr_sfc",
+                    "refcomplexity":8,
+                    "form":"sr_atm_eq+shf*(a-lf)",
+                    "color":"#E07B7B",
+                    "description":"SR-SFC-2"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":17,
