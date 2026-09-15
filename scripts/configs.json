@@ -129,6 +129,7 @@
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
                     "form":"a*cube(max(rh,b*thetae-c*thetaestar-d))",
+                    "addedconstants":["b"],
                     "color":"#FB992E",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
@@ -141,6 +142,7 @@
                     "runfrom":"sr_all",
                     "refcomplexity":17,
                     "form":"sr_atm_eq+(a*thetae+b*shf)*cube(c-lf)+d",
+                    "addedconstants":["a"],
                     "color":"#8B6FB0",
                     "description":"SR-ALL"}
             }

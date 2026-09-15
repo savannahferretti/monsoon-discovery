@@ -147,29 +147,22 @@ def save_registry(registry,config):
     pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
     logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
 
-def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
+def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,addedconstants=None):
     '''
     Purpose: Initialize constants by structurally unifying the parametric form with
         each seed's PySR equation at refcomplexity, then averaging matched constants
-        across seeds. Uses SymPy's Wild + match so trivial algebraic rearrangements
-        (e.g. `- -b` vs `+ b`, `a + x` vs `x + a`) don't count as structural mismatches.
-        Seeds whose PySR equation cannot be unified with the form — or whose matched
-        constants are not purely numeric — are skipped.
-    Args:
-    - form (str): Python expression string with named constants
-    - predictornames (list[str]): predictor column names
-    - refcomplexity (int|None): target complexity level to read from per-seed CSVs
-    - runname (str): SR run name (used to locate per-seed equation CSVs)
-    - seeds (list[int]): list of random seeds
-    - modelsdir (str): path to models directory
-    Returns:
-    - dict: constant name → averaged float value, or {} if no seeds unify
+        across seeds. When added constants are specified and the full form fails to
+        match, retries with those constants fixed to 1 (their identity value) so
+        PySR equations discovered without the extra coefficients can still provide
+        initial values for the remaining constants.
     '''
     if refcomplexity is None:
         return {}
     constantnames = extract_constants(form,predictornames)
     if not constantnames:
         return {}
+    addedconstants = addedconstants or []
+    baseconstants = [c for c in constantnames if c not in addedconstants]
     predictorsyms = {p:sp.Symbol(p) for p in predictornames}
     wildsyms      = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in constantnames}
     formns        = dict(SRSYMPY,**predictorsyms,**wildsyms)
@@ -179,6 +172,11 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     except Exception as e:
         logger.warning(f'   Could not parse form `{form}`: {e}')
         return {}
+    reducedexpr = None
+    if addedconstants:
+        reducedwilds = {c:wildsyms[c] for c in baseconstants}
+        reducedsubs  = {wildsyms[c]:sp.Integer(1) for c in addedconstants}
+        reducedexpr  = formexpr.subs(reducedsubs)
     seedconsts = []
     for seed in seeds:
         filepath = os.path.join(modelsdir,'sr',f'{runname}_{seed}_equations.csv')
@@ -194,21 +192,38 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
             match    = pysrexpr.match(formexpr)
         except Exception:
             match = None
-        if match is None:
-            logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
-            continue
-        vals = {}
-        for c in constantnames:
-            v = match.get(wildsyms[c])
-            if v is None or not v.is_Number:
-                vals = None
-                break
-            vals[c] = float(v)
-        if vals is None:
-            logger.info(f'   Seed {seed}: match found but constants are non-numeric, skipping')
-            continue
-        logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
-        seedconsts.append(vals)
+        if match is not None:
+            vals = {}
+            for c in constantnames:
+                v = match.get(wildsyms[c])
+                if v is None or not v.is_Number:
+                    vals = None
+                    break
+                vals[c] = float(v)
+            if vals is not None:
+                logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
+                seedconsts.append(vals)
+                continue
+        if reducedexpr is not None:
+            try:
+                match = pysrexpr.match(reducedexpr)
+            except Exception:
+                match = None
+            if match is not None:
+                vals = {}
+                for c in baseconstants:
+                    v = match.get(wildsyms[c])
+                    if v is None or not v.is_Number:
+                        vals = None
+                        break
+                    vals[c] = float(v)
+                if vals is not None:
+                    for c in addedconstants:
+                        vals[c] = 1.0
+                    logger.info(f'   Seed {seed} (reduced match): {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
+                    seedconsts.append(vals)
+                    continue
+        logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
     if not seedconsts:
         return {}
     return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
@@ -282,7 +297,8 @@ if __name__=='__main__':
             init = explicit_init
             logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir)
+            addedconstants = eqspec.get('addedconstants',[])
+            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,addedconstants)
             if init:
                 logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:
