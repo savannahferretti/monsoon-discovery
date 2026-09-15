@@ -140,7 +140,7 @@
                 "sr_all_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":17,
-                    "form":"sr_atm_eq+(a*thetae+b*shf)*cube(b-lf)+c",
+                    "form":"sr_atm_eq+(a*thetae+b*shf)*cube(c-lf)+d",
                     "color":"#8B6FB0",
                     "description":"SR-ALL"}
             }
