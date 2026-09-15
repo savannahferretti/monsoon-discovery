@@ -151,17 +151,18 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,addedcon
     '''
     Purpose: Initialize constants by structurally unifying the parametric form with
         each seed's PySR equation at refcomplexity, then averaging matched constants
-        across seeds. When added constants are specified and the full form fails to
-        match, retries with those constants fixed to 1 (their identity value) so
-        PySR equations discovered without the extra coefficients can still provide
-        initial values for the remaining constants.
+        across seeds. When added constants are specified (as a dict mapping constant
+        name to its identity value) and the full form fails to match, retries with
+        those constants fixed to their identity values so PySR equations discovered
+        without the extra coefficients can still provide initial values for the
+        remaining constants.
     '''
     if refcomplexity is None:
         return {}
     constantnames = extract_constants(form,predictornames)
     if not constantnames:
         return {}
-    addedconstants = addedconstants or []
+    addedconstants = addedconstants or {}
     baseconstants = [c for c in constantnames if c not in addedconstants]
     predictorsyms = {p:sp.Symbol(p) for p in predictornames}
     wildsyms      = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in constantnames}
@@ -175,7 +176,7 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,addedcon
     reducedexpr = None
     if addedconstants:
         reducedwilds = {c:wildsyms[c] for c in baseconstants}
-        reducedsubs  = {wildsyms[c]:sp.Integer(1) for c in addedconstants}
+        reducedsubs  = {wildsyms[c]:sp.Rational(v) if v != 0 else sp.Integer(0) for c,v in addedconstants.items()}
         reducedexpr  = formexpr.subs(reducedsubs)
     seedconsts = []
     for seed in seeds:
@@ -218,8 +219,8 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,addedcon
                         break
                     vals[c] = float(v)
                 if vals is not None:
-                    for c in addedconstants:
-                        vals[c] = 1.0
+                    for c,v in addedconstants.items():
+                        vals[c] = float(v)
                     logger.info(f'   Seed {seed} (reduced match): {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
                     seedconsts.append(vals)
                     continue
@@ -297,7 +298,7 @@ if __name__=='__main__':
             init = explicit_init
             logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            addedconstants = eqspec.get('addedconstants',[])
+            addedconstants = eqspec.get('addedconstants',{})
             init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,addedconstants)
             if init:
                 logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
