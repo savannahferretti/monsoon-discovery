@@ -128,7 +128,7 @@
                 "sr_atm_eq":{
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
-                    "form":"a*cube(max(rh,thetae-b*thetaestar-c))",
+                    "form":"a*cube(max(rh,b*thetae-c*thetaestar-d))",
                     "color":"#FB992E",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
@@ -140,7 +140,7 @@
                 "sr_all_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":17,
-                    "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)+c",
+                    "form":"sr_atm_eq+(a*thetae+b*shf)*cube(b-lf)+c",
                     "color":"#8B6FB0",
                     "description":"SR-ALL"}
             }
