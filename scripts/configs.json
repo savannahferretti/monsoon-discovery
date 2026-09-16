@@ -112,25 +112,25 @@
                     "runfrom":"sr_bl",
                     "refcomplexity":7,
                     "form":"cube(bl+a)+b",
-                    "color":"#F2C75E",
+                    "color":"#F2C85E",
                     "description":"SR-BL"},
                 "sr_atm_eq":{
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
                     "form":"a*cube(max(rh,thetae-b*thetaestar-c))",
-                    "color":"#FB992E",
+                    "color":"#FB992F",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
                     "runfrom":"sr_sfc",
                     "refcomplexity":13,
                     "form":"sr_atm_eq+a*shf*(b-lf)+c*lhf",
-                    "color":"#C44E52",
+                    "color":"#D42028",
                     "description":"SR-SFC"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":17,
                     "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)+c",
-                    "color":"#8B6FB0",
+                    "color":"blood",
                     "description":"SR-ALL"}
             }
         }
