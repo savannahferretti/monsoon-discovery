@@ -68,7 +68,7 @@ Claude Code works on a `claude` branch and cannot run experiments here (no NERSC
 
 **NN** (`scripts/models/nn/`): three `kind` variants — `baseline` (flattened profiles + local vars), `nonparametric` (free-form learned vertical kernel), `parametric` (Gaussian kernel, learnable mu/sigma). Shared 4-layer GELU backbone; output `zmin + ReLU(f(x))` (non-negative precip). Target: z-scored `log1p(tp)`. Kernel models save integration weights to `data/weights/`, reused by SR. Checkpoints: `{run}_{seed}.pth`. Logged to W&B.
 
-**SR** (`scripts/models/sr/`): `train.py` runs PySR search (Julia backend) → Pareto frontiers (`.pkl`) + equation tables (`.csv`). `optimize.py` fits constants of hand-specified forms (`sr.optimizedeqs` in configs) via L-BFGS-B multistart → `optimized_equations.pkl` registry. Can use NN kernel-integrated features (`weightsfrom`) or target residuals from a prior SR equation (`baselinefrom`).
+**SR** (`scripts/models/sr/`): `train.py` runs PySR search (Julia backend) → equation tables (`.csv`). `optimize.py` fits constants of hand-specified forms (`sr.optimizedeqs` in configs) via L-BFGS-B multistart → `optimized_equations.csv` registry. `evaluate.py` generates full Pareto frontier predictions from CSVs. Can use NN kernel-integrated features (`weightsfrom`) or target residuals from a prior SR equation (`baselinefrom`). `--predict-only` flag on `optimize.py` skips optimization and predicts from existing constants.
 
 **Predictions:** `data/predictions/{run}_{split}_predictions.nc`. NN → `seed` dim; SR → `seed` + `complexity` dims (full Pareto frontier). Native mm units, post-denormalization.
 
