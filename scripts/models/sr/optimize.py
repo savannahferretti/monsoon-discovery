@@ -220,8 +220,9 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
         return {}
     return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
 
-def predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin):
+def predict_split(form,constants,runconfig,config,writer,split,zmin):
     x,y,refda,validmask = load_data(split,runconfig,config)
+    predictornames = [c for c in x.columns if c != 'timeidx']
     xvalid = x[validmask][predictornames].reset_index(drop=True)
     raw    = eval_form(form,xvalid,predictornames,constants)
     pred   = zmin+np.maximum(raw,0.0)
@@ -269,8 +270,7 @@ if __name__=='__main__':
                     logger.info(f'   Skipping {split} predictions, already exist')
                     continue
                 logger.info(f'   Generating {split} predictions...')
-                predds = predict_split(form,[c for c in runconfig['fieldvars']+runconfig.get('localvars',[])],
-                                       constants,runconfig,config,writer,split,zmin)
+                predds = predict_split(form,constants,runconfig,config,writer,split,zmin)
                 writer.save(predds,name,'predictions',split,config.predsdir)
                 del predds
             continue
@@ -340,6 +340,6 @@ if __name__=='__main__':
                 logger.info(f'   Skipping {split} predictions, already exist')
                 continue
             logger.info(f'   Generating {split} predictions...')
-            predds = predict_split(form,predictornames,constants,runconfig,config,writer,split,zmin)
+            predds = predict_split(form,constants,runconfig,config,writer,split,zmin)
             writer.save(predds,name,'predictions',split,config.predsdir)
             del predds
