@@ -22,4 +22,6 @@ EQ=${1:-all}
 
 scontrol update JobId=${SLURM_JOB_ID} Name=${EQ}
 
-python -m scripts.models.sr.optimize --equations ${EQ} --splits test
+# python -m scripts.models.sr.optimize --equations ${EQ} --splits test
+
+python -m scripts.models.sr.optimize --equations ${EQ} --splits test --predict-only
