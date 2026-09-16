@@ -2,8 +2,8 @@
 
 import os
 import json
+import ast
 import shutil
-import pickle
 import logging
 import argparse
 import tempfile
@@ -17,6 +17,14 @@ logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(m
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=UserWarning)
+
+def load_registry(modelsdir):
+    csvpath = os.path.join(modelsdir,'sr','optimized_equations.csv')
+    if not os.path.exists(csvpath):
+        return {}
+    df = pd.read_csv(csvpath)
+    return {row['name']:dict(form=row['form'],constants=ast.literal_eval(row['constants']) if isinstance(row['constants'],str) else row['constants'],
+                             train_loss=row['train_loss'],valid_loss=row['valid_loss']) for _,row in df.iterrows()}
 
 SRFUNCTIONS = {
     'cube':  lambda x: x**3,
@@ -170,9 +178,7 @@ def load_data(splitname,runconfig,config,time_offset=0):
         target = (np.log1p(predtp.values.clip(min=0).ravel())-stats['tp_mean'])/stats['tp_std']
     residualfrom = runconfig.get('residualfrom')
     if residualfrom:
-        registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
-        with open(registrypath,'rb') as f:
-            registry = pickle.load(f)
+        registry = load_registry(config.modelsdir)
         entry = registry[residualfrom]
         eqspec = config.sr['optimizedeqs'][residualfrom]
         baserunconfig = config.sr['runs'][eqspec['runfrom']]
@@ -245,9 +251,7 @@ def compute_error_weights(config,runconfig,trainmask,validmask,ntraintimes):
     with open(statsfile,'r',encoding='utf-8') as f:
         stats = json.load(f)
     nnmodel = errorsampling['nn']
-    registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
-    with open(registrypath,'rb') as f:
-        registry = pickle.load(f)
+    registry = load_registry(config.modelsdir)
     entry = registry[baseline]
     eqspec = config.sr['optimizedeqs'][baseline]
     baserunconfig = config.sr['runs'][eqspec['runfrom']]
@@ -348,24 +352,21 @@ def fit(xsub,ysub,predictors,srconfig,runconfig,seed,procs,tmpdir):
 
 def save(model,runname,seed,config):
     '''
-    Purpose: Save a fitted PySRRegressor and its equation Pareto frontier to disk.
+    Purpose: Save a fitted PySRRegressor's equation Pareto frontier to disk as CSV.
     Args:
     - model (PySRRegressor): fitted symbolic regression model
     - runname (str): run identifier used for output filenames
     - seed (int): training seed used for output filenames
     - config (Config): project configuration object
     '''
-    outdir       = os.path.join(config.modelsdir,'sr')
+    outdir        = os.path.join(config.modelsdir,'sr')
     os.makedirs(outdir,exist_ok=True)
-    paretopath   = os.path.join(outdir,f'{runname}_{seed}_pareto.pkl')
     equationspath = os.path.join(outdir,f'{runname}_{seed}_equations.csv')
-    with open(paretopath,'wb') as f:
-        pickle.dump(model,f)
     dropcols = [c for c in ['sympy_format','lambda_format'] if c in model.equations_.columns]
     model.equations_.drop(columns=dropcols).to_csv(equationspath,index=False)
     best = select_pareto_elbow(model.equations_)
     logger.info(f'   Elbow equation (complexity {int(best["complexity"])}): {best["equation"]}  loss={best["loss"]:.6f}')
-    logger.info(f'   Saved to {paretopath}')
+    logger.info(f'   Saved to {equationspath}')
 
 if __name__=='__main__':
     config = Config()
@@ -394,8 +395,8 @@ if __name__=='__main__':
         yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
         del xtrain,xvalid,ytrain,yvalid,reftrain
         for seedidx,seed in enumerate(seeds):
-            paretopath = os.path.join(config.modelsdir,'sr',f'{name}_{seed}_pareto.pkl')
-            if os.path.exists(paretopath):
+            equationspath = os.path.join(config.modelsdir,'sr',f'{name}_{seed}_equations.csv')
+            if os.path.exists(equationspath):
                 logger.info(f'Skipping `{name}` seed {seed}, model already exists')
                 continue
             logger.info(f'Running `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')

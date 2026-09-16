@@ -3,7 +3,6 @@
 import os
 import ast
 import json
-import pickle
 import logging
 import argparse
 import numpy as np
@@ -54,17 +53,19 @@ def parse():
     '''
     Purpose: Parse command-line arguments for running the optimization script.
     Returns:
-    - tuple[set[str]|None, list[str], int]: selected equation names (or None for all),
-        list of splits for which to save predictions, and number of parallel workers
+    - tuple[set[str]|None, list[str], int, bool]: selected equation names (or None for all),
+        list of splits for which to save predictions, number of parallel workers, and whether
+        to skip optimization and predict from existing constants
     '''
     parser = argparse.ArgumentParser(description='Optimize SR equation constants on full train+valid data.')
     parser.add_argument('--equations',type=str,default='all',help='Comma-separated equation names to optimize, or `all`')
     parser.add_argument('--splits',type=str,default='train,valid,test',help='Comma-separated splits to generate predictions for (default: train,valid,test)')
+    parser.add_argument('--predict-only',action='store_true',help='Skip optimization; generate predictions from existing constants in optimized_equations.csv')
     args        = parser.parse_args()
     selectedeqs = None if args.equations=='all' else {n.strip() for n in args.equations.split(',')}
     splits      = [s.strip() for s in args.splits.split(',')]
     nworkers    = int(os.environ.get('SLURM_CPUS_PER_TASK',1))
-    return selectedeqs,splits,nworkers
+    return selectedeqs,splits,nworkers,args.predict_only
 
 def extract_constants(form,predictornames):
     '''
@@ -129,41 +130,53 @@ def multistart_optimize(form,predictornames,x,y,zmin,init,nrestarts=1,initscale=
         logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
     return bestconstants,bestresult
 
+def load_registry(config):
+    '''
+    Purpose: Load the optimized-equations registry from CSV.
+    Args:
+    - config (Config): project configuration object
+    Returns:
+    - dict: mapping name → {form, constants, train_loss, valid_loss}
+    '''
+    csvpath = os.path.join(config.modelsdir,'sr','optimized_equations.csv')
+    if not os.path.exists(csvpath):
+        return {}
+    df = pd.read_csv(csvpath)
+    registry = {}
+    for _,row in df.iterrows():
+        registry[row['name']] = dict(
+            form=row['form'],
+            constants=json.loads(row['constants']),
+            train_loss=row['train_loss'],
+            valid_loss=row['valid_loss'])
+    return registry
+
 def save_registry(registry,config):
     '''
-    Purpose: Save the full optimized-equations registry as a single PKL and CSV.
+    Purpose: Save the full optimized-equations registry as CSV.
     Args:
     - registry (dict): mapping name → {form, constants, train_loss, valid_loss}
     - config (Config): project configuration object
     '''
-    outdir      = os.path.join(config.modelsdir,'sr')
+    outdir = os.path.join(config.modelsdir,'sr')
     os.makedirs(outdir,exist_ok=True)
-    registrypath    = os.path.join(outdir,'optimized_equations.pkl')
-    registrycsvpath = os.path.join(outdir,'optimized_equations.csv')
-    with open(registrypath,'wb') as f:
-        pickle.dump(registry,f)
+    csvpath = os.path.join(outdir,'optimized_equations.csv')
     rows = [dict(name=name,form=entry['form'],train_loss=entry['train_loss'],valid_loss=entry['valid_loss'],
                  constants=json.dumps(entry['constants'])) for name,entry in registry.items()]
-    pd.DataFrame(rows).to_csv(registrycsvpath,index=False)
-    logger.info(f'   Registry saved ({len(registry)} equation(s)) → {registrypath}')
+    pd.DataFrame(rows).to_csv(csvpath,index=False)
+    logger.info(f'   Registry saved ({len(registry)} equation(s)) → {csvpath}')
 
-def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,addedconstants=None):
+def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir):
     '''
     Purpose: Initialize constants by structurally unifying the parametric form with
         each seed's PySR equation at refcomplexity, then averaging matched constants
-        across seeds. When added constants are specified (as a dict mapping constant
-        name to its identity value) and the full form fails to match, retries with
-        those constants fixed to their identity values so PySR equations discovered
-        without the extra coefficients can still provide initial values for the
-        remaining constants.
+        across seeds.
     '''
     if refcomplexity is None:
         return {}
     constantnames = extract_constants(form,predictornames)
     if not constantnames:
         return {}
-    addedconstants = addedconstants or {}
-    baseconstants = [c for c in constantnames if c not in addedconstants]
     predictorsyms = {p:sp.Symbol(p) for p in predictornames}
     wildsyms      = {c:sp.Wild(c,exclude=list(predictorsyms.values())) for c in constantnames}
     formns        = dict(SRSYMPY,**predictorsyms,**wildsyms)
@@ -173,11 +186,6 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,addedcon
     except Exception as e:
         logger.warning(f'   Could not parse form `{form}`: {e}')
         return {}
-    reducedexpr = None
-    if addedconstants:
-        reducedwilds = {c:wildsyms[c] for c in baseconstants}
-        reducedsubs  = {wildsyms[c]:sp.Rational(v) if v != 0 else sp.Integer(0) for c,v in addedconstants.items()}
-        reducedexpr  = formexpr.subs(reducedsubs)
     seedconsts = []
     for seed in seeds:
         filepath = os.path.join(modelsdir,'sr',f'{runname}_{seed}_equations.csv')
@@ -193,38 +201,21 @@ def pysr_init(form,predictornames,refcomplexity,runname,seeds,modelsdir,addedcon
             match    = pysrexpr.match(formexpr)
         except Exception:
             match = None
-        if match is not None:
-            vals = {}
-            for c in constantnames:
-                v = match.get(wildsyms[c])
-                if v is None or not v.is_Number:
-                    vals = None
-                    break
-                vals[c] = float(v)
-            if vals is not None:
-                logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
-                seedconsts.append(vals)
-                continue
-        if reducedexpr is not None:
-            try:
-                match = pysrexpr.match(reducedexpr)
-            except Exception:
-                match = None
-            if match is not None:
-                vals = {}
-                for c in baseconstants:
-                    v = match.get(wildsyms[c])
-                    if v is None or not v.is_Number:
-                        vals = None
-                        break
-                    vals[c] = float(v)
-                if vals is not None:
-                    for c,v in addedconstants.items():
-                        vals[c] = float(v)
-                    logger.info(f'   Seed {seed} (reduced match): {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
-                    seedconsts.append(vals)
-                    continue
-        logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
+        if match is None:
+            logger.info(f'   Seed {seed}: no structural match at complexity {refcomplexity}, skipping')
+            continue
+        vals = {}
+        for c in constantnames:
+            v = match.get(wildsyms[c])
+            if v is None or not v.is_Number:
+                vals = None
+                break
+            vals[c] = float(v)
+        if vals is None:
+            logger.info(f'   Seed {seed}: match found but constants are non-numeric, skipping')
+            continue
+        logger.info(f'   Seed {seed}: {", ".join(f"{k}={v:.4f}" for k,v in vals.items())}')
+        seedconsts.append(vals)
     if not seedconsts:
         return {}
     return {c:float(np.mean([sc[c] for sc in seedconsts])) for c in constantnames}
@@ -245,7 +236,7 @@ if __name__=='__main__':
     targetvar    = config.targetvar
     optimizedeqs = sr.get('optimizedeqs',{})
     logger.info('Spinning up...')
-    selectedeqs,splits,nworkers = parse()
+    selectedeqs,splits,nworkers,predictonly = parse()
     logger.info(f'Using {nworkers} parallel worker(s) for multi-start optimization...')
     statsfile = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
@@ -253,11 +244,8 @@ if __name__=='__main__':
         stats = json.load(f)
     zmin = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     writer = PredictionWriter(config.splitsdir,targetvar=targetvar)
-    registrypath = os.path.join(config.modelsdir,'sr','optimized_equations.pkl')
-    registry = {}
-    if os.path.exists(registrypath):
-        with open(registrypath,'rb') as f:
-            registry = pickle.load(f)
+    registry = load_registry(config)
+    if registry:
         logger.info(f'Loaded existing registry with {len(registry)} equation(s)')
     datacache = {}
     for name,eqspec in optimizedeqs.items():
@@ -266,13 +254,30 @@ if __name__=='__main__':
         if eqspec.get('form') is None:
             logger.info(f'Skipping `{name}`, form not yet specified')
             continue
+        runname   = eqspec['runfrom']
+        runconfig = sr['runs'][runname]
+        form      = eqspec['form']
+        if predictonly:
+            if name not in registry:
+                logger.info(f'Skipping `{name}`, not in registry (run without --predict-only to optimize)')
+                continue
+            constants = registry[name]['constants']
+            logger.info(f'Predicting `{name}` from existing constants: {", ".join(f"{k}={v}" for k,v in constants.items())}')
+            for split in splits:
+                predpath = os.path.join(config.predsdir,f'{name}_{split}_predictions.nc')
+                if os.path.exists(predpath):
+                    logger.info(f'   Skipping {split} predictions, already exist')
+                    continue
+                logger.info(f'   Generating {split} predictions...')
+                predds = predict_split(form,[c for c in runconfig['fieldvars']+runconfig.get('localvars',[])],
+                                       constants,runconfig,config,writer,split,zmin)
+                writer.save(predds,name,'predictions',split,config.predsdir)
+                del predds
+            continue
         if name in registry:
             logger.info(f'Skipping `{name}`, already optimized')
             continue
-        runname        = eqspec['runfrom']
-        runconfig      = sr['runs'][runname]
-        form           = eqspec['form']
-        refcomplexity  = eqspec.get('refcomplexity')
+        refcomplexity = eqspec.get('refcomplexity')
         logger.info(f'Optimizing `{name}`...')
         if runname not in datacache:
             logger.info(f'   Loading training + validation sets...')
@@ -288,22 +293,17 @@ if __name__=='__main__':
         nrestarts     = 50
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
-        refcomplexity = eqspec.get('refcomplexity')
         eq_seeds = eqspec.get('seeds', sr['seeds'])
         explicit_init = eqspec.get('init')
         if explicit_init is not None:
             init = explicit_init
             logger.info(f'   Configured init: {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
         else:
-            addedconstants = eqspec.get('addedconstants',{})
-            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir,addedconstants)
+            init = pysr_init(form,predictornames,refcomplexity,runname,eq_seeds,config.modelsdir)
             if init:
                 logger.info(f'   PySR init (averaged across seeds): {", ".join(f"{k}={v:.4f}" for k,v in init.items())}')
             else:
                 logger.info(f'   No PySR init found; defaulting all constants to 1.0')
-        # Anchor starts: for each already-optimized equation whose constant set is a strict
-        # subset of this one's, inject its constants (new constants default to 1.0) as an
-        # additional guaranteed starting point — without making it the primary init.
         anchor_inits = []
         for prevname,preventry in registry.items():
             if optimizedeqs.get(prevname,{}).get('runfrom') != runname:
