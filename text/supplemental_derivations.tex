@@ -1,0 +1,481 @@
+% =============================================================================
+% Supplemental Text SX: Physical-Space Derivation of Prediction Equations
+% Insert as a new Text section in Supporting Information S1, after Text S2.
+% Notation matches main text: tildes for standardized, hats for kernel-integrated
+% standardized features, overbars for kernel-integrated physical features.
+% =============================================================================
+
+\textbf{Text S3.  Physical-Space Derivation of Prediction Equations}
+
+\vspace{0.5em}
+\textbf{General Prediction Equation.}
+All models in the hierarchy share a common prediction structure.  Each model
+learns a function $f(\mathbf{x})$ of standardized predictors and produces the
+standardized log-precipitation prediction
+%
+\begin{equation}
+  z \;=\; z_{\min} + \max\!\bigl(f(\mathbf{x}),\;0\bigr),
+  \qquad
+  z_{\min} = -\,\frac{\mu_y}{s_y}\,,
+  \label{eq:s-zfloor}
+\end{equation}
+%
+where $\mu_y$ and $s_y$ are the training-set mean and standard deviation of
+$y = \log(1 + P)$.  Physical precipitation is recovered by inverting the
+standardization and log-transformation:
+%
+\begin{align}
+  P &= \exp\!\bigl(\mu_y + s_y\,z\bigr) - 1 \notag\\[4pt]
+    &= \exp\!\Bigl(\mu_y + s_y\bigl[z_{\min}
+       + \max\!\bigl(f(\mathbf{x}),\;0\bigr)\bigr]\Bigr) - 1 \notag\\[4pt]
+    &= \exp\!\Bigl(\mu_y + s_y\Bigl[-\frac{\mu_y}{s_y}
+       + \max\!\bigl(f(\mathbf{x}),\;0\bigr)\Bigr]\Bigr) - 1 \notag\\[4pt]
+    &= \exp\!\Bigl(\mu_y - \mu_y
+       + s_y\max\!\bigl(f(\mathbf{x}),\;0\bigr)\Bigr) - 1 \notag\\[4pt]
+    &= \exp\!\Bigl(s_y\max\!\bigl(f(\mathbf{x}),\;0\bigr)\Bigr) - 1\,.
+  \label{eq:s-cancel}
+\end{align}
+%
+Because $s_y > 0$ and $\max(f(\mathbf{x}),\,0) \geq 0$, the argument of the
+exponential is non-negative, so $P \geq 0$ and the outer $\max(\cdot,\,0)$ is
+redundant.  When $f(\mathbf{x}) \leq 0$ the prediction collapses to $P = 0$,
+and when $f(\mathbf{x}) > 0$ precipitation increases as
+%
+\begin{equation}
+  P \;=\; \exp\!\bigl(s_y\,f(\mathbf{x})\bigr) - 1\,.
+  \label{eq:s-pred-positive}
+\end{equation}
+%
+Combining both cases yields the prediction equation (Equation~1 in the main
+text):
+%
+\begin{equation}
+  \boxed{P \;=\; \max\!\Bigl(\exp\!\bigl(s_y\,f(\mathbf{x})\bigr)
+         - 1,\;\;0\Bigr).}
+  \label{eq:s-pred}
+\end{equation}
+
+\vspace{0.5em}
+\textbf{Standardization of Kernel-Integrated Features.}
+In the main text (Section~3.3), vertically varying predictors
+$\{\varphi_i(\sigma)\}$ are standardized before kernel integration, producing
+kernel-integrated standardized features $\hat{\varphi}_i$ (Equation~3).  The
+physical-space derivations below require expressing $\hat{\varphi}_i$ in terms
+of the corresponding kernel-integrated physical feature
+%
+\begin{equation}
+  \bar{\varphi}_i \;=\; \sum_{m=1}^{N_\sigma}
+    k_i(\sigma_m)\,\varphi_i(\sigma_m)\,\Delta\sigma_m\,,
+  \label{eq:s-phys-ki}
+\end{equation}
+%
+where $k_i(\sigma_m)$ is the learned kernel weight and $\Delta\sigma_m$ the
+vertical quadrature weight.
+
+Because each predictor is standardized using a single global mean
+$\mu_{\varphi_i}$ and standard deviation $s_{\varphi_i}$ computed across all
+grid points and vertical levels in the training set, the standardized profile
+is $\tilde{\varphi}_i(\sigma_m) = (\varphi_i(\sigma_m) -
+\mu_{\varphi_i})/s_{\varphi_i}$.  Substituting into the kernel integration
+(Equation~3) and using the normalization condition $\sum_m k_i(\sigma_m)\,
+\Delta\sigma_m = 1$ gives
+%
+\begin{align}
+  \hat{\varphi}_i
+    &= \sum_{m} k_i(\sigma_m)\,
+       \frac{\varphi_i(\sigma_m) - \mu_{\varphi_i}}{s_{\varphi_i}}
+       \,\Delta\sigma_m \notag\\[4pt]
+    &= \frac{1}{s_{\varphi_i}}\sum_{m} k_i(\sigma_m)\,
+       \varphi_i(\sigma_m)\,\Delta\sigma_m
+       \;-\; \frac{\mu_{\varphi_i}}{s_{\varphi_i}}\underbrace{%
+       \sum_{m} k_i(\sigma_m)\,\Delta\sigma_m}_{=\,1} \notag\\[4pt]
+    &= \frac{\bar{\varphi}_i - \mu_{\varphi_i}}{s_{\varphi_i}}\,.
+  \label{eq:s-ki-standardize}
+\end{align}
+%
+The kernel-integrated standardized feature is therefore identical in form to
+ordinary scalar standardization applied to the kernel-integrated physical
+feature.  This identity holds because the standardization statistics are global
+scalars (not level-dependent) and the kernels are normalized to integrate to
+unity.  It allows all symbolic regression equations to be converted to
+physical-space forms by direct algebraic substitution without retraining.
+
+\vspace{1.0em}
+\textbf{SR-BL: Buoyancy-Only Equation.}
+SR-BL operates on a single scalar predictor, the lower-tropospheric buoyancy
+$B_L$, standardized as $\tilde{B}_L = (B_L - \mu_{B_L})/s_{B_L}$.  The
+discovered equation in standardized space (Table~S2) is
+%
+\begin{equation}
+  f(\mathbf{x}) \;=\; (\tilde{B}_L + a)^3 + b\,,
+  \label{eq:s-srbl-std}
+\end{equation}
+%
+with optimized constants $a$ and $b$ (Table~SX).
+
+Substituting $\tilde{B}_L = (B_L - \mu_{B_L})/s_{B_L}$:
+%
+\begin{align}
+  f &= \left(\frac{B_L - \mu_{B_L}}{s_{B_L}} + a\right)^{\!3} + b
+       \notag\\[4pt]
+    &= \left(\frac{B_L - (\mu_{B_L} - a\,s_{B_L})}{s_{B_L}}\right)^{\!3} + b
+       \notag\\[4pt]
+    &= \frac{1}{s_{B_L}^3}\bigl(B_L - B_c\bigr)^3 + b\,,
+  \label{eq:s-srbl-expand}
+\end{align}
+%
+where $B_c = \mu_{B_L} - a\,s_{B_L}$ is the critical buoyancy threshold.
+Substituting into Equation~\ref{eq:s-pred}:
+%
+\begin{align}
+  P &= \max\!\Bigl(\exp\!\Bigl(
+       \frac{s_y}{s_{B_L}^3}(B_L - B_c)^3 + s_y\,b
+       \Bigr) - 1,\;\;0\Bigr) \notag\\[4pt]
+    &= \max\!\Bigl(\exp\!\bigl(
+       \alpha\,(B_L - B_c)^3 + \beta\bigr) - 1,\;\;0\Bigr),
+  \label{eq:s-srbl-phys}
+\end{align}
+%
+with three interpretable physical constants:
+%
+\begin{equation}
+  \begin{aligned}
+    B_c    &= \mu_{B_L} - a\,s_{B_L}
+             &&\text{(critical buoyancy threshold)}\,,\\
+    \alpha &= s_y\,/\,s_{B_L}^3
+             &&\text{(exponential sensitivity to buoyancy departures)}\,,\\
+    \beta  &= s_y\,b
+             &&\text{(log-space magnitude offset)}\,.
+  \end{aligned}
+  \label{eq:s-srbl-constants}
+\end{equation}
+%
+Precipitation onset ($P > 0$) occurs when $\alpha\,(B_L - B_c)^3 + \beta > 0$,
+giving a critical onset threshold $B_L > B_c - (\beta/\alpha)^{1/3}$.
+
+\vspace{0.3em}
+\noindent\textit{Numerical values.}  With the optimized constants from
+Table~S2 ($a = \text{[TBD]}$, $b = \text{[TBD]}$) and the training-set
+statistics $\mu_{B_L} = \text{[TBD]}$~m\,s$^{-2}$,
+$s_{B_L} = \text{[TBD]}$~m\,s$^{-2}$, $s_y = \text{[TBD]}$:
+%
+\begin{equation*}
+  B_c = \text{[TBD]~m\,s}^{-2}\,,\qquad
+  \alpha = \text{[TBD]~(m\,s}^{-2})^{-3}\,,\qquad
+  \beta = \text{[TBD]}\,.
+\end{equation*}
+
+% -------------------------------------------------------------------------
+
+\vspace{1.0em}
+\textbf{SR-ATM: Atmospheric Thermodynamic Equation.}
+SR-ATM uses the Gaussian-kernel-integrated features $\widehat{\mathrm{RH}}$,
+$\hat{\theta}_e$, and $\hat{\theta}_e^*$ as predictors.  The discovered
+equation in standardized space (Table~S2) is
+%
+\begin{equation}
+  f(\mathbf{x}) \;=\; a\,\max\!\bigl(\widehat{\mathrm{RH}},\;\;
+    \hat{\theta}_e - b\,\hat{\theta}_e^* - c\bigr)^3,
+  \label{eq:s-sratm-std}
+\end{equation}
+%
+with optimized constants $a$, $b$, and $c$ (Table~SX).
+
+Using Equation~\ref{eq:s-ki-standardize}, each kernel-integrated standardized
+feature equals the standardized form of its physical counterpart:
+$\widehat{\mathrm{RH}} = (\overline{\mathrm{RH}} -
+\mu_{\mathrm{RH}})/s_{\mathrm{RH}}$, $\hat{\theta}_e = (\bar{\theta}_e -
+\mu_{\theta_e})/s_{\theta_e}$, and $\hat{\theta}_e^* = (\bar{\theta}_e^* -
+\mu_{\theta_e^*})/s_{\theta_e^*}$.  Substituting:
+%
+\begin{align}
+  f &= a\,\max\!\Biggl(
+       \frac{\overline{\mathrm{RH}} - \mu_{\mathrm{RH}}}{s_{\mathrm{RH}}},
+       \;\;\;
+       \frac{\bar{\theta}_e - \mu_{\theta_e}}{s_{\theta_e}}
+       - b\,\frac{\bar{\theta}_e^* - \mu_{\theta_e^*}}{s_{\theta_e^*}}
+       - c
+       \Biggr)^{\!3}.
+  \label{eq:s-sratm-expand}
+\end{align}
+%
+Define the two arguments of the $\max$ operator in terms of physical features:
+%
+\begin{align}
+  A_1 &= \frac{\overline{\mathrm{RH}} - \mu_{\mathrm{RH}}}
+              {s_{\mathrm{RH}}}\,,
+  \label{eq:s-A1}\\[6pt]
+  A_2 &= \frac{\bar{\theta}_e - \mu_{\theta_e}}{s_{\theta_e}}
+       - b\,\frac{\bar{\theta}_e^* - \mu_{\theta_e^*}}{s_{\theta_e^*}}
+       - c
+       \;=\; \frac{\bar{\theta}_e}{s_{\theta_e}}
+       - \frac{b\,\bar{\theta}_e^*}{s_{\theta_e^*}}
+       - \underbrace{\biggl(\frac{\mu_{\theta_e}}{s_{\theta_e}}
+       - \frac{b\,\mu_{\theta_e^*}}{s_{\theta_e^*}} + c\biggr)}_{\displaystyle
+       \equiv\; d_0}\,.
+  \label{eq:s-A2}
+\end{align}
+%
+The full prediction is then
+%
+\begin{equation}
+  \boxed{P \;=\; \max\!\Bigl(\exp\!\bigl(
+    s_y\,a\;\max(A_1,\,A_2)^3\bigr) - 1,\;\;0\Bigr),}
+  \label{eq:s-sratm-phys}
+\end{equation}
+%
+where $A_1$ and $A_2$ are defined in
+Equations~\ref{eq:s-A1}--\ref{eq:s-A2}, $\overline{\mathrm{RH}}$,
+$\bar{\theta}_e$, and $\bar{\theta}_e^*$ are the kernel-integrated physical
+features (Equation~\ref{eq:s-phys-ki} evaluated with the learned Gaussian
+kernels in Table~S1), and $s_y$, $\mu_{\mathrm{RH}}$, $s_{\mathrm{RH}}$,
+$\mu_{\theta_e}$, $s_{\theta_e}$, $\mu_{\theta_e^*}$, $s_{\theta_e^*}$ are
+training-set statistics.
+
+The $\max(A_1,\,A_2)$ structure selects, at each grid point and timestep,
+whichever of two thermodynamic pathways is more anomalous in standardized
+units.  $A_1$ represents the moisture pathway through kernel-integrated
+relative humidity, and $A_2$ represents the instability pathway through the
+imbalance between kernel-integrated equivalent potential temperature and its
+saturation value.  The cubic exponent amplifies the dominant pathway, and
+$s_y\,a$ sets the overall sensitivity.  The offset $d_0$ in $A_2$ absorbs
+the training-set climatology of the instability measure and the fitted
+constant $c$.
+
+Unlike SR-BL, which reduces to three interpretable constants, SR-ATM operates
+on kernel-integrated features that combine information across multiple
+vertical levels. Its physical form retains the standardization statistics as
+explicit parameters rather than absorbing them into a single threshold
+and sensitivity.
+
+\vspace{0.3em}
+\noindent\textit{Numerical values.}  With the optimized constants from
+Table~S2 ($a = \text{[TBD]}$, $b = \text{[TBD]}$, $c = \text{[TBD]}$),
+kernel parameters from Table~S1, and training-set statistics:
+%
+\begin{equation*}
+  s_y\,a = \text{[TBD]}\,,\qquad
+  d_0 = \text{[TBD]}\,.
+\end{equation*}
+
+% -------------------------------------------------------------------------
+
+\vspace{1.0em}
+\textbf{SR-SFC: Surface Flux Correction.}
+SR-SFC extends SR-ATM by adding a surface flux correction term.  During
+symbolic regression, the optimized SR-ATM prediction $z_{\mathrm{ATM}}$
+enters as a fixed input, so that only the correction is learned.  The
+discovered equation in standardized space (Table~S2) is
+%
+\begin{equation}
+  f(\mathbf{x}) \;=\; z_{\mathrm{ATM}}
+    + a\,\widetilde{\mathrm{SHF}}\,(b - \mathrm{LF})
+    + c\,\widetilde{\mathrm{LHF}}\,,
+  \label{eq:s-srsfc-std}
+\end{equation}
+%
+with optimized constants $a$, $b$, and $c$ (Table~SX), where
+$z_{\mathrm{ATM}} = z_{\min} + \max(f_{\mathrm{ATM}}(\mathbf{x}),\,0)$ is
+the SR-ATM prediction held fixed during optimization.
+
+The surface flux predictors are scalar quantities standardized as
+$\widetilde{\mathrm{SHF}} = (\mathrm{SHF} -
+\mu_{\mathrm{SHF}})/s_{\mathrm{SHF}}$ and $\widetilde{\mathrm{LHF}} =
+(\mathrm{LHF} - \mu_{\mathrm{LHF}})/s_{\mathrm{LHF}}$.  LF is not
+standardized.  Substituting:
+%
+\begin{align}
+  f(\mathbf{x}) &= z_{\mathrm{ATM}}
+    + \frac{a}{s_{\mathrm{SHF}}}(\mathrm{SHF} - \mu_{\mathrm{SHF}})
+      (b - \mathrm{LF})
+    + \frac{c}{s_{\mathrm{LHF}}}(\mathrm{LHF} - \mu_{\mathrm{LHF}})
+    \notag\\[4pt]
+    &= z_{\mathrm{ATM}}
+    + \frac{a}{s_{\mathrm{SHF}}}\,\mathrm{SHF}\,(b - \mathrm{LF})
+    - \frac{a\,\mu_{\mathrm{SHF}}}{s_{\mathrm{SHF}}}(b - \mathrm{LF})
+    + \frac{c}{s_{\mathrm{LHF}}}\,\mathrm{LHF}
+    - \frac{c\,\mu_{\mathrm{LHF}}}{s_{\mathrm{LHF}}}\,.
+  \label{eq:s-srsfc-expand}
+\end{align}
+%
+Define grouped physical constants:
+%
+\begin{equation}
+  \begin{aligned}
+    \alpha_S &= a\,/\,s_{\mathrm{SHF}} &&\text{(SHF sensitivity)}\,,\\
+    \alpha_L &= c\,/\,s_{\mathrm{LHF}} &&\text{(LHF sensitivity)}\,,\\
+    \delta_S &= a\,\mu_{\mathrm{SHF}}\,/\,s_{\mathrm{SHF}}
+             &&\text{(SHF climatological offset)}\,,\\
+    \delta_L &= c\,\mu_{\mathrm{LHF}}\,/\,s_{\mathrm{LHF}}
+             &&\text{(LHF climatological offset)}\,.
+  \end{aligned}
+  \label{eq:s-srsfc-constants}
+\end{equation}
+%
+The full prediction is then
+%
+\begin{equation}
+  \boxed{P \;=\; \max\!\Bigl(\exp\!\bigl(
+    s_y\bigl[f_{\mathrm{ATM}}
+    + \alpha_S\,\mathrm{SHF}\,(b - \mathrm{LF})
+    + \alpha_L\,\mathrm{LHF}
+    - \delta_S\,(b - \mathrm{LF})
+    - \delta_L\bigr]\bigr) - 1,\;\;0\Bigr),}
+  \label{eq:s-srsfc-phys}
+\end{equation}
+%
+where $f_{\mathrm{ATM}} = \max(f_{\mathrm{ATM}}(\mathbf{x}),\,0)$ and the
+inner $\max(\cdot,\,0)$ on $f_{\mathrm{ATM}}$ and the outer
+$\max(\cdot,\,0)$ on $P$ arise from the shared prediction structure
+(Equation~\ref{eq:s-zfloor}).  Note that $z_{\mathrm{ATM}}$ in the
+standardized equation already includes $z_{\min}$, so the $\mu_y$
+cancellation described above carries through to the composite prediction.
+
+The correction term has a clear physical interpretation.  The SHF contribution
+is modulated by $(b - \mathrm{LF})$, where $b \approx 0.74$ (Table~S2)
+implies that SHF enhances precipitation primarily over ocean ($\mathrm{LF}
+\approx 0$) and its influence vanishes near $\mathrm{LF} \approx b$.  The
+LHF contribution enters as a linear additive term with no land--ocean
+modulation.
+
+\vspace{0.3em}
+\noindent\textit{Numerical values.}  With the optimized constants from
+Table~S2 ($a = \text{[TBD]}$, $b = \text{[TBD]}$, $c = \text{[TBD]}$)
+and training-set statistics:
+%
+\begin{equation*}
+  \alpha_S = \text{[TBD]}\,,\qquad
+  \alpha_L = \text{[TBD]}\,,\qquad
+  \delta_S = \text{[TBD]}\,,\qquad
+  \delta_L = \text{[TBD]}\,.
+\end{equation*}
+
+% -------------------------------------------------------------------------
+
+\vspace{1.0em}
+\textbf{SR-ALL: Combined Atmospheric and Surface Equation.}
+SR-ALL extends SR-ATM by incorporating surface fluxes directly into the
+atmospheric equation rather than as a separate additive correction.  Like
+SR-SFC, $z_{\mathrm{ATM}}$ enters as a fixed input.  The discovered equation
+in standardized space (Table~S2) is
+%
+\begin{equation}
+  f(\mathbf{x}) \;=\; z_{\mathrm{ATM}}
+    + (\hat{\theta}_e + a\,\widetilde{\mathrm{SHF}})\,(b - \mathrm{LF})^3
+    + c\,,
+  \label{eq:s-srall-std}
+\end{equation}
+%
+with optimized constants $a$, $b$, and $c$ (Table~SX).
+
+Substituting the standardized forms $\hat{\theta}_e = (\bar{\theta}_e -
+\mu_{\theta_e})/s_{\theta_e}$ and $\widetilde{\mathrm{SHF}} = (\mathrm{SHF}
+- \mu_{\mathrm{SHF}})/s_{\mathrm{SHF}}$:
+%
+\begin{align}
+  f(\mathbf{x}) &= z_{\mathrm{ATM}}
+    + \biggl(\frac{\bar{\theta}_e - \mu_{\theta_e}}{s_{\theta_e}}
+    + a\,\frac{\mathrm{SHF} - \mu_{\mathrm{SHF}}}{s_{\mathrm{SHF}}}\biggr)
+    (b - \mathrm{LF})^3 + c \notag\\[4pt]
+    &= z_{\mathrm{ATM}}
+    + \biggl(\frac{\bar{\theta}_e}{s_{\theta_e}}
+    + \frac{a\,\mathrm{SHF}}{s_{\mathrm{SHF}}}
+    - \underbrace{\frac{\mu_{\theta_e}}{s_{\theta_e}}
+    - \frac{a\,\mu_{\mathrm{SHF}}}{s_{\mathrm{SHF}}}}_{\displaystyle
+    \equiv\; e_0}\biggr)(b - \mathrm{LF})^3 + c\,.
+  \label{eq:s-srall-expand}
+\end{align}
+%
+Define grouped physical constants:
+%
+\begin{equation}
+  \begin{aligned}
+    \gamma_\theta &= 1\,/\,s_{\theta_e}
+      &&\text{($\bar{\theta}_e$ sensitivity per unit)}\,,\\
+    \gamma_S &= a\,/\,s_{\mathrm{SHF}}
+      &&\text{(SHF sensitivity per unit)}\,,\\
+    e_0 &= \mu_{\theta_e}\,/\,s_{\theta_e}
+         + a\,\mu_{\mathrm{SHF}}\,/\,s_{\mathrm{SHF}}
+      &&\text{(climatological offset)}\,.
+  \end{aligned}
+  \label{eq:s-srall-constants}
+\end{equation}
+%
+The full prediction is then
+%
+\begin{equation}
+  \boxed{P \;=\; \max\!\Bigl(\exp\!\bigl(
+    s_y\bigl[f_{\mathrm{ATM}}
+    + \bigl(\gamma_\theta\,\bar{\theta}_e
+    + \gamma_S\,\mathrm{SHF} - e_0\bigr)
+    (b - \mathrm{LF})^3 + c\bigr]\bigr) - 1,\;\;0\Bigr),}
+  \label{eq:s-srall-phys}
+\end{equation}
+%
+where $f_{\mathrm{ATM}}$ is defined as in SR-SFC above.
+
+In SR-ALL, the correction couples the atmospheric state ($\bar{\theta}_e$)
+with the surface energy input (SHF) multiplicatively, scaled by a cubic
+function of land fraction.  The $(b - \mathrm{LF})^3$ factor with $b \approx
+0.73$ (Table~S2) produces a sign change at $\mathrm{LF} \approx b$, so that
+the correction has opposite sign over ocean ($\mathrm{LF} < b$) and over
+land ($\mathrm{LF} > b$).  The cubic dependence on LF amplifies this contrast
+relative to the linear modulation in SR-SFC.
+
+\vspace{0.3em}
+\noindent\textit{Numerical values.}  With the optimized constants from
+Table~S2 ($a = \text{[TBD]}$, $b = \text{[TBD]}$, $c = \text{[TBD]}$)
+and training-set statistics:
+%
+\begin{equation*}
+  \gamma_\theta = \text{[TBD]}\,,\qquad
+  \gamma_S = \text{[TBD]}\,,\qquad
+  e_0 = \text{[TBD]}\,.
+\end{equation*}
+
+% -------------------------------------------------------------------------
+
+\vspace{1.0em}
+\textbf{Summary.}
+Table~SX collects the physical constants for all four symbolic regression
+equations.  SR-BL admits a clean three-parameter form (Equation~\ref{eq:s-srbl-phys})
+because its single scalar predictor requires only one standardization.  SR-ATM,
+SR-SFC, and SR-ALL retain the standardization statistics as explicit grouped
+constants because they operate on multiple predictors with different units and
+scales.  In all cases, the physical forms are exact algebraic rearrangements of
+the standardized equations in Table~S2 and require no retraining or
+approximation.
+
+% -------------------------------------------------------------------------
+% Placeholder for a summary table of physical constants.
+% Uncomment and populate once results are finalized.
+% -------------------------------------------------------------------------
+%
+% \begin{table}[h]
+% \centering
+% \caption{Physical constants for each symbolic regression equation.
+%   All values are derived algebraically from the optimized standardized
+%   constants (Table~S2) and the training-set statistics.}
+% \label{tab:s-physical-constants}
+% \begin{tabular}{llrl}
+% \hline
+% Equation & Constant & Value & Interpretation \\
+% \hline
+% SR-BL & $B_c$    & [TBD] m\,s$^{-2}$ & Critical buoyancy threshold \\
+%        & $\alpha$ & [TBD] (m\,s$^{-2}$)$^{-3}$ & Exponential sensitivity \\
+%        & $\beta$  & [TBD] & Log-space offset \\
+% \hline
+% SR-ATM & $s_y a$  & [TBD] & Overall sensitivity \\
+%        & $d_0$    & [TBD] & Instability offset \\
+% \hline
+% SR-SFC & $\alpha_S$ & [TBD] & SHF sensitivity \\
+%        & $\alpha_L$ & [TBD] & LHF sensitivity \\
+%        & $\delta_S$ & [TBD] & SHF offset \\
+%        & $\delta_L$ & [TBD] & LHF offset \\
+% \hline
+% SR-ALL & $\gamma_\theta$ & [TBD] & $\bar{\theta}_e$ sensitivity \\
+%        & $\gamma_S$      & [TBD] & SHF sensitivity \\
+%        & $e_0$           & [TBD] & Climatological offset \\
+% \hline
+% \end{tabular}
+% \end{table}
