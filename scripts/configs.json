@@ -135,8 +135,8 @@
                 "sr_all_pc_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":null,
-                    "form":"sr_atm_eq+(thetae+a*shf)*cube(max(b-lf,0))+c",
-                    "init":{"a":5.19,"b":0.73,"c":-0.10},
+                    "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)-cube(b-1)*thetae+c",
+                    "init":{"a":5.24,"b":0.73,"c":-0.12},
                     "color":"#8B0000",
                     "description":"SR-ALL-PC"}
             }
