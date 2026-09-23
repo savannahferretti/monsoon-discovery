@@ -36,7 +36,7 @@
                     "kind":"baseline",
                     "fieldvars":["bl"],
                     "localvars":[],
-                    "color":"#a7def7",
+                    "color":"#A7DEF7",
                     "description":"NN-BL"},
                 "nn_full":{
                     "kind":"baseline",
@@ -48,14 +48,14 @@
                     "kind":"nonparametric",
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
-                    "color":"#539ed4",
+                    "color":"#539ED4",
                     "description":"NN-NONPARAM"},
                 "nn_gauss":{
                     "kind":"parametric",
                     "kernel":"gaussian",
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
-                    "color":"#2355a1",
+                    "color":"#2355A1",
                     "description":"NN-GAUSS"}}},
         "sr":{
             "seeds":[42,72,102],
