@@ -2,5 +2,5 @@ name,form,train_loss,valid_loss,constants
 sr_bl_eq,cube(bl+a)+b,0.4985518061570433,0.5021249226434958,"{""a"": 0.3, ""b"": 0.14}"
 sr_atm_eq,"a*cube(max(rh,thetae-b*thetaestar-c))",0.4449854617669426,0.4522575176366397,"{""a"": 1.57, ""b"": 1.48, ""c"": 0.37}"
 sr_sfc_eq,sr_atm_eq+a*shf*(b-lf)+c*lhf,0.3942494823584813,0.4040312097498761,"{""a"": 1.0, ""b"": 0.74, ""c"": 0.21}"
-sr_all_eq,sr_atm_eq+(thetae+a*shf)*cube(b-lf)+c,0.380626454029535,0.3894790202471607,"{""a"": 5.24, ""b"": 0.73, ""c"": -0.12}"
-sr_all_pc_eq,sr_atm_eq+(thetae+a*shf)*cube(b-lf)-cube(b-1)*thetae+c,0.38018959996212365,0.38900735816894927,"{""a"": 5.21, ""b"": 0.73, ""c"": -0.14}"
+sr_all_eq,sr_atm_eq+(thetae+a*shf)*cube(b-lf)-c,0.380626454029535,0.3894790202471607,"{""a"": 5.24, ""b"": 0.73, ""c"": 0.12}"
+sr_all_pc_eq,sr_atm_eq+(thetae+a*shf)*cube(b-lf)+cube(1-b)*thetae-c,0.38018959996212365,0.38900735816894927,"{""a"": 5.21, ""b"": 0.73, ""c"": 0.14}"
