@@ -130,14 +130,14 @@
                     "runfrom":"sr_all",
                     "refcomplexity":17,
                     "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)+c",
-                    "color":"blood",
+                    "color":"#8B0000",
                     "description":"SR-ALL"},
                 "sr_all_pc_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":null,
                     "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)-cube(b-1)*thetae+c",
                     "init":{"a":5.24,"b":0.73,"c":-0.12},
-                    "color":"#8B0000",
+                    "color":"#450606",
                     "description":"SR-ALL-PC"}
             }
         }
