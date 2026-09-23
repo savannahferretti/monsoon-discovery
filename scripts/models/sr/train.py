@@ -108,21 +108,17 @@ def parse():
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
     return selectedruns,args.procs,args.iterations,args.subsetfrac
 
-def kernel_integrate(fields,weights,dsig,mask=None):
+def kernel_integrate(fields,weights,dsig):
     '''
     Purpose: Integrate vertical field profiles using kernel weights and sigma-level thicknesses.
     Args:
     - fields (np.ndarray): profile data with shape (nsamples, nfieldvars, nsig)
     - weights (np.ndarray): kernel weights with shape (nfieldvars, nsig)
     - dsig (np.ndarray): sigma thickness weights with shape (nsig,)
-    - mask (np.ndarray | None): surface mask with shape (nsamples, nsig), or None to skip masking
     Returns:
     - np.ndarray: integrated features with shape (nsamples, nfieldvars)
     '''
-    weighted = fields*weights[None,:,:]*dsig[None,None,:]
-    if mask is not None:
-        weighted = weighted*mask[:,None,:]
-    return weighted.sum(axis=2)
+    return (fields*weights[None,:,:]*dsig[None,None,:]).sum(axis=2)
 
 def load_data(splitname,runconfig,config,time_offset=0):
     fieldvars    = runconfig['fieldvars']
@@ -141,11 +137,10 @@ def load_data(splitname,runconfig,config,time_offset=0):
         dsig         = splitds['dsig'].values
         fieldarrays  = [splitds[var].transpose('time','lat','lon','sig').values.reshape(-1,nsig) for var in fieldvars]
         fieldstack   = np.stack(fieldarrays,axis=1)
-        surfmask     = splitds['surfmask'].transpose('time','lat','lon','sig').values.reshape(-1,nsig) if 'surfmask' in splitds else None
         seedfeatures = []
         for seed in seeds:
             weightsds = xr.open_dataset(os.path.join(config.weightsdir,f'{weightsfrom}_{seed}_weights.nc'),engine='h5netcdf')
-            seedfeatures.append(kernel_integrate(fieldstack,weightsds['k'].values,dsig,surfmask))
+            seedfeatures.append(kernel_integrate(fieldstack,weightsds['k'].values,dsig))
             weightsds.close()
         features = np.mean(seedfeatures,axis=0)
         for i,var in enumerate(fieldvars):
