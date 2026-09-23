@@ -111,32 +111,32 @@
                 "sr_bl_eq":{
                     "runfrom":"sr_bl",
                     "refcomplexity":7,
-                    "form":"cube(bl+a)+b",
+                    "form":"cube(bl+c1)+c2",
                     "color":"#F2C85E",
                     "description":"SR-BL"},
                 "sr_atm_eq":{
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
-                    "form":"a*cube(max(rh,thetae-b*thetaestar-c))",
+                    "form":"c3*cube(max(rh,thetae-c4*thetaestar-c5))",
                     "color":"#FB992F",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
                     "runfrom":"sr_sfc",
                     "refcomplexity":13,
-                    "form":"sr_atm_eq+a*shf*(b-lf)+c*lhf",
+                    "form":"sr_atm_eq+c6*shf*(c7-lf)+c8*lhf",
                     "color":"#D42028",
                     "description":"SR-SFC"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":17,
-                    "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)-c",
+                    "form":"sr_atm_eq+(thetae+c9*shf)*cube(c10-lf)-c11",
                     "color":"#8B0000",
                     "description":"SR-ALL"},
                 "sr_all_pc_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":null,
-                    "form":"sr_atm_eq+(thetae+a*shf)*cube(b-lf)+cube(1-b)*thetae-c",
-                    "init":{"a":5.24,"b":0.73,"c":0.12},
+                    "form":"sr_atm_eq+(thetae+c12*shf)*cube(c13-lf)+cube(1-c13)*thetae-c14",
+                    "init":{"c12":5.24,"c13":0.73,"c14":0.12},
                     "color":"#450606",
                     "description":"SR-ALL-PC"}
             }
