@@ -135,6 +135,7 @@
                 "sr_all_pc_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":null,
+                    "complexity":26,
                     "form":"sr_atm_eq+(thetae+c12*shf)*cube(c13-lf)+cube(1-c13)*thetae-c14",
                     "init":{"c12":5.24,"c13":0.73,"c14":0.12},
                     "color":"#450606",
