@@ -94,7 +94,7 @@ def eval_form(form,x,predictornames,constants):
     '''
     ns = dict(SRFUNCTIONS,__builtins__={})
     for pname in predictornames:
-        ns[pname] = x[pname].values
+        ns[pname] = x[pname].values.astype(np.float64,copy=False)
     ns.update(constants)
     out = eval(_prepare_form(form),ns)
     if np.ndim(out)==0:
@@ -289,7 +289,7 @@ if __name__=='__main__':
             del xtrain,ytrain,reftrain
         xfitfull,yfit,xvalid,yvalid,validmask = datacache[runname]
         predictornames = [c for c in xfitfull.columns if c != 'timeidx']
-        xfit       = xfitfull[predictornames]
+        xfit       = xfitfull[predictornames].astype(np.float64)
         nrestarts     = 50
         initscale     = eqspec.get('initscale',5.0)
         constantnames = extract_constants(form,predictornames)
