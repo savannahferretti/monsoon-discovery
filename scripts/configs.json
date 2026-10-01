@@ -128,16 +128,18 @@
                     "description":"SR-SFC"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
-                    "refcomplexity":17,
-                    "form":"sr_atm_eq+(thetae+c9*shf)*cube(c10-lf)-c11",
+                    "refcomplexity":15,
+                    "form":"sr_atm_eq+(thetae+c9*shf)*cube(c10-lf)",
                     "color":"#8B0000",
+                    "seeds":[102],
                     "description":"SR-ALL"},
                 "sr_all_pc_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":null,
                     "complexity":26,
-                    "form":"sr_atm_eq+(thetae+c12*shf)*cube(c13-lf)+cube(1-c13)*thetae-c14",
-                    "init":{"c12":5.24,"c13":0.73,"c14":0.12},
+                    "form":"sr_atm_eq+(thetae+c12*shf)*cube(c13-lf)+cube(1-c13)*thetae",
+                    "init":{"c12":5.63,"c13":0.70},
+                    "seeds":[102],
                     "color":"#450606",
                     "description":"SR-ALL-PC"}
             }
