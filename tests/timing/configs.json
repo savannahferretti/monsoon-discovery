@@ -1,0 +1,28 @@
+{
+    "accumlabel":"end",
+    "threshold":0.0001,
+    "landfrac":0.5,
+    "split":"test",
+    "variants":{
+        "lead":{
+            "statewindow":[0,0],
+            "fluxwindow":[0,3],
+            "targetwindow":[0,3],
+            "description":"State at window start, fluxes and precipitation over the following 3 hours"},
+        "concurrent":{
+            "statewindow":[0,3],
+            "fluxwindow":[0,3],
+            "targetwindow":[0,3],
+            "description":"State, fluxes, and precipitation all averaged over the same 3 hours"},
+        "causal":{
+            "statewindow":[-3,0],
+            "fluxwindow":[-3,0],
+            "targetwindow":[0,3],
+            "description":"State and fluxes averaged over the preceding 3 hours"}},
+    "nn":{
+        "projectname":"Chapter-3-Timing",
+        "runs":["nn_bl","nn_gauss"]},
+    "sr":{
+        "runs":["sr_bl","sr_atm","sr_sfc","sr_all"],
+        "optimizedeqs":["sr_bl_eq","sr_atm_eq","sr_sfc_eq","sr_all_eq","sr_all_pc_eq"]}
+}
