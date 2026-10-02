@@ -25,20 +25,22 @@ def load_pairs(splitsdir,splits=('train','valid')):
 
 def fit_qm(source,target,nquantiles=200):
     '''
-    Purpose: Fit an empirical quantile mapping between the positive values of two distributions.
+    Purpose: Fit an empirical quantile mapping over the full distributions, zeros included, so the corrected wet fraction matches the target.
     Args:
     - source (np.ndarray): values to correct (ERA5)
     - target (np.ndarray): reference values (IMERG)
-    - nquantiles (int): number of quantiles defining the mapping
+    - nquantiles (int): number of quantiles defining the mapping above the dry fraction
     Returns:
-    - callable: mapping that sends non-positive values to 0, positive values through the quantile transfer function, and keeps NaN as NaN
+    - callable: mapping that sends values at or below the source quantile matching the larger dry fraction to 0, maps larger values through the quantile transfer function, and keeps NaN as NaN
     '''
-    quantiles = np.linspace(0,1,nquantiles)
-    sourceq   = np.maximum.accumulate(np.quantile(source[source>0],quantiles))
-    targetq   = np.maximum.accumulate(np.quantile(target[target>0],quantiles))
+    dryfrac   = max(np.mean(source<=0),np.mean(target<=0))
+    quantiles = np.linspace(dryfrac,1,nquantiles)
+    sourceq   = np.maximum.accumulate(np.quantile(source,quantiles))
+    targetq   = np.maximum.accumulate(np.maximum(np.quantile(target,quantiles),0.0))
     def qm(x):
         x   = np.asarray(x,dtype=float)
-        out = np.where(x>0,np.interp(np.where(x>0,x,0.0),sourceq,targetq),0.0)
+        wet = x>sourceq[0]
+        out = np.where(wet,np.interp(np.where(wet,x,sourceq[0]),sourceq,targetq),0.0)
         return np.where(np.isnan(x),np.nan,out)
     return qm
 
