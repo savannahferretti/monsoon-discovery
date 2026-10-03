@@ -3,6 +3,7 @@
     "threshold":0.0001,
     "landfrac":0.5,
     "split":"test",
+    "constantsigfigs":4,
     "variants":{
         "lead":{
             "statewindow":[0,0],

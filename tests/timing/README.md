@@ -16,6 +16,16 @@ Derived variables are computed hourly, then averaged. The first and last window 
 
 `lead` is what the manuscript describes. The current pipeline differs: `floor('3h')` groups hourly stamps T, T+1, T+2, so its fluxes and precipitation cover [T−1, T+2] (see the main reply).
 
+## Precision
+
+- Files on disk are float32. Every file is read through `timingutils.load_dataset`, which converts it to float64, and written through `timingutils.save_dataset`, which converts it back to float32 and checks the result.
+- All arithmetic in between is float64: hourly windowing, statistics, standardization, kernel integration, constant fitting, and conversion back to mm.
+- Two exceptions: the NNs train on float32 tensors (converted once in `nn_train.to_tensors`; mixed precision as in the main pipeline), and PySR searches in float32. Only PySR's equation structure is used; constants are refit in float64.
+- The NN-GAUSS kernels are renormalized in float64 so that sum(k·dσ) = 1 exactly. Profiles are integrated in physical units, then standardized, so standardized and physical-space equations see the same inputs.
+- `equations.py` is the only place equations are evaluated and physical constants are derived. `sr_optimize.py` checks physical-space predictions against standardized-space and saved predictions, and writes the standardized constants, physical constants, and differences to `results/<variant>_<equation>_<split>_constants.json`.
+- Constants are rounded to `constantsigfigs` (4) significant figures. The manuscript used 2 decimals; set this to match if needed.
+- The normalized `norm_*.h5` files are not written. Inputs are standardized on the fly from `{split}.h5` and `stats.json`.
+
 SR-SFC and SR-ALL take SR-ATM as input. For each variant they use the manuscript SR-ATM *form*, with constants refit on that variant's data. All five manuscript forms are refit per variant. The PySR searches run the same as in the main pipeline.
 
 ## Run order (from repo root on Perlmutter, `conda activate monsoon-discovery`)

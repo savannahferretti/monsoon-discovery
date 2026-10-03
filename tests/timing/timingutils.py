@@ -3,7 +3,9 @@
 import os
 import sys
 import json
+import logging
 import numpy as np
+import xarray as xr
 
 TIMINGDIR = os.path.dirname(os.path.abspath(__file__))
 REPODIR   = os.path.dirname(os.path.dirname(TIMINGDIR))
@@ -12,7 +14,11 @@ if REPODIR not in sys.path:
 
 from scripts.utils import Config
 
-OUTPUTDIRS = ('interim','splits','predictions','features','weights','models')
+OUTPUTDIRS   = ('interim','splits','predictions','features','weights','models')
+COMPUTEDTYPE = np.float64
+STOREDTYPE   = np.float32
+
+logger = logging.getLogger(__name__)
 
 class TimingConfig(Config):
 
@@ -71,6 +77,41 @@ def parse_names(arg,allnames):
         raise ValueError(f'Unknown name(s) {unknown}; must be from {list(allnames)}')
     return names
 
+def load_dataset(filepath):
+    '''
+    Purpose: Read a NetCDF/HDF5 file fully into memory and convert every floating-point data variable to
+        COMPUTEDTYPE. This is the only place files are read in the timing test.
+    Args:
+    - filepath (str): file path
+    Returns:
+    - xr.Dataset: Dataset with float64 data variables
+    '''
+    with xr.open_dataset(filepath,engine='h5netcdf') as ds:
+        ds = ds.load()
+    return ds.assign({name:ds[name].astype(COMPUTEDTYPE) for name in ds.data_vars if ds[name].dtype.kind=='f'})
+
+def save_dataset(ds,filepath,timechunksize=736):
+    '''
+    Purpose: Convert every floating-point data variable to STOREDTYPE, write the file, and verify by reopening.
+        This is the only place files are written in the timing test.
+    Args:
+    - ds (xr.Dataset): Dataset to save
+    - filepath (str): output path
+    - timechunksize (int): chunk size along time
+    '''
+    os.makedirs(os.path.dirname(filepath),exist_ok=True)
+    ds = ds.assign({name:ds[name].astype(STOREDTYPE) for name in ds.data_vars if ds[name].dtype.kind=='f'})
+    for variable in ds.variables.values():
+        variable.encoding = {}
+    encoding = {name:{'chunksizes':tuple(min(timechunksize,size) if dim=='time' else size for dim,size in zip(da.dims,da.shape))}
+                for name,da in ds.data_vars.items() if da.ndim>0}
+    ds.to_netcdf(filepath,engine='h5netcdf',encoding=encoding)
+    with xr.open_dataset(filepath,engine='h5netcdf') as check:
+        wrong = {name:str(check[name].dtype) for name in check.data_vars if check[name].dtype.kind=='f' and check[name].dtype!=STOREDTYPE}
+    if wrong:
+        raise TypeError(f'{filepath} has non-{STOREDTYPE.__name__} variables: {wrong}')
+    logger.info(f'      Saved {filepath}')
+
 def load_stats(config):
     '''
     Purpose: Load training statistics for the configured splits directory.
@@ -81,6 +122,50 @@ def load_stats(config):
     '''
     with open(os.path.join(config.splitsdir,'stats.json'),'r',encoding='utf-8') as f:
         return json.load(f)
+
+def standardize(values,stats,var):
+    '''
+    Purpose: Standardize a predictor with training statistics.
+    Args:
+    - values (np.ndarray): physical values
+    - stats (dict): training statistics
+    - var (str): variable name
+    Returns:
+    - np.ndarray: standardized values
+    '''
+    return (values-stats[f'{var}_mean'])/stats[f'{var}_std']
+
+def precip_to_z(tp,stats):
+    '''
+    Purpose: Transform precipitation (mm) to the standardized log1p target.
+    Args:
+    - tp (np.ndarray): precipitation (mm)
+    - stats (dict): training statistics
+    Returns:
+    - np.ndarray: standardized target
+    '''
+    return (np.log1p(tp)-stats['tp_mean'])/stats['tp_std']
+
+def z_to_precip(z,stats):
+    '''
+    Purpose: Invert precip_to_z, clipping at zero.
+    Args:
+    - z (np.ndarray): standardized target values
+    - stats (dict): training statistics
+    Returns:
+    - np.ndarray: precipitation (mm)
+    '''
+    return np.clip(np.expm1(z*stats['tp_std']+stats['tp_mean']),0.0,None)
+
+def calc_zmin(stats):
+    '''
+    Purpose: Standardized value of zero precipitation.
+    Args:
+    - stats (dict): training statistics
+    Returns:
+    - float: zmin
+    '''
+    return (0.0-stats['tp_mean'])/stats['tp_std']
 
 def restrict_kernel_seeds(config,kernelrun='nn_gauss'):
     '''

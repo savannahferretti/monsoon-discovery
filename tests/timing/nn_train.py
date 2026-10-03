@@ -6,11 +6,11 @@ import logging
 import argparse
 import numpy as np
 import xarray as xr
-from timingutils import TimingConfig,parse_names,load_stats
-from scripts.data.classes import PredictionWriter
+from timingutils import TimingConfig,parse_names,load_stats,save_dataset,STOREDTYPE
+from data import load_nn_arrays
 from scripts.models.nn.architectures import BaselineNN,KernelNN
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
-from scripts.models.nn.classes.dataset import FieldDataset,load_split
+from scripts.models.nn.classes.dataset import FieldDataset
 from scripts.models.nn.classes.trainer import Trainer
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
@@ -35,6 +35,19 @@ def setup(seed):
         torch.backends.cudnn.allow_tf32 = True
         torch.set_float32_matmul_precision('high')
     return device
+
+def to_tensors(fields,local,target,dsig):
+    '''
+    Purpose: Convert float64 NN inputs to float32 tensors (the one place NN inputs change precision).
+    Args:
+    - fields (np.ndarray): fields
+    - local (np.ndarray): local variables
+    - target (np.ndarray): target
+    - dsig (np.ndarray): sigma thickness weights
+    Returns:
+    - tuple[torch.Tensor, ...]: float32 tensors in the same order
+    '''
+    return tuple(torch.from_numpy(np.ascontiguousarray(arr,dtype=STOREDTYPE)) for arr in (fields,local,target,dsig))
 
 def build_model(runconfig,nlevs,stats,targetvar):
     '''
@@ -89,8 +102,10 @@ if __name__=='__main__':
                 logger.info(f'[{variant}] Skipping `{name}`, all checkpoints already exist')
                 continue
             logger.info(f'[{variant}] Loading normalized splits for `{name}`...')
-            trainfields,trainlocal,trainpr,dsig,nlevs,_,_ = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
-            validfields,validlocal,validpr,_,_,_,_        = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            trainfields,trainlocal,trainpr,dsig,nlevs,_,_ = load_nn_arrays(config,'train',runconfig)
+            validfields,validlocal,validpr,_,_,_,_        = load_nn_arrays(config,'valid',runconfig)
+            trainfields,trainlocal,trainpr,dsig = to_tensors(trainfields,trainlocal,trainpr,dsig)
+            validfields,validlocal,validpr,_    = to_tensors(validfields,validlocal,validpr,np.ones(1))
             trainloader = torch.utils.data.DataLoader(FieldDataset(trainfields,trainlocal,trainpr,dsig),batch_size=nn['batchsize'],shuffle=True,num_workers=nn['workers'],pin_memory=True)
             validloader = torch.utils.data.DataLoader(FieldDataset(validfields,validlocal,validpr,dsig),batch_size=nn['batchsize'],shuffle=False,num_workers=nn['workers'],pin_memory=True)
             for seed in todo:
@@ -120,13 +135,11 @@ if __name__=='__main__':
                     model.eval()
                     with torch.no_grad():
                         model.kernel.get_weights(dsig.to(device),device)
-                    weights = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
-                    with xr.open_dataset(os.path.join(config.splitsdir,'norm_train.h5'),engine='h5netcdf') as refds:
-                        ds = PredictionWriter.weights_to_dataset(weights,fieldvars,refds)
-                    os.makedirs(config.weightsdir,exist_ok=True)
-                    wpath = os.path.join(config.weightsdir,f'{runid}_weights.nc')
-                    ds.to_netcdf(wpath,engine='h5netcdf')
-                    xr.open_dataset(wpath,engine='h5netcdf').close()
-                    logger.info(f'      Saved to {wpath}')
+                    weights = model.kernel.norm.detach().cpu().numpy()
+                    with xr.open_dataset(os.path.join(config.splitsdir,'train.h5'),engine='h5netcdf') as refds:
+                        sig = refds['sig'].values
+                    ds = xr.Dataset({'k':(('field','sig'),weights)},coords={'field':fieldvars,'sig':sig})
+                    ds['k'].attrs = dict(long_name='Normalized kernel weights',units='N/A')
+                    save_dataset(ds,os.path.join(config.weightsdir,f'{runid}_weights.nc'))
                 del model,trainer
             del trainloader,validloader,trainfields,validfields
