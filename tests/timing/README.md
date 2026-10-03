@@ -61,4 +61,6 @@ for v in lead concurrent causal; do sbatch tests/timing/sr_optimize.sbatch $v sr
 python tests/timing/summarize.py
 ```
 
+For the Fig. 1-style comparison (test R² bars and the Pareto frontier for `current` and each variant), open `tests/timing/pareto.ipynb` from inside `tests/timing/`. It saves `results/pareto.jpg`.
+
 Each step skips outputs that already exist. Every script takes `--variants lead,causal` etc. The training scripts also take `--seeds 42` for a cheaper first pass; SR features then average only the NN-GAUSS seeds that exist. Quick-test outputs (`--iterations`, `--subsetfrac`) are written to the same paths, so delete them before the full run.
