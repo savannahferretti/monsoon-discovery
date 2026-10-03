@@ -4,10 +4,11 @@ import os
 import torch
 import logging
 import argparse
-from timingutils import TimingConfig,parse_names,load_stats
-from nn_train import setup,build_model
-from scripts.data.classes import PredictionWriter
-from scripts.models.nn.classes.dataset import FieldDataset,load_split
+import numpy as np
+from timingutils import TimingConfig,parse_names,load_stats,z_to_precip
+from data import load_nn_arrays,unflatten,save_predictions
+from nn_train import setup,build_model,to_tensors
+from scripts.models.nn.classes.dataset import FieldDataset
 from scripts.models.nn.classes.inferencer import Inferencer
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
@@ -29,7 +30,6 @@ if __name__=='__main__':
         stats     = load_stats(config)
         seeds     = [int(seed) for seed in args.seeds.split(',')] if args.seeds else nn['seeds']
         device    = setup(seeds[0])
-        writer    = PredictionWriter(config.splitsdir,targetvar=targetvar)
         runs      = config.nnruns
         for name in parse_names(args.runs,list(runs)):
             if os.path.exists(os.path.join(config.predsdir,f'{name}_{args.split}_predictions.nc')):
@@ -37,9 +37,10 @@ if __name__=='__main__':
                 continue
             runconfig = runs[name]
             haskernel = runconfig['kind']!='baseline'
-            fields,local,pr,dsig,nlevs,valid,refda = load_split(args.split,runconfig['fieldvars'],runconfig.get('localvars',[]),config.splitsdir,targetvar=targetvar)
-            dataloader = torch.utils.data.DataLoader(FieldDataset(fields,local,pr,dsig),batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
-            allpreds = []
+            fields,local,target,dsig,nlevs,valid,truth = load_nn_arrays(config,args.split,runconfig)
+            fields,local,target,dsig = to_tensors(fields,local,target,dsig)
+            dataloader = torch.utils.data.DataLoader(FieldDataset(fields,local,target,dsig),batch_size=nn['batchsize'],shuffle=False,num_workers=0,pin_memory=True)
+            grids = []
             for seed in seeds:
                 filepath = os.path.join(config.modelsdir,'nn',f'{name}_{seed}.pth')
                 if not os.path.exists(filepath):
@@ -48,10 +49,8 @@ if __name__=='__main__':
                 logger.info(f'[{variant}] Evaluating `{name}` seed {seed}...')
                 model = build_model(runconfig,nlevs,stats,targetvar)
                 model.load_state_dict(torch.load(filepath,map_location='cpu'))
-                preds,_ = Inferencer(model.to(device),dataloader,device).predict(haskernel)
-                allpreds.append(preds)
+                z,_ = Inferencer(model.to(device),dataloader,device).predict(haskernel)
+                grids.append(unflatten(z_to_precip(z.astype(np.float64),stats),valid,truth))
                 del model
             else:
-                ds = writer.predictions_to_dataset(allpreds,valid,refda)
-                writer.save(ds,name,'predictions',args.split,config.predsdir)
-                del ds
+                save_predictions(config,name,args.split,grids,truth,seeds=seeds)

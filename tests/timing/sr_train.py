@@ -8,8 +8,10 @@ import tempfile
 import warnings
 import numpy as np
 import pandas as pd
-from timingutils import TimingConfig,parse_names,load_stats,restrict_kernel_seeds
-from scripts.models.sr.train import load_data,load_registry,save,TIMEOUT
+from timingutils import TimingConfig,parse_names,load_stats,restrict_kernel_seeds,z_to_precip,calc_zmin
+from data import load_features
+from equations import load_registry
+from scripts.models.sr.train import save,TIMEOUT
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -31,7 +33,7 @@ def subsample_timestep(features,target,subsetfrac,seed,stats,logmin=-4,logmax=2)
     Returns:
     - tuple[pd.DataFrame, np.ndarray]: subsampled features (without 'timeidx') and target
     '''
-    precip        = np.expm1(np.asarray(target)*stats['tp_std']+stats['tp_mean'])
+    precip        = z_to_precip(np.asarray(target),stats)
     rng           = np.random.default_rng(seed)
     timeidx       = features['timeidx'].values
     uniquetimes,startindices = np.unique(timeidx,return_index=True)
@@ -130,7 +132,7 @@ if __name__=='__main__':
         config = TimingConfig(variant)
         sr     = config.sr
         stats  = load_stats(config)
-        zmin   = (0.0-stats['tp_mean'])/stats['tp_std']
+        zmin   = calc_zmin(stats)
         seeds  = [int(seed) for seed in args.seeds.split(',')] if args.seeds else sr['seeds']
         kernelseeds = restrict_kernel_seeds(config)
         logger.info(f'[{variant}] Kernel-integrated features average NN-GAUSS seeds {kernelseeds}' if kernelseeds else f'[{variant}] No NN-GAUSS kernel weights found; only runs without `weightsfrom` can run')
@@ -146,14 +148,14 @@ if __name__=='__main__':
                 logger.info(f'[{variant}] Skipping `{name}`, all equation files already exist')
                 continue
             residualfrom = runconfig.get('residualfrom')
-            if residualfrom and residualfrom not in load_registry(config.modelsdir):
+            if residualfrom and residualfrom not in load_registry(config):
                 logger.error(f'[{variant}] `{name}` needs `{residualfrom}` in {config.modelsdir}/sr/optimized_equations.csv; run sr_optimize.py --equations {residualfrom} first')
                 continue
             searchparams = {**sr['searchparams'],**runconfig.get('searchparams',{})}
             srrun        = {**sr,'searchparams':searchparams}
-            logger.info(f'[{variant}] Loading normalized training and validation splits for `{name}`...')
-            xtrain,ytrain,reftrain,trainmask = load_data('train',runconfig,config,time_offset=0)
-            xvalid,yvalid,_,validmask        = load_data('valid',runconfig,config,time_offset=int(reftrain.sizes['time']))
+            logger.info(f'[{variant}] Loading training and validation splits for `{name}`...')
+            xtrain,ytrain,reftrain,trainmask = load_features(config,'train',runconfig)
+            xvalid,yvalid,_,validmask        = load_features(config,'valid',runconfig,timeoffset=int(reftrain.sizes['time']))
             predictors = [c for c in xtrain.columns if c!='timeidx']
             xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
             yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])

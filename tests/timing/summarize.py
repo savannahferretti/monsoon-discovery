@@ -8,8 +8,10 @@ import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
-from timingutils import TimingConfig,parse_names,load_stats,restrict_kernel_seeds,calc_r2
-from scripts.models.sr.train import load_data,eval_baseline,select_pareto_elbow
+from timingutils import TimingConfig,parse_names,load_stats,restrict_kernel_seeds,calc_r2,load_dataset
+from data import load_split,load_features,load_kernels
+from equations import evaluate,raw_to_precip
+from scripts.models.sr.train import select_pareto_elbow
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -27,10 +29,9 @@ def load_truth(config,split):
     - tuple[xr.DataArray, dict[str, np.ndarray]]: truth (time, lat, lon) and region masks of the same shape
     '''
     landfrac = config.timing['landfrac']
-    with xr.open_dataset(os.path.join(config.splitsdir,f'{split}.h5'),engine='h5netcdf') as ds:
-        truth = ds['tp'].transpose('time','lat','lon').load()
-        lf    = ds['lf'].transpose('lat','lon').values
-    lf    = np.broadcast_to(lf[None,:,:],truth.shape)
+    ds    = load_split(config,split)
+    truth = ds['tp'].transpose('time','lat','lon')
+    lf    = np.broadcast_to(ds['lf'].transpose('lat','lon').values[None,:,:],truth.shape)
     masks = {'all':np.ones(truth.shape,dtype=bool),'land':lf>=landfrac,'ocean':lf<landfrac}
     return truth,masks
 
@@ -50,8 +51,7 @@ def calc_model_r2(config,name,split,truth,masks):
     if not os.path.exists(filepath):
         logger.warning(f'   Missing {filepath}')
         return None
-    with xr.open_dataset(filepath) as ds:
-        pred = ds['tp'].load()
+    pred = load_dataset(filepath)['tp']
     if 'complexity' in pred.dims:
         pred = pred.isel(complexity=0)
     seedpreds = [pred.isel(seed=i) for i in range(pred.sizes['seed'])] if 'seed' in pred.dims else [pred]
@@ -72,22 +72,18 @@ def calc_kernel_stats(config):
     Returns:
     - dict[str, dict[str, float]] | None: per-predictor peak and spread, or None if weights are missing
     '''
-    kernels = []
-    for seed in config.nn['seeds']:
-        filepath = os.path.join(config.weightsdir,f'nn_gauss_{seed}_weights.nc')
-        if os.path.exists(filepath):
-            with xr.open_dataset(filepath,engine='h5netcdf') as ds:
-                kernels.append(ds['k'].values)
-                fieldvars,sig = [str(v) for v in ds['field'].values],ds['sig'].values
-    if not kernels:
+    split = load_split(config,config.timing['split'])
+    sig   = split['sig'].values.astype(np.float64)
+    try:
+        kernels = load_kernels(config,split['dsig'].values)
+    except FileNotFoundError:
         logger.warning(f'   No NN-GAUSS weights in {config.weightsdir}')
         return None
-    kmean = np.mean(kernels,axis=0)
     dsig  = np.abs(np.gradient(sig))
     stats = {}
-    for i,var in enumerate(fieldvars):
-        peak = float(sig[np.argmax(kmean[i])])
-        stats[var] = dict(peak=peak,spread=float(np.sqrt(((sig-peak)**2*kmean[i]*dsig).sum())),nseeds=len(kernels))
+    for var,k in kernels.items():
+        peak = float(sig[np.argmax(k)])
+        stats[var] = dict(peak=peak,spread=float(np.sqrt(((sig-peak)**2*k*dsig).sum())),nseeds=len(config.nn['seeds']))
     return stats
 
 def summarize_sr(config,split,truth,masks):
@@ -103,7 +99,6 @@ def summarize_sr(config,split,truth,masks):
     - tuple[list[dict], dict[str, pd.DataFrame]]: summary rows and Pareto frontiers keyed by `{run}_{seed}`
     '''
     stats = load_stats(config)
-    zmin  = (0.0-stats['tp_mean'])/stats['tp_std']
     truthflat = truth.values.ravel()
     maskflat  = {region:mask.ravel() for region,mask in masks.items()}
     rows,fronts = [],{}
@@ -123,10 +118,9 @@ def summarize_sr(config,split,truth,masks):
                          elbowcomplexity=int(elbow['complexity']),elbowequation=str(elbow['equation']))
             try:
                 if x is None:
-                    x,_,_,validmask = load_data(split,runconfig,config)
+                    x,_,_,validmask = load_features(config,split,runconfig)
                     columns = {c:x[c].values for c in x.columns if c!='timeidx'}
-                raw  = eval_baseline(row['elbowequation'],columns,{})
-                pred = np.clip(np.expm1((zmin+np.maximum(raw,0.0))*stats['tp_std']+stats['tp_mean']),0.0,None)
+                pred = raw_to_precip(evaluate(row['elbowequation'],columns,{}),stats)
                 pred[~validmask] = np.nan
                 for region in REGIONS:
                     row[f'elbow_r2_{region}'] = calc_r2(truthflat,pred,maskflat[region])

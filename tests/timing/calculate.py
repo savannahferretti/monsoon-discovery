@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
-from timingutils import TimingConfig,parse_names
+from timingutils import TimingConfig,parse_names,save_dataset,COMPUTEDTYPE
 from scripts.data.classes import DataCalculator
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
@@ -119,27 +119,28 @@ def apply_window(arr,anchors,offsets,weights):
     - offsets (list[int]): hourly offsets
     - weights (np.ndarray): weight per offset
     Returns:
-    - np.ndarray: windowed array (float32) with time as the last axis
+    - np.ndarray: windowed array (float64) with time as the last axis
     '''
     out = np.zeros(arr.shape[:-1]+(len(anchors),),dtype=np.float64)
     for offset,weight in zip(offsets,weights):
         out += weight*arr[...,anchors+offset]
-    return out.astype(np.float32)
+    return out
 
-def load_year(calculator,year):
+def load_year(calculator,year,dtype):
     '''
-    Purpose: Load, subset to one year, and regrid all hourly raw variables.
+    Purpose: Load, subset to one year, convert to dtype, and regrid all hourly raw variables.
     Args:
     - calculator (DataCalculator): calculator instance
     - year (int): year
+    - dtype (type): np.float64 to build variants; np.float32 to reproduce the existing pipeline (--check)
     Returns:
     - tuple[dict[str, xr.DataArray], pd.DatetimeIndex]: regridded hourly variables and their timestamps
     '''
     raw = {}
     for name,longname in RAWFILES.items():
         da = calculator.retrieve(longname)
-        da = da.sel(time=da.time.dt.year==year)
-        raw[name] = calculator.regrid(da).load()
+        da = da.sel(time=da.time.dt.year==year).load().astype(dtype)
+        raw[name] = calculator.regrid(da).astype(dtype)
     hours    = pd.DatetimeIndex(raw['t'].time.values)
     expected = pd.date_range(hours[0],hours[-1],freq='1h')
     if len(hours)!=len(expected) or not (hours==expected).all():
@@ -149,9 +150,31 @@ def load_year(calculator,year):
             raise ValueError(f'Timestamps of `{name}` differ from temperature in {year}')
     return raw,hours
 
+def interpolate_to_sigma(da,ps,sigs):
+    '''
+    Purpose: Copy of DataCalculator.interpolate_to_sigma that keeps the input precision instead of casting to float32.
+    Args:
+    - da (xr.DataArray): field with 'lev'
+    - ps (xr.DataArray): surface pressure (hPa)
+    - sigs (np.ndarray): ascending sigma levels
+    Returns:
+    - xr.DataArray: field with dims (lat, lon, sig, time)
+    '''
+    da      = da.transpose('lat','lon','lev','time').load()
+    ps      = ps.transpose('lat','lon','time').load()
+    levs    = da.lev.values
+    ptarget = sigs[None,None,:,None]*ps.values[:,:,None,:]
+    upper   = np.clip(np.searchsorted(levs,ptarget,side='right'),1,len(levs)-1)
+    lower   = upper-1
+    weight  = (ptarget-levs[lower])/(levs[upper]-levs[lower])
+    result  = (1.0-weight)*np.take_along_axis(da.values,lower,axis=2)+weight*np.take_along_axis(da.values,upper,axis=2)
+    result  = np.where(np.isfinite(ptarget)&(ptarget>0),result,np.nan).astype(da.dtype)
+    return xr.DataArray(result,dims=('lat','lon','sig','time'),coords={'lat':da.lat,'lon':da.lon,'sig':sigs,'time':da.time},name=da.name,attrs=da.attrs)
+
 def calc_hourly(calculator,raw):
     '''
-    Purpose: Compute hourly predictors exactly as in scripts/data/calculate.py, but before any time resampling.
+    Purpose: Compute hourly predictors as in scripts/data/calculate.py, before any time resampling, keeping the
+        precision of the inputs.
     Args:
     - calculator (DataCalculator): calculator instance
     - raw (dict[str, xr.DataArray]): regridded hourly raw variables
@@ -171,9 +194,9 @@ def calc_hourly(calculator,raw):
     wb,wl       = calculator.calc_weights(ps,pbltop,lfttop)
     bl          = calculator.calc_bl(thetaeb,thetael,thetaelstar,wb,wl)
     hourly = {
-        'rh':calculator.interpolate_to_sigma(rh,ps,SIGS).values,
-        'thetae':calculator.interpolate_to_sigma(thetae,ps,SIGS).values,
-        'thetaestar':calculator.interpolate_to_sigma(thetaestar,ps,SIGS).values,
+        'rh':interpolate_to_sigma(rh,ps,SIGS).values,
+        'thetae':interpolate_to_sigma(thetae,ps,SIGS).values,
+        'thetaestar':interpolate_to_sigma(thetaestar,ps,SIGS).values,
         'bl':bl.transpose('lat','lon','time').values}
     for name in ('shf','lhf','tp'):
         hourly[name] = raw[name].transpose('lat','lon','time').values
@@ -212,7 +235,7 @@ def window_variant(hourly,spec,anchors,threshold):
     for name in FLUXVARS:
         out[name] = apply_window(hourly[name],anchors,*spec['flux'])
     tp = apply_window(hourly['tp'],anchors,*spec['target'])
-    out['tp'] = np.where(tp>=threshold,tp,0.0).astype(np.float32)
+    out['tp'] = np.where(tp>=threshold,tp,0.0)
     return out
 
 def run_check(config,calculator,year):
@@ -225,13 +248,13 @@ def run_check(config,calculator,year):
     - year (int): year to check
     '''
     logger.info(f'Rebuilding the current setup for {year}...')
-    raw,hours = load_year(calculator,year)
+    raw,hours = load_year(calculator,year,np.float32)
     lat,lon   = raw['t'].lat.values,raw['t'].lon.values
     hourly    = calc_hourly(calculator,raw)
     del raw
     spec    = {'state':([0],np.array([1.0])),'flux':([0,1,2],np.full(3,1/3)),'target':([0,1,2],np.ones(3))}
     anchors = get_anchors(hours,0,2)
-    rebuilt = window_variant(hourly,spec,anchors,config.timing['threshold'])
+    rebuilt = {name:arr.astype(np.float32) for name,arr in window_variant(hourly,spec,anchors,config.timing['threshold']).items()}
     times   = hours[anchors]
     for name,arr in rebuilt.items():
         filepath = os.path.join(config.mainfilepaths['interim'],f'{name}.nc')
@@ -275,7 +298,7 @@ if __name__=='__main__':
         collected = {variant:{name:[] for name in METADATA} for variant in todo}
         for year in (config.years if todo else []):
             logger.info(f'Processing {year}...')
-            raw,hours = load_year(calculator,year)
+            raw,hours = load_year(calculator,year,COMPUTEDTYPE)
             lat,lon   = raw['t'].lat.values,raw['t'].lon.values
             hourly    = calc_hourly(calculator,raw)
             del raw
@@ -288,12 +311,12 @@ if __name__=='__main__':
             del hourly
         for variant in todo:
             interimdir = TimingConfig(variant).interimdir
-            calculator.savedir = interimdir
             logger.info(f'Saving `{variant}` to {interimdir}...')
             for name,(longname,units) in METADATA.items():
                 da = xr.concat(collected[variant][name],dim='time')
-                calculator.save(calculator.create_dataset(da,name,longname,units))
+                save_dataset(calculator.create_dataset(da,name,longname,units),os.path.join(interimdir,f'{name}.nc'))
             for name in STATICVARS:
+                os.makedirs(interimdir,exist_ok=True)
                 shutil.copy(os.path.join(config.mainfilepaths['interim'],f'{name}.nc'),os.path.join(interimdir,f'{name}.nc'))
                 xr.open_dataarray(os.path.join(interimdir,f'{name}.nc'),engine='h5netcdf').close()
                 logger.info(f'   Copied static {name}.nc from the current interim directory')
