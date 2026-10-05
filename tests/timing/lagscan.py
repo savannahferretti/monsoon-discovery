@@ -129,7 +129,8 @@ def fit_binned(x,y,xtest):
 
 def plot(df,filepath):
     '''
-    Purpose: Test R² against the predictor's centre time, one panel per target window.
+    Purpose: Test R² against the predictor's centre time; rows are rain windows, columns are regions. Solid lines and
+        squares are the SR-BL fit; dotted lines and diamonds are the binned reference.
     Args:
     - df (pd.DataFrame): scan results
     - filepath (str): output image path
@@ -137,24 +138,32 @@ def plot(df,filepath):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    fig,axs = plt.subplots(1,len(TARGETS),figsize=(4.2*len(TARGETS),3.2),sharey=True,constrained_layout=True)
-    for ax,(target,window) in zip(np.atleast_1d(axs),TARGETS.items()):
-        ax.axvspan(*window,color='0.9',zorder=0,label='rain window')
-        for model,style in (('srbl','-'),('binned',':')):
-            sub = df[(df.target==target)&(df.kind=='snapshot')].sort_values('centre')
-            ax.plot(sub.centre,sub[f'{model}_r2_all'],style,marker='o',color='k',label=f'snapshot ({model})')
-            sub = df[(df.target==target)&(df.kind=='mean')]
-            ax.scatter(sub.centre,sub[f'{model}_r2_all'],marker='s' if model=='srbl' else 'D',color='tab:orange',zorder=3,label=f'3-h mean ({model})')
-        ax.set_title(f'{target} rain window (T{window[0]:+d} to T{window[1]:+d} h)')
-        ax.set_xlabel('B_L time relative to T (h; centre for means)')
-    np.atleast_1d(axs)[0].set_ylabel('Test R²')
-    np.atleast_1d(axs)[0].legend(fontsize=7,frameon=False)
+    fig,axs = plt.subplots(len(TARGETS),len(REGIONS),figsize=(3.6*len(REGIONS),3.0*len(TARGETS)),sharex=True,constrained_layout=True)
+    for row,(target,window) in enumerate(TARGETS.items()):
+        for col,region in enumerate(REGIONS):
+            ax = axs[row,col]
+            ax.axvspan(*window,color='0.9',zorder=0,label='rain window')
+            for model,style,marker in (('srbl','-','s'),('binned',':','D')):
+                snap = df[(df.target==target)&(df.kind=='snapshot')].sort_values('centre')
+                mean = df[(df.target==target)&(df.kind=='mean')].sort_values('centre')
+                ax.plot(snap['centre'].to_numpy(),snap[f'{model}_r2_{region}'].to_numpy(),style,marker='o',color='k',label=f'snapshot ({model})')
+                ax.plot(mean['centre'].to_numpy(),mean[f'{model}_r2_{region}'].to_numpy(),style,marker=marker,color='tab:orange',label=f'3-h mean ({model})')
+            ax.set_title(f'{target} window (T{window[0]:+d} to T{window[1]:+d} h), {region}',fontsize=9)
+            if row==len(TARGETS)-1:
+                ax.set_xlabel('B_L time relative to T (h; centre for means)')
+            if col==0:
+                ax.set_ylabel('Test R²')
+    axs[0,0].legend(fontsize=7,frameon=False)
     fig.savefig(filepath,dpi=200)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Scan B_L snapshot times and 3-hour means against fixed precipitation windows with the SR-BL form.')
-    parser.parse_args()
+    parser.add_argument('--plot-only',action='store_true',help='Redraw lagscan.png from an existing lagscan.csv')
+    args = parser.parse_args()
     config     = TimingConfig()
+    if args.plot_only:
+        plot(pd.read_csv(os.path.join(config.resultsdir,'lagscan.csv')),os.path.join(config.resultsdir,'lagscan.png'))
+        raise SystemExit
     timing     = config.timing
     predictors = build_predictors()
     calculator = DataCalculator(author=config.author,email=config.email,filedir=config.rawdir,savedir=None,latrange=config.latrange,lonrange=config.lonrange)
