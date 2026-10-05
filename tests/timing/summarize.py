@@ -147,7 +147,7 @@ def summarize(variant,split):
     for name in [*config.nnruns,*config.srequations]:
         scores = calc_model_r2(config,name,split,truth,masks)
         if scores is not None:
-            r2[name] = scores
+            r2[config.eqrole(name)] = scores
     srrows,fronts = summarize_sr(config,split,truth,masks)
     return dict(variant=label,ntime=int(truth.sizes['time']),r2=r2,kernels=calc_kernel_stats(config),sr=srrows,fronts=fronts)
 

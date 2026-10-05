@@ -73,6 +73,10 @@ Its complexities are not on the same scale as the other runs, so compare its equ
 
 `sr_all_k1_eq` (SR-ALL-K1) is the form this search found (concurrent, seed 72, complexity 16): `sr_atm_eq + c14·(thetae + c15·shf)·cube(c16 − lf)`. It is the manuscript SR-ALL with a free scale c14 on the correction, so it contains SR-ALL as c14 = 1. `sr_optimize.py` fits it like the other forms (see below). Physical constants: λ_θe = s_y·c14/s_θe, λ_SHF = s_y·c14·c15/s_SHF, LF_c = c16.
 
+## Each variant's own equations
+
+A variant listed under `sr.variantequations` in `configs.json` uses only equations learned from its own PySR searches, mapped to the manuscript roles (SR-BL, SR-ATM, SR-SFC, SR-ALL). Concurrent: SR-BL, SR-ATM, and SR-SFC have the manuscript forms (rediscovered); its SR-ALL is `sr_all_k1_eq`; it has no SR-ALL-PC. Variants not listed (causal, for now) use the manuscript forms. `summarize.py` and `compare.ipynb` report results by role, so concurrent's SR-ALL row is `sr_all_k1_eq`.
+
 ## Constant fits use only the variant's own results
 
 Each fit uses one start from PySR constants plus 49 random starts (Text S3). The PySR start comes from the variant's own PySR tables: a structural match at the reference complexity, else the constants listed for that variant under `sr.inits` in `configs.json`, else (SR-ALL-PC only) the variant's optimized SR-ALL. Nothing comes from the current (manuscript) setup; without a PySR start, all 50 starts are random. Concurrent entries in `sr.inits`: SR-ALL from seed 72's complexity-18 SR-ALL-K1 equation (θe weight 1.01: c9 = 5.06, c10 = 0.764); SR-ALL-K1 from seed 72's complexity-16 equation.

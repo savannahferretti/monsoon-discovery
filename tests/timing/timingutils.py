@@ -59,8 +59,23 @@ class TimingConfig(Config):
         return {name:self.sr['runs'][name] for name in self.timing['sr']['runs']}
 
     @property
+    def eqroles(self):
+        '''
+        Purpose: Map role (manuscript equation name, e.g. sr_all_eq) to this variant's equation name. A variant listed
+            under sr.variantequations uses only its own equations; others use the manuscript forms.
+        '''
+        mapping = self.timing['sr'].get('variantequations',{}).get(self.variant)
+        return dict(mapping) if mapping else {name:name for name in self.timing['sr']['optimizedeqs']}
+
+    @property
     def srequations(self):
-        return {name:self.sr['optimizedeqs'][name] for name in self.timing['sr']['optimizedeqs']}
+        return {name:self.sr['optimizedeqs'][name] for name in self.eqroles.values()}
+
+    def eqname(self,role):
+        return self.eqroles.get(role)
+
+    def eqrole(self,name):
+        return next((role for role,eqname in self.eqroles.items() if eqname==name),name)
 
 def parse_names(arg,allnames):
     '''
