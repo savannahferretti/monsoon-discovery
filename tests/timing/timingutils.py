@@ -32,6 +32,8 @@ class TimingConfig(Config):
         super().__init__()
         with open(os.path.join(TIMINGDIR,'configs.json'),'r',encoding='utf-8') as f:
             self.timing = json.load(f)
+        self.sr['runs'].update(self.timing['sr'].get('extraruns',{}))
+        self.sr['optimizedeqs'].update(self.timing['sr'].get('extraeqs',{}))
         self.mainfilepaths = dict(self.filepaths)
         self.variant       = variant
         if variant is not None:
@@ -54,8 +56,7 @@ class TimingConfig(Config):
 
     @property
     def srruns(self):
-        extra = self.timing['sr'].get('extraruns',{})
-        return {name:extra[name] if name in extra else self.sr['runs'][name] for name in self.timing['sr']['runs']}
+        return {name:self.sr['runs'][name] for name in self.timing['sr']['runs']}
 
     @property
     def srequations(self):

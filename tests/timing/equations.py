@@ -139,6 +139,8 @@ def calc_physical_constants(name,registry,stats):
         physical.update(lamthetae=sy/std('thetae'),lamshf=sy*c['c9']/std('shf'),lfc=c['c10'])
     elif name=='sr_all_pc_eq':
         physical.update(lamthetae=sy/std('thetae'),lamshf=sy*c['c12']/std('shf'),lfc=c['c13'])
+    elif name=='sr_all_k1_eq':
+        physical.update(lamthetae=sy*c['c14']/std('thetae'),lamshf=sy*c['c14']*c['c15']/std('shf'),lfc=c['c16'])
     else:
         raise ValueError(f'No physical form for `{name}`')
     return physical
@@ -165,7 +167,7 @@ def calc_physical_precip(name,physical,inputs,stats):
         exponent    = p['lam']*np.maximum(moisture,instability)**3
         if name=='sr_sfc_eq':
             exponent = exponent+p['lamshf']*(p['lfc']-inputs['lf'])*(inputs['shf']-mean('shf'))+p['lamlhf']*(inputs['lhf']-mean('lhf'))
-        elif name in ('sr_all_eq','sr_all_pc_eq'):
+        elif name in ('sr_all_eq','sr_all_pc_eq','sr_all_k1_eq'):
             exponent = exponent+(p['lfc']-inputs['lf'])**3*(p['lamthetae']*(inputs['thetae']-mean('thetae'))+p['lamshf']*(inputs['shf']-mean('shf')))
             if name=='sr_all_pc_eq':
                 exponent = exponent+p['lamthetae']*(1-p['lfc'])**3*(inputs['thetae']-mean('thetae'))

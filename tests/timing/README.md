@@ -71,6 +71,8 @@ sbatch tests/timing/sr_train.sbatch concurrent sr_all_k1
 
 Its complexities are not on the same scale as the other runs, so compare its equations by form and loss, not by position on the Pareto frontier.
 
+`sr_all_k1_eq` (SR-ALL-K1) is the form this search found (concurrent, seed 72, complexity 16): `sr_atm_eq + c14·(thetae + c15·shf)·cube(c16 − lf)`. It is the manuscript SR-ALL with a free scale c14 on the correction, so it contains SR-ALL as c14 = 1. `sr_optimize.py` fits it from seed 72's constants, the variant's and the manuscript's SR-ALL constants, and random starts. Physical constants: λ_θe = s_y·c14/s_θe, λ_SHF = s_y·c14·c15/s_SHF, LF_c = c16.
+
 ## Lag scan (B_L only)
 
 `lagscan.py` holds the precipitation window fixed and pairs it with B_L at different times: hourly snapshots from T−3 to T+3 h and 3-hour means centred at T−1.5, T−0.5, T+0.5, and T+1.5 h. It does this for both rain windows: `concurrent` [T, T+3] and `current` [T−1, T+2]. For each pairing it fits the SR-BL form on 2000–2017 and reports test R² (all, land, ocean), plus a model-free reference (mean rain in 40 B_L quantile bins). It reads only the raw files and writes `results/lagscan.{csv,md,png}`. Run it on a CPU node (about 30–60 min):

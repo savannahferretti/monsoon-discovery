@@ -74,8 +74,14 @@ def get_inits(name,eqspec,constantnames,predictornames,config,registry,mainregis
     pysr  = pysr_init(eqspec['form'],predictornames,eqspec.get('refcomplexity'),eqspec['runfrom'],eqspec.get('seeds',config.sr['seeds']),config.modelsdir)
     if pysr:
         inits.append(pysr)
+    if eqspec.get('init'):
+        inits.append(dict(eqspec['init']))
     if name=='sr_all_pc_eq' and 'sr_all_eq' in registry:
         inits.append({'c12':registry['sr_all_eq']['constants']['c9'],'c13':registry['sr_all_eq']['constants']['c10']})
+    if name=='sr_all_k1_eq':
+        for source in (registry,mainregistry):
+            if 'sr_all_eq' in source:
+                inits.append({'c14':1.0,'c15':source['sr_all_eq']['constants']['c9'],'c16':source['sr_all_eq']['constants']['c10']})
     manuscript = mainregistry.get(name,{}).get('constants',{})
     if set(constantnames)<=set(manuscript):
         inits.append({c:manuscript[c] for c in constantnames})
