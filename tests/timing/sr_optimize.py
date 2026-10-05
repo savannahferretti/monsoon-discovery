@@ -56,9 +56,11 @@ def multistart_optimize(form,columns,y,zmin,inits,nworkers):
 
 def get_inits(name,eqspec,constantnames,predictornames,config,registry,mainregistry):
     '''
-    Purpose: Initial constants: PySR constants of the variant's structure at the reference complexity (if it
-        matches), the variant's optimized SR-ALL constants (for SR-ALL-PC), the manuscript constants, earlier
-        equations from the same run, and uniform random draws in [-INITSCALE, INITSCALE] up to NRESTARTS.
+    Purpose: Initial constants as in Text S3: one start from PySR constants, the rest uniform in
+        [-INITSCALE, INITSCALE] (NRESTARTS in total). The PySR start is, in order of preference: constants matched
+        from the variant's PySR equations at the reference complexity (averaged across matching seeds); the
+        equation's explicit `init` (PySR constants written into configs.json); the variant's optimized SR-ALL
+        constants (SR-ALL-PC only, as in the manuscript); the manuscript constants.
     Args:
     - name (str): equation name
     - eqspec (dict): equation specification
@@ -70,29 +72,19 @@ def get_inits(name,eqspec,constantnames,predictornames,config,registry,mainregis
     Returns:
     - list[dict[str, float]]: initializations
     '''
-    inits = []
-    pysr  = pysr_init(eqspec['form'],predictornames,eqspec.get('refcomplexity'),eqspec['runfrom'],eqspec.get('seeds',config.sr['seeds']),config.modelsdir)
-    if pysr:
-        inits.append(pysr)
-    if eqspec.get('init'):
-        inits.append(dict(eqspec['init']))
-    if name=='sr_all_pc_eq' and 'sr_all_eq' in registry:
-        inits.append({'c12':registry['sr_all_eq']['constants']['c9'],'c13':registry['sr_all_eq']['constants']['c10']})
-    if name=='sr_all_k1_eq':
-        for source in (registry,mainregistry):
-            if 'sr_all_eq' in source:
-                inits.append({'c14':1.0,'c15':source['sr_all_eq']['constants']['c9'],'c16':source['sr_all_eq']['constants']['c10']})
     manuscript = mainregistry.get(name,{}).get('constants',{})
-    if set(constantnames)<=set(manuscript):
-        inits.append({c:manuscript[c] for c in constantnames})
-    for prevname,preventry in registry.items():
-        if config.sr['optimizedeqs'].get(prevname,{}).get('runfrom')==eqspec['runfrom'] and set(preventry['constants'])<set(constantnames):
-            inits.append({c:preventry['constants'].get(c,1.0) for c in constantnames})
+    candidates = [
+        ('PySR match',pysr_init(eqspec['form'],predictornames,eqspec.get('refcomplexity'),eqspec['runfrom'],eqspec.get('seeds',config.sr['seeds']),config.modelsdir)),
+        ('configured PySR constants',dict(eqspec.get('init') or {})),
+        ('optimized SR-ALL',{'c12':registry['sr_all_eq']['constants']['c9'],'c13':registry['sr_all_eq']['constants']['c10']} if name=='sr_all_pc_eq' and 'sr_all_eq' in registry else {}),
+        ('manuscript constants',{c:manuscript[c] for c in constantnames} if set(constantnames)<=set(manuscript) else {})]
+    source,first = next(((label,init) for label,init in candidates if init and set(constantnames)<=set(init)),('none',None))
+    inits = [first] if first else []
     rng = np.random.default_rng(0)
     while len(inits)<NRESTARTS:
         inits.append(dict(zip(constantnames,rng.uniform(-INITSCALE,INITSCALE,len(constantnames)))))
     inits = [{c:float(init[c]) for c in constantnames} for init in inits]
-    logger.info(f'   {len(inits)} starts; first: {inits[0]}')
+    logger.info(f'   Start from {source}: {inits[0] if first else "random only"} (+{NRESTARTS-len([first] if first else [])} random)')
     return inits
 
 def check_consistency(config,name,split,registry,stats):
