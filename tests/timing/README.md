@@ -75,7 +75,7 @@ Its complexities are not on the same scale as the other runs, so compare its equ
 
 ## Each variant's own equations
 
-A variant listed under `sr.variantequations` in `configs.json` uses only equations learned from its own PySR searches, mapped to the manuscript roles (SR-BL, SR-ATM, SR-SFC, SR-ALL). Concurrent: SR-BL, SR-ATM, and SR-SFC have the manuscript forms (rediscovered); its SR-ALL is `sr_all_k1_eq`; it has no SR-ALL-PC. Variants not listed (causal, for now) use the manuscript forms. `summarize.py` and `compare.ipynb` report results by role, so concurrent's SR-ALL row is `sr_all_k1_eq`.
+A variant listed under `sr.variantequations` in `configs.json` uses only equations learned from its own PySR searches, mapped to the manuscript roles (SR-BL, SR-ATM, SR-SFC, SR-ALL). Concurrent: SR-BL, SR-ATM, and SR-SFC have the manuscript forms (rediscovered); its SR-ALL is `sr_all_k1_eq`; it has no SR-ALL-PC. Causal is listed with no equations yet: add each one after inspecting its PySR tables. Variants not listed use the manuscript forms. `summarize.py` and `compare.ipynb` report results by role, so concurrent's SR-ALL row is `sr_all_k1_eq`.
 
 ## Constant fits use only the variant's own results
 

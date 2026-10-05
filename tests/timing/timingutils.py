@@ -65,7 +65,7 @@ class TimingConfig(Config):
             under sr.variantequations uses only its own equations; others use the manuscript forms.
         '''
         mapping = self.timing['sr'].get('variantequations',{}).get(self.variant)
-        return dict(mapping) if mapping else {name:name for name in self.timing['sr']['optimizedeqs']}
+        return dict(mapping) if mapping is not None else {name:name for name in self.timing['sr']['optimizedeqs']}
 
     @property
     def srequations(self):
