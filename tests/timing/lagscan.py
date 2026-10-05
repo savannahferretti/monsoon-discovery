@@ -23,6 +23,7 @@ FORM      = 'cube(bl+c1)+c2'
 INITS     = [{'c1':0.3,'c2':0.14},{'c1':0.0,'c2':0.0},{'c1':1.0,'c2':0.0},{'c1':-1.0,'c2':0.5}]
 NBINS     = 40
 REGIONS   = ('all','land','ocean')
+SETUPS    = {'causal':('concurrent','mean',-1.5),'concurrent':('concurrent','mean',1.5),'current':('current','snapshot',0.0)}
 
 def build_predictors():
     '''
@@ -148,6 +149,12 @@ def plot(df,filepath):
                 mean = df[(df.target==target)&(df.kind=='mean')].sort_values('centre')
                 ax.plot(snap['centre'].to_numpy(),snap[f'{model}_r2_{region}'].to_numpy(),style,marker='o',color='k',label=f'snapshot ({model})')
                 ax.plot(mean['centre'].to_numpy(),mean[f'{model}_r2_{region}'].to_numpy(),style,marker=marker,color='tab:orange',label=f'3-h mean ({model})')
+            for label,(t,kind,centre) in SETUPS.items():
+                if t!=target:
+                    continue
+                point = df[(df.target==t)&(df.kind==kind)&(df.centre==centre)]
+                if len(point):
+                    ax.annotate(label,(centre,float(point[f'srbl_r2_{region}'].iloc[0])),xytext=(0,-14),textcoords='offset points',ha='center',fontsize=7,color='tab:red')
             ax.set_title(f'{target} window (T{window[0]:+d} to T{window[1]:+d} h), {region}',fontsize=9)
             if row==len(TARGETS)-1:
                 ax.set_xlabel('B_L time relative to T (h; centre for means)')
