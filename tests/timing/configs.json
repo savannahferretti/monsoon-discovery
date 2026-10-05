@@ -33,12 +33,15 @@
                 "residualfrom":"sr_atm_eq",
                 "complexityofvariables":{"rh":1,"thetae":1,"thetaestar":1}}},
         "optimizedeqs":["sr_bl_eq","sr_atm_eq","sr_sfc_eq","sr_all_eq","sr_all_pc_eq","sr_all_k1_eq"],
+        "inits":{
+            "concurrent":{
+                "sr_all_eq":{"c9":5.06,"c10":0.764},
+                "sr_all_k1_eq":{"c14":0.654,"c15":7.50,"c16":0.753}}},
         "extraeqs":{
             "sr_all_k1_eq":{
                 "runfrom":"sr_all_k1",
                 "refcomplexity":16,
                 "form":"sr_atm_eq+c14*(thetae+c15*shf)*cube(c16-lf)",
-                "init":{"c14":0.654,"c15":7.50,"c16":0.753},
                 "seeds":[72],
                 "color":"#6B3FA0",
                 "description":"SR-ALL-K1"}}}

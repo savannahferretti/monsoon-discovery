@@ -54,13 +54,14 @@ def multistart_optimize(form,columns,y,zmin,inits,nworkers):
     results = Parallel(n_jobs=nworkers,prefer='threads')(delayed(run)(init) for init in inits)
     return min(results,key=lambda result:result[1].fun)
 
-def get_inits(name,eqspec,constantnames,predictornames,config,registry,mainregistry):
+def get_inits(name,eqspec,constantnames,predictornames,config,registry):
     '''
-    Purpose: Initial constants as in Text S3: one start from PySR constants, the rest uniform in
-        [-INITSCALE, INITSCALE] (NRESTARTS in total). The PySR start is, in order of preference: constants matched
-        from the variant's PySR equations at the reference complexity (averaged across matching seeds); the
-        equation's explicit `init` (PySR constants written into configs.json); the variant's optimized SR-ALL
-        constants (SR-ALL-PC only, as in the manuscript); the manuscript constants.
+    Purpose: Initial constants as in Text S3, using only this variant's results: one start from PySR constants,
+        the rest uniform in [-INITSCALE, INITSCALE] (NRESTARTS in total). The PySR start is, in order of
+        preference: constants matched from the variant's PySR equations at the reference complexity (averaged
+        across matching seeds); PySR constants written for this variant under `sr.inits` in configs.json; the
+        variant's optimized SR-ALL constants (SR-ALL-PC only, as in the manuscript). Without any of these, all
+        starts are random.
     Args:
     - name (str): equation name
     - eqspec (dict): equation specification
@@ -68,23 +69,21 @@ def get_inits(name,eqspec,constantnames,predictornames,config,registry,mainregis
     - predictornames (list[str]): predictor names
     - config (TimingConfig): variant configuration
     - registry (dict): variant registry
-    - mainregistry (dict): current (manuscript) registry
     Returns:
     - list[dict[str, float]]: initializations
     '''
-    manuscript = mainregistry.get(name,{}).get('constants',{})
+    configured = config.timing['sr'].get('inits',{}).get(config.variant,{}).get(name,{})
     candidates = [
         ('PySR match',pysr_init(eqspec['form'],predictornames,eqspec.get('refcomplexity'),eqspec['runfrom'],eqspec.get('seeds',config.sr['seeds']),config.modelsdir)),
-        ('configured PySR constants',dict(eqspec.get('init') or {})),
-        ('optimized SR-ALL',{'c12':registry['sr_all_eq']['constants']['c9'],'c13':registry['sr_all_eq']['constants']['c10']} if name=='sr_all_pc_eq' and 'sr_all_eq' in registry else {}),
-        ('manuscript constants',{c:manuscript[c] for c in constantnames} if set(constantnames)<=set(manuscript) else {})]
+        ('configured PySR constants',dict(configured)),
+        ('optimized SR-ALL',{'c12':registry['sr_all_eq']['constants']['c9'],'c13':registry['sr_all_eq']['constants']['c10']} if name=='sr_all_pc_eq' and 'sr_all_eq' in registry else {})]
     source,first = next(((label,init) for label,init in candidates if init and set(constantnames)<=set(init)),('none',None))
     inits = [first] if first else []
     rng = np.random.default_rng(0)
     while len(inits)<NRESTARTS:
         inits.append(dict(zip(constantnames,rng.uniform(-INITSCALE,INITSCALE,len(constantnames)))))
     inits = [{c:float(init[c]) for c in constantnames} for init in inits]
-    logger.info(f'   Start from {source}: {inits[0] if first else "random only"} (+{NRESTARTS-len([first] if first else [])} random)')
+    logger.info(f'   Start from {source}: {inits[0] if first else "random only"} (+{NRESTARTS-1 if first else NRESTARTS} random)')
     return inits
 
 def check_consistency(config,name,split,registry,stats):
@@ -125,7 +124,6 @@ if __name__=='__main__':
     baseconfig   = TimingConfig()
     sigfigs      = baseconfig.timing['constantsigfigs']
     variants     = parse_names(args.variants,list(baseconfig.timing['variants']))
-    mainregistry = load_registry(baseconfig)
     splits       = [s.strip() for s in args.splits.split(',')]
     for variant in variants:
         config = TimingConfig(variant)
@@ -151,7 +149,7 @@ if __name__=='__main__':
                 yfit,yval = np.concatenate([ytrain[trainmask],yvalid[validmask]]),yvalid[validmask]
                 del xtrain,xvalid
                 constantnames = extract_constants(form,predictornames)
-                inits = get_inits(name,eqspec,constantnames,predictornames,config,registry,mainregistry)
+                inits = get_inits(name,eqspec,constantnames,predictornames,config,registry)
                 logger.info(f'   L-BFGS-B with {len(yfit):,} samples, {nworkers} worker(s)...')
                 constants,res = multistart_optimize(form,fitcols,yfit,zmin,inits,nworkers)
                 logger.info(f'   Optimized constants: {constants} | converged = {res.success}')
