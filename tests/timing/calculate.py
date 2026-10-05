@@ -126,18 +126,21 @@ def apply_window(arr,anchors,offsets,weights):
         out += weight*arr[...,anchors+offset]
     return out
 
-def load_year(calculator,year,dtype):
+def load_year(calculator,year,dtype,names=None):
     '''
-    Purpose: Load, subset to one year, convert to dtype, and regrid all hourly raw variables.
+    Purpose: Load, subset to one year, convert to dtype, and regrid hourly raw variables.
     Args:
     - calculator (DataCalculator): calculator instance
     - year (int): year
     - dtype (type): np.float64 to build variants; np.float32 to reproduce the existing pipeline (--check)
+    - names (list[str] | None): subset of RAWFILES keys to load (defaults to all; must include 't')
     Returns:
     - tuple[dict[str, xr.DataArray], pd.DatetimeIndex]: regridded hourly variables and their timestamps
     '''
     raw = {}
     for name,longname in RAWFILES.items():
+        if names is not None and name not in names:
+            continue
         da = calculator.retrieve(longname)
         da = da.sel(time=da.time.dt.year==year).load().astype(dtype)
         raw[name] = calculator.regrid(da).astype(dtype)

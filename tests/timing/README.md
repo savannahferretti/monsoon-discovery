@@ -61,6 +61,16 @@ for v in lead concurrent causal; do sbatch tests/timing/sr_optimize.sbatch $v sr
 python tests/timing/summarize.py
 ```
 
+## Lag scan (B_L only)
+
+`lagscan.py` holds the precipitation window fixed and pairs it with B_L at different times: hourly snapshots from T−3 to T+3 h and 3-hour means centred at T−1.5, T−0.5, T+0.5, and T+1.5 h. It does this for both rain windows: `concurrent` [T, T+3] and `current` [T−1, T+2]. For each pairing it fits the SR-BL form on 2000–2017 and reports test R² (all, land, ocean), plus a model-free reference (mean rain in 40 B_L quantile bins). It reads only the raw files and writes `results/lagscan.{csv,md,png}`. Run it on a CPU node (about 30–60 min):
+
+```bash
+python tests/timing/lagscan.py 2>&1 | tee tests/timing/logs/lagscan.log
+```
+
+Sanity checks: the `current` window with `snapshot T+0` should give about SR-BL's current test R² (0.293), and the `concurrent` window with `mean T+0..T+3` about the concurrent SR-BL (0.275).
+
 For the Fig. 1-style comparison (test R² bars and the Pareto frontier for `current` and each variant), open `tests/timing/pareto.ipynb` from inside `tests/timing/`. It saves `results/pareto.jpg`.
 
 Each step skips outputs that already exist. Every script takes `--variants lead,causal` etc. The training scripts also take `--seeds 42` for a cheaper first pass; SR features then average only the NN-GAUSS seeds that exist. Quick-test outputs (`--iterations`, `--subsetfrac`) are written to the same paths, so delete them before the full run.
