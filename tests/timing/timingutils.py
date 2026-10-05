@@ -54,7 +54,8 @@ class TimingConfig(Config):
 
     @property
     def srruns(self):
-        return {name:self.sr['runs'][name] for name in self.timing['sr']['runs']}
+        extra = self.timing['sr'].get('extraruns',{})
+        return {name:extra[name] if name in extra else self.sr['runs'][name] for name in self.timing['sr']['runs']}
 
     @property
     def srequations(self):

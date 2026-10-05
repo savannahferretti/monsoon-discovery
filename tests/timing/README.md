@@ -61,6 +61,16 @@ for v in lead concurrent causal; do sbatch tests/timing/sr_optimize.sbatch $v sr
 python tests/timing/summarize.py
 ```
 
+## SR-ALL with cheaper kernel features (`sr_all_k1`)
+
+Same inputs as `sr_all` (SR-ATM plus RH, θe, θe*, LF, SHF, LHF), but RH, θe, and θe* cost 1 complexity unit instead of 2, so PySR is more inclined to use them outside SR-ATM's max. Surface fluxes still cost 2. Set in `configs.json` under `sr.extraruns`. Needs `sr_atm_eq` optimized first:
+
+```bash
+sbatch tests/timing/sr_train.sbatch concurrent sr_all_k1
+```
+
+Its complexities are not on the same scale as the other runs, so compare its equations by form and loss, not by position on the Pareto frontier.
+
 ## Lag scan (B_L only)
 
 `lagscan.py` holds the precipitation window fixed and pairs it with B_L at different times: hourly snapshots from T−3 to T+3 h and 3-hour means centred at T−1.5, T−0.5, T+0.5, and T+1.5 h. It does this for both rain windows: `concurrent` [T, T+3] and `current` [T−1, T+2]. For each pairing it fits the SR-BL form on 2000–2017 and reports test R² (all, land, ocean), plus a model-free reference (mean rain in 40 B_L quantile bins). It reads only the raw files and writes `results/lagscan.{csv,md,png}`. Run it on a CPU node (about 30–60 min):

@@ -152,7 +152,9 @@ if __name__=='__main__':
                 logger.error(f'[{variant}] `{name}` needs `{residualfrom}` in {config.modelsdir}/sr/optimized_equations.csv; run sr_optimize.py --equations {residualfrom} first')
                 continue
             searchparams = {**sr['searchparams'],**runconfig.get('searchparams',{})}
-            srrun        = {**sr,'searchparams':searchparams}
+            complexity   = {**sr['complexity'],'ofvariables':{**sr['complexity']['ofvariables'],**runconfig.get('complexityofvariables',{})}}
+            srrun        = {**sr,'searchparams':searchparams,'complexity':complexity}
+            logger.info(f'[{variant}] Variable complexities for `{name}`: {complexity["ofvariables"]}')
             logger.info(f'[{variant}] Loading training and validation splits for `{name}`...')
             xtrain,ytrain,reftrain,trainmask = load_features(config,'train',runconfig)
             xvalid,yvalid,_,validmask        = load_features(config,'valid',runconfig,timeoffset=int(reftrain.sizes['time']))
