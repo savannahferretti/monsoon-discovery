@@ -100,11 +100,12 @@ def check_consistency(config,name,split,registry,stats):
     - dict[str, float]: maximum absolute differences (mm)
     '''
     runconfig = config.sr['runs'][config.sr['optimizedeqs'][name]['runfrom']]
-    fieldvars = ['bl'] if name=='sr_bl_eq' else ['rh','thetae','thetaestar']
-    localvars = [] if name=='sr_bl_eq' else ['lf','shf','lhf']
-    weightsfrom = None if name=='sr_bl_eq' else config.sr['runs'][config.sr['optimizedeqs']['sr_atm_eq']['runfrom']]['weightsfrom']
+    isbl      = config.sr['optimizedeqs'][name]['runfrom']=='sr_bl'
+    fieldvars = ['bl'] if isbl else ['rh','thetae','thetaestar']
+    localvars = [] if isbl else ['lf','shf','lhf']
+    weightsfrom = None if isbl else config.sr['runs']['sr_atm']['weightsfrom']
     inputs,_,_  = load_physical(config,split,fieldvars,localvars,weightsfrom)
-    physical  = calc_physical_constants(name,registry,stats)
+    physical  = calc_physical_constants(name,registry,stats,atmname=config.eqname('sr_atm_eq') or 'sr_atm_eq')
     physprecip = calc_physical_precip(name,physical,inputs,stats)
     x,_,_,valid = load_features(config,split,runconfig)
     stdprecip = raw_to_precip(evaluate(registry[name]['form'],{c:x[c].values for c in x.columns if c!='timeidx'},registry[name]['constants']),stats)
@@ -112,6 +113,7 @@ def check_consistency(config,name,split,registry,stats):
     return {'physical_vs_standardized':float(np.nanmax(np.abs(physprecip[valid]-stdprecip[valid]))),
             'physical_vs_saved':float(np.nanmax(np.abs(physprecip[valid]-saved[valid]))),
             'float32_step_at_max':float(np.spacing(np.float32(np.nanmax(saved[valid])))),
+            'nonfinite_predictions':int(np.sum(~np.isfinite(saved[valid]))),
             'physical':physical}
 
 if __name__=='__main__':
@@ -137,7 +139,7 @@ if __name__=='__main__':
             runconfig = config.sr['runs'][eqspec['runfrom']]
             if name not in registry:
                 residualfrom = runconfig.get('residualfrom')
-                if residualfrom and residualfrom not in registry:
+                if residualfrom and (config.eqname(residualfrom) or residualfrom) not in registry:
                     logger.error(f'[{variant}] `{name}` needs `{residualfrom}` optimized first, skipping')
                     continue
                 logger.info(f'[{variant}] Optimizing `{name}`: {form}')
@@ -168,6 +170,8 @@ if __name__=='__main__':
                     save_predictions(config,name,split,unflatten(raw_to_precip(raw,stats),valid,truth),truth)
                 check = check_consistency(config,name,split,registry,stats)
                 logger.info(f'   {split} consistency (mm): physical vs standardized = {check["physical_vs_standardized"]:.2e}, physical vs saved = {check["physical_vs_saved"]:.2e} (float32 step at max = {check["float32_step_at_max"]:.2e})')
+                if check['nonfinite_predictions']:
+                    logger.warning(f'   {check["nonfinite_predictions"]} {split} predictions are infinite (precipitation overflow); R² skips them')
                 os.makedirs(config.resultsdir,exist_ok=True)
                 with open(os.path.join(config.resultsdir,f'{variant}_{name}_{split}_constants.json'),'w',encoding='utf-8') as f:
                     json.dump({'standardized':registry[name]['constants'],**check},f,indent=2)

@@ -114,8 +114,9 @@ def load_features(config,split,runconfig,timeoffset=0):
     columns = {var:(values if var=='lf' else standardize(values,stats,var)) for var,values in inputs.items()}
     residualfrom = runconfig.get('residualfrom')
     if residualfrom:
-        entry    = load_registry(config)[residualfrom]
-        baserun  = config.sr['runs'][config.sr['optimizedeqs'][residualfrom]['runfrom']]
+        basename = config.eqname(residualfrom) or residualfrom
+        entry    = load_registry(config)[basename]
+        baserun  = config.sr['runs'][config.sr['optimizedeqs'][basename]['runfrom']]
         basex,_,_,_ = load_features(config,split,baserun)
         columns[residualfrom] = evaluate(entry['form'],{c:basex[c].values for c in basex.columns if c!='timeidx'},entry['constants'])
     features = pd.DataFrame(columns)

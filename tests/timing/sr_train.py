@@ -148,7 +148,7 @@ if __name__=='__main__':
                 logger.info(f'[{variant}] Skipping `{name}`, all equation files already exist')
                 continue
             residualfrom = runconfig.get('residualfrom')
-            if residualfrom and residualfrom not in load_registry(config):
+            if residualfrom and (config.eqname(residualfrom) or residualfrom) not in load_registry(config):
                 logger.error(f'[{variant}] `{name}` needs `{residualfrom}` in {config.modelsdir}/sr/optimized_equations.csv; run sr_optimize.py --equations {residualfrom} first')
                 continue
             searchparams = {**sr['searchparams'],**runconfig.get('searchparams',{})}

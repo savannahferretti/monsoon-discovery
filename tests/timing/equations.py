@@ -110,13 +110,14 @@ def save_registry(registry,config):
             for name,entry in registry.items()]
     pd.DataFrame(rows).to_csv(filepath,index=False)
 
-def calc_physical_constants(name,registry,stats):
+def calc_physical_constants(name,registry,stats,atmname='sr_atm_eq'):
     '''
-    Purpose: Physical-space constants of a manuscript equation, as in notebooks/equations.ipynb.
+    Purpose: Physical-space constants of an equation, as in notebooks/equations.ipynb.
     Args:
     - name (str): equation name
     - registry (dict): optimized constants
     - stats (dict): training statistics
+    - atmname (str): name of the variant's SR-ATM equation (SR-SFC and SR-ALL build on it)
     Returns:
     - dict[str, float]: physical constants
     '''
@@ -126,11 +127,20 @@ def calc_physical_constants(name,registry,stats):
     if name=='sr_bl_eq':
         c = registry['sr_bl_eq']['constants']
         return {'lam':sy/std('bl')**3,'bc':mean('bl')-c['c1']*std('bl'),'beta':sy*c['c2']}
-    atm   = registry['sr_atm_eq']['constants']
-    gamma = atm['c4']*std('thetae')/std('thetaestar')
-    physical = {'lam':sy*atm['c3']/std('thetae')**3,'kappa':std('thetae')/std('rh'),'gamma':gamma,
-                'thetac':mean('thetae')-gamma*mean('thetaestar')+atm['c5']*std('thetae')}
-    if name=='sr_atm_eq':
+    if name=='sr_bl_exp_eq':
+        c = registry['sr_bl_exp_eq']['constants']
+        return {'amp':sy,'k':c['c17']/std('bl'),'b0':mean('bl')+c['c18']*std('bl')}
+    if atmname=='sr_atm_sum_eq':
+        c      = registry['sr_atm_sum_eq']['constants']
+        gammap = c['c19']*std('thetaestar')/std('thetae')
+        physical = {'lamm':sy/std('rh')**3,'lami':sy/std('thetaestar')**3,'gammap':gammap,
+                    'theta0':gammap*mean('thetae')-mean('thetaestar')}
+    else:
+        atm   = registry['sr_atm_eq']['constants']
+        gamma = atm['c4']*std('thetae')/std('thetaestar')
+        physical = {'lam':sy*atm['c3']/std('thetae')**3,'kappa':std('thetae')/std('rh'),'gamma':gamma,
+                    'thetac':mean('thetae')-gamma*mean('thetaestar')+atm['c5']*std('thetae')}
+    if name in ('sr_atm_eq','sr_atm_sum_eq'):
         return physical
     c = registry[name]['constants']
     if name=='sr_sfc_eq':
@@ -161,10 +171,15 @@ def calc_physical_precip(name,physical,inputs,stats):
     p    = physical
     if name=='sr_bl_eq':
         exponent = p['lam']*(inputs['bl']-p['bc'])**3+p['beta']
+    elif name=='sr_bl_exp_eq':
+        exponent = p['amp']*np.exp(p['k']*(inputs['bl']-p['b0']))
     else:
-        moisture    = p['kappa']*(inputs['rh']-mean('rh'))
-        instability = inputs['thetae']-p['gamma']*inputs['thetaestar']-p['thetac']
-        exponent    = p['lam']*np.maximum(moisture,instability)**3
+        if 'lamm' in p:
+            exponent = p['lamm']*(inputs['rh']-mean('rh'))**3+p['lami']*(p['gammap']*inputs['thetae']-inputs['thetaestar']-p['theta0'])**3
+        else:
+            moisture    = p['kappa']*(inputs['rh']-mean('rh'))
+            instability = inputs['thetae']-p['gamma']*inputs['thetaestar']-p['thetac']
+            exponent    = p['lam']*np.maximum(moisture,instability)**3
         if name=='sr_sfc_eq':
             exponent = exponent+p['lamshf']*(p['lfc']-inputs['lf'])*(inputs['shf']-mean('shf'))+p['lamlhf']*(inputs['lhf']-mean('lhf'))
         elif name in ('sr_all_eq','sr_all_pc_eq','sr_all_k1_eq'):
