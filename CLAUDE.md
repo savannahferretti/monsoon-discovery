@@ -64,7 +64,9 @@ Claude Code works on a `claude` branch and cannot run experiments here (no NERSC
 
 ## Architecture
 
-**Data Pipeline:** raw ERA5/IMERG → thermodynamic variables (`rh`, `thetae`, `thetaestar`, `bl`, surface fluxes, `dsig`) → HDF5 splits, raw + normalized. Stats → `data/splits/stats.json`. Splits use `h5netcdf` engine.
+**Data Pipeline:** raw ERA5/IMERG → thermodynamic variables (`rh`, `thetae`, `thetaestar`, `bl`, surface fluxes, `dsig`) → HDF5 splits (`{split}.h5`, physical units). Stats → `data/splits/stats.json`; inputs are standardized on the fly (no normalized files). Splits use `h5netcdf` engine. Concurrent `timewindow`-hour windows starting at T (00, 03, …, 21 UTC): state variables are the trapezoidal mean of hourly values T..T+3 (derived variables computed hourly first), fluxes the mean and `tp` the sum of ERA5 stamps T+1..T+3 (ERA5 stamps accumulations at the end of the hour), IMERG `pr` the mean of half-hourly stamps T..T+2:30. 736 windows per JJA season. Sigma interpolation holds values at the nearest pressure level outside 500–1000 hPa (no extrapolation).
+
+**Precision:** float64 in memory, float32 on disk. Read and write every data file through `scripts/utils.py:load`/`save`.
 
 **NN** (`scripts/models/nn/`): three `kind` variants — `baseline` (flattened profiles + local vars), `nonparametric` (free-form learned vertical kernel), `parametric` (Gaussian kernel, learnable mu/sigma). Shared 4-layer GELU backbone; output `zmin + ReLU(f(x))` (non-negative precip). Target: z-scored `log1p(tp)`. Kernel models save integration weights to `data/weights/`, reused by SR. Checkpoints: `{run}_{seed}.pth`. Logged to W&B.
 

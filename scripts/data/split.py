@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import logging
 import warnings
 from scripts.utils import Config
@@ -17,18 +18,20 @@ if __name__=='__main__':
         trainrange=config.trainrange,
         validrange=config.validrange,
         testrange=config.testrange)
-    logger.info('Setting up splits...')
     splits = [
         ('train',splitter.trainrange),
         ('valid',splitter.validrange),
         ('test',splitter.testrange)]
-    logger.info('Creating and saving regular and normalized data splits...')
-    trainstats = None
-    for splitname,splitrange in splits:
-        splitds = splitter.split(splitrange)
-        splitter.save(splitds,splitname)
-        if splitname=='train':
-            trainstats = splitter.calc_stats(splitds)
-        normds = splitter.normalize(splitds,trainstats)
-        splitter.save(normds,f'norm_{splitname}')
-        del normds
+    filenames = [f'{splitname}.h5' for splitname,_ in splits]+['stats.json']
+    if all(os.path.exists(os.path.join(config.splitsdir,filename)) for filename in filenames):
+        logger.info('Skipping, all split files already exist')
+    else:
+        logger.info('Loading interim data...')
+        ds = splitter.combine()
+        logger.info('Creating and saving data splits...')
+        for splitname,splitrange in splits:
+            splitds = splitter.split(ds,splitrange)
+            if splitname=='train':
+                splitter.calc_stats(splitds)
+            splitter.save(splitds,splitname)
+            del splitds

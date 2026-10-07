@@ -11,6 +11,7 @@ import xarray as xr
 import planetary_computer
 from datetime import datetime
 import pystac_client as pystac
+from scripts.utils import save
 
 logger = logging.getLogger(__name__)
 
@@ -176,30 +177,11 @@ class DataDownloader:
 
     def save(self,ds,timechunksize=2208):
         '''
-        Purpose: Save a Dataset to NetCDF and verify by reopening.
+        Purpose: Save a Dataset to NetCDF, named after its long name, and verify by reopening.
         Args:
         - ds (xr.Dataset): Dataset to save
         - timechunksize (int): chunk size for time dimension (defaults to 2,208 for 3-month chunks on hourly data)
-        Returns:
-        - bool: True if save successful, False otherwise
         '''
-        os.makedirs(self.savedir,exist_ok=True)
         shortname = list(ds.data_vars)[0]
-        longname  = ds[shortname].attrs['long_name']
-        filename  = re.sub(r'\s+','_',longname)+'.nc'
-        filepath  = os.path.join(self.savedir,filename)
-        logger.info(f'   Attempting to save {filename}...')
-        ds.load()
-        ds[shortname].encoding = {}
-        chunks = []
-        for dim,size in zip(ds[shortname].dims,ds[shortname].shape):
-            chunks.append(min(timechunksize,size) if dim=='time' else size)
-        encoding = {shortname:{'chunksizes':tuple(chunks)}}
-        try:
-            ds.to_netcdf(filepath,engine='h5netcdf',encoding=encoding)
-            xr.open_dataset(filepath,engine='h5netcdf').close()
-            logger.info('      File write successful')
-            return True
-        except Exception:
-            logger.exception('      Failed to save or verify')
-            return False
+        filename  = re.sub(r'\s+','_',ds[shortname].attrs['long_name'])+'.nc'
+        save(ds,os.path.join(self.savedir,filename),timechunksize)

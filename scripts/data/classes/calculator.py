@@ -4,9 +4,9 @@ import os
 import xesmf
 import logging
 import numpy as np
-import pandas as pd
 import xarray as xr
 from datetime import datetime
+from scripts.utils import save
 
 logger = logging.getLogger(__name__)
 
@@ -77,22 +77,6 @@ class DataCalculator:
             self.regridders[key] = xesmf.Regridder(da,targetgrid,method=method)
         da = self.regridders[key](da,keep_attrs=True)
         return da
-
-    def resample(self,da,method):
-        '''
-        Purpose: Coarsen an xr.DataArray to 3-hourly.
-        Args:
-        - da (xr.DataArray): input DataArray
-        - method (str): 'first' (for instantaneous variables) | 'mean' (for rates/fluxes) | 'sum' (for accumulations)
-        Returns:
-        - xr.DataArray: 3-hourly DataArray
-        '''
-        if method=='first':
-            return da.sel(time=da.time.dt.hour%3==0)
-        windows = pd.DatetimeIndex(da.time.values).floor('3h')
-        da = da.assign_coords(window=('time',windows))
-        result = da.groupby('window').mean() if method=='mean' else da.groupby('window').sum()
-        return result.rename({'window':'time'})
 
     def calc_es(self,t):
         '''
@@ -275,7 +259,7 @@ class DataCalculator:
         Returns:
         - xr.DataArray: quadrature weights for Δσ
         '''
-        sigs   = np.asarray(sigs,dtype=np.float32)
+        sigs   = np.asarray(sigs,dtype=np.float64)
         values = np.abs(np.concatenate([[sigs[1]-sigs[0]],0.5*(sigs[2:]-sigs[:-2]),[sigs[-1]-sigs[-2]]]))
         dsig   = xr.DataArray(values,dims=('sig',),coords={'sig':sigs})
         return dsig
@@ -283,14 +267,14 @@ class DataCalculator:
     def interpolate_to_sigma(self,da,ps,sigs):
         '''
         Purpose: Interpolate an xr.DataArray from pressure levels onto a uniform sigma (σ = p/pₛ) grid
-        via piecewise-linear interpolation in pressure space. Columns with invalid surface pressures
-        are masked.
+        via piecewise-linear interpolation in pressure space. Targets outside the pressure-level range take the value
+        at the nearest level instead of being extrapolated. Columns with invalid surface pressures are masked.
         Args:
         - da (xr.DataArray): input DataArray containing 'lev'
         - ps (xr.DataArray): surface pressure DataArray (hPa)
         - sigs (np.ndarray): 1D array of ascending sigma levels (e.g., [0.5, 0.55, ..., 1.0])
         Returns:
-        - xr.DataArray: interpolated DataArray with 'sig'
+        - xr.DataArray: interpolated DataArray with 'sig', in the precision of the inputs
         '''
         da   = da.transpose('lat','lon','lev','time').load()
         ps   = ps.transpose('lat','lon','time').load()
@@ -298,9 +282,9 @@ class DataCalculator:
         ptarget  = sigs[None,None,:,None]*ps.values[:,:,None,:]
         upper    = np.clip(np.searchsorted(levs,ptarget,side='right'),1,len(levs)-1)
         lower    = upper-1
-        weight   = (ptarget-levs[lower])/(levs[upper]-levs[lower])
+        weight   = np.clip((ptarget-levs[lower])/(levs[upper]-levs[lower]),0.0,1.0)
         result   = (1.0-weight)*np.take_along_axis(da.values,lower,axis=2)+weight*np.take_along_axis(da.values,upper,axis=2)
-        result   = np.where(np.isfinite(ptarget)&(ptarget>0),result,np.nan).astype(np.float32)
+        result   = np.where(np.isfinite(ptarget)&(ptarget>0),result,np.nan)
         interped = xr.DataArray(result,dims=('lat','lon','sig','time'),
                                 coords={'lat':da.lat,'lon':da.lon,'sig':sigs,'time':da.time},
                                 name=da.name,attrs=da.attrs)
@@ -335,29 +319,10 @@ class DataCalculator:
 
     def save(self,ds,timechunksize=736):
         '''
-        Purpose: Save an xr.Dataset to NetCDF and verify by reopening.
+        Purpose: Save an xr.Dataset to NetCDF, named after its variable, and verify by reopening.
         Args:
         - ds (xr.Dataset): Dataset to save
         - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks on 3-hourly data)
-        Returns:
-        - bool: True if save successful, False otherwise
         '''
-        os.makedirs(self.savedir,exist_ok=True)
         shortname = list(ds.data_vars)[0]
-        filename  = f'{shortname}.nc'
-        filepath  = os.path.join(self.savedir,filename)
-        logger.info(f'   Attempting to save {filename}...')
-        ds.load()
-        ds[shortname].encoding = {}
-        chunks = []
-        for dim,size in zip(ds[shortname].dims,ds[shortname].shape):
-            chunks.append(min(timechunksize,size) if dim=='time' else size)
-        encoding = {shortname:{'chunksizes':tuple(chunks)}}
-        try:
-            ds.to_netcdf(filepath,engine='h5netcdf',encoding=encoding)
-            xr.open_dataset(filepath,engine='h5netcdf').close()
-            logger.info('      File write successful')
-            return True
-        except Exception:
-            logger.exception('      Failed to save or verify')
-            return False
+        save(ds,os.path.join(self.savedir,f'{shortname}.nc'),timechunksize)

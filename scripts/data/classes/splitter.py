@@ -3,10 +3,10 @@
 import os
 import json
 import glob
-import h5py
 import logging
 import numpy as np
 import xarray as xr
+from scripts.utils import load,save
 
 logger = logging.getLogger(__name__)
 
@@ -28,28 +28,32 @@ class DataSplitter:
         self.validrange = validrange
         self.testrange  = testrange
 
-    def split(self,splitrange):
+    def combine(self):
         '''
-        Purpose: Load all NetCDF files into a single xr.Dataset for a given split.
+        Purpose: Load all interim NetCDF files (float64) into a single xr.Dataset.
+        Returns:
+        - xr.Dataset: Dataset with every interim variable
+        '''
+        datavars = {}
+        for filepath in sorted(glob.glob(os.path.join(self.filedir,'*.nc'))):
+            for name,da in load(filepath).data_vars.items():
+                datavars[name] = da.transpose(*[dim for dim in ('lat','lon','sig','time') if dim in da.dims])
+        return xr.Dataset(datavars)
+
+    def split(self,ds,splitrange):
+        '''
+        Purpose: Select the years of a split.
         Args:
+        - ds (xr.Dataset): Dataset from combine()
         - splitrange (tuple[int,int]): inclusive year range for the split
         Returns:
         - xr.Dataset: split Dataset
         '''
-        filepaths = sorted(glob.glob(os.path.join(self.filedir,'*.nc')))
-        datavars = {}
-        for filepath in filepaths:
-            da   = xr.open_dataarray(filepath,engine='h5netcdf')
-            dims = tuple(dim for dim in ('lat','lon','sig','time') if dim in da.dims)
-            da   = da.transpose(*dims) if dims else da
-            datavars[da.name] = da
-        ds = xr.Dataset(datavars)
-        ds = ds.sel(time=(ds.time.dt.year>=splitrange[0])&(ds.time.dt.year<=splitrange[1]))
-        return ds
+        return ds.sel(time=(ds.time.dt.year>=splitrange[0])&(ds.time.dt.year<=splitrange[1]))
 
     def calc_stats(self,trainds):
         '''
-        Purpose: Compute training-set statistics for each variable and save to JSON.
+        Purpose: Compute training-set statistics (float64) for each variable, save to JSON, and verify by reopening.
         Args:
         - trainds (xr.Dataset): training Dataset
         Returns:
@@ -59,47 +63,18 @@ class DataSplitter:
         for varname,da in trainds.data_vars.items():
             if varname in ('dsig','lf'):
                 continue
-            elif varname in ('pr','tp'):
-                arr = np.log1p(da.values)
-            else:
-                arr = da.values
-            stats[f'{varname}_mean'] = float(np.nanmean(arr.ravel()))
-            stats[f'{varname}_std']  = float(np.nanstd(arr.ravel()))
-        filename = 'stats.json'
+            arr = np.log1p(da.values) if varname in ('pr','tp') else da.values
+            stats[f'{varname}_mean'] = float(np.nanmean(arr))
+            stats[f'{varname}_std']  = float(np.nanstd(arr))
         os.makedirs(self.savedir,exist_ok=True)
-        filepath = os.path.join(self.savedir,filename)
+        filepath = os.path.join(self.savedir,'stats.json')
         with open(filepath,'w',encoding='utf-8') as f:
             json.dump(stats,f)
-        logger.info(f'   Wrote statistics to {filename}')
+        with open(filepath,'r',encoding='utf-8') as f:
+            if json.load(f)!=stats:
+                raise ValueError(f'{filepath} does not match the computed statistics')
+        logger.info('   Wrote statistics to stats.json')
         return stats
-
-    def normalize(self,ds,stats):
-        '''
-        Purpose: Normalize an xr.Dataset using training statistics.
-        Args:
-        - ds (xr.Dataset): Dataset to normalize
-        - stats (dict): normalization mean and standard deviation from training set
-        Returns:
-        - xr.Dataset: normalized Dataset
-        '''
-        datavars = {}
-        for varname,da in ds.data_vars.items():
-            if varname in ('dsig','lf'):
-                datavars[varname] = da
-                continue
-            mean = stats[f'{varname}_mean']
-            std  = stats[f'{varname}_std']
-            if varname in ('pr','tp'):
-                norm   = (np.log1p(da.values)-mean)/std
-                suffix = ' (log1p-transformed and standardized)'
-            else:
-                norm   = (da.values-mean)/std
-                suffix = ' (standardized)'
-            normda = xr.DataArray(norm.astype(np.float32),dims=da.dims,coords=da.coords,name=da.name)
-            normda.attrs = dict(long_name=da.attrs['long_name']+suffix,units='N/A')
-            datavars[varname] = normda
-        normds = xr.Dataset(datavars,coords=ds.coords)
-        return normds
 
     def save(self,ds,splitname,timechunksize=736):
         '''
@@ -108,26 +83,5 @@ class DataSplitter:
         - ds (xr.Dataset): Dataset to save
         - splitname (str): 'train' | 'valid' | 'test'
         - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks on 3-hourly data)
-        Returns:
-        - bool: True if save successful, False otherwise
         '''
-        os.makedirs(self.savedir,exist_ok=True)
-        filename = f'{splitname}.h5'
-        filepath = os.path.join(self.savedir,filename)
-        logger.info(f'   Attempting to save {filename}...')
-        ds.load()
-        encoding = {}
-        for varname,da in ds.data_vars.items():
-            chunks = []
-            for dim,size in zip(da.dims,da.shape):
-                chunks.append(min(timechunksize,size) if dim=='time' else size)
-            encoding[varname] = {'chunksizes':tuple(chunks),'dtype':da.dtype}
-        try:
-            ds.to_netcdf(filepath,engine='h5netcdf',encoding=encoding)
-            with h5py.File(filepath,'r'):
-                pass
-            logger.info('      File write successful')
-            return True
-        except Exception:
-            logger.exception('      Failed to save or verify')
-            return False
+        save(ds,os.path.join(self.savedir,f'{splitname}.h5'),timechunksize)

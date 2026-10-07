@@ -2,6 +2,45 @@
 
 import os
 import json
+import logging
+import numpy as np
+import xarray as xr
+
+logger = logging.getLogger(__name__)
+
+def load(filepath):
+    '''
+    Purpose: Read a NetCDF/HDF5 file into memory and convert floating-point data variables to float64.
+    Args:
+    - filepath (str): file path
+    Returns:
+    - xr.Dataset: Dataset with float64 data variables
+    '''
+    with xr.open_dataset(filepath,engine='h5netcdf') as ds:
+        ds = ds.load()
+    return ds.assign({name:da.astype(np.float64) for name,da in ds.data_vars.items() if da.dtype.kind=='f'})
+
+def save(ds,filepath,timechunksize=736):
+    '''
+    Purpose: Convert floating-point data variables to float32, save to NetCDF/HDF5, and verify by reopening.
+    Args:
+    - ds (xr.Dataset): Dataset to save
+    - filepath (str): output path
+    - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks on 3-hourly data)
+    '''
+    os.makedirs(os.path.dirname(filepath),exist_ok=True)
+    logger.info(f'   Attempting to save {os.path.basename(filepath)}...')
+    ds = ds.copy(deep=False).assign({name:da.astype(np.float32) for name,da in ds.data_vars.items() if da.dtype.kind=='f'})
+    for variable in ds.variables.values():
+        variable.encoding = {}
+    encoding = {name:{'chunksizes':tuple(min(timechunksize,size) if dim=='time' else size for dim,size in zip(da.dims,da.shape))}
+                for name,da in ds.data_vars.items() if da.ndim>0}
+    ds.to_netcdf(filepath,engine='h5netcdf',encoding=encoding)
+    with xr.open_dataset(filepath,engine='h5netcdf') as check:
+        wrong = {name:str(da.dtype) for name,da in check.data_vars.items() if da.dtype.kind=='f' and da.dtype!=np.float32}
+    if wrong:
+        raise TypeError(f'{filepath} has non-float32 variables: {wrong}')
+    logger.info('      File write successful')
 
 class Config:
 
@@ -77,6 +116,10 @@ class Config:
     @property
     def months(self):
         return self.domain['months']
+
+    @property
+    def timewindow(self):
+        return int(self.domain['timewindow'])
 
     @property
     def trainrange(self):
