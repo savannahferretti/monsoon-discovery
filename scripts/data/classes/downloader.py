@@ -6,6 +6,7 @@ import sys
 import fsspec
 import logging
 import numpy as np
+import pandas as pd
 import xarray as xr
 import planetary_computer
 from datetime import datetime
@@ -95,17 +96,23 @@ class DataDownloader:
         da = da.sortby(targetdims).transpose(*targetdims)
         return da
 
-    def subset(self,da,radius=0):
+    def subset(self,da,radius=0,includeend=True):
         '''
         Purpose: Subset an xr.DataArray by horizontal domain, pressure levels, and time.
         Args:
         - da (xr.DataArray): input DataArray
         - radius (int): grid cells beyond domain bounds for regridding (defaults to 0)
+        - includeend (bool): if True, also keep 00:00 on the first day after the last month of each year (e.g., Sep 1
+            00:00 for JJA), which the last 3-hourly window of hourly ERA5 data needs (defaults to True)
         Returns:
         - xr.DataArray: subsetted DataArray
         '''
         if 'time' in da.dims:
-            da = da.sel(time=(da.time.dt.year.isin(self.years))&(da.time.dt.month.isin(self.months)))
+            mask = (da.time.dt.year.isin(self.years))&(da.time.dt.month.isin(self.months))
+            if includeend:
+                endtimes = pd.DatetimeIndex([pd.Timestamp(year,max(self.months),1)+pd.offsets.MonthBegin(1) for year in self.years])
+                mask = mask|da.time.isin(endtimes.values)
+            da = da.sel(time=mask)
         if 'lev' in da.dims:
             levmin,levmax = self.levrange[0],self.levrange[1]
             da = da.sel(lev=slice(levmin,levmax))
@@ -147,7 +154,7 @@ class DataDownloader:
         logger.info(f'   {longname} size: {ds.nbytes*1e-9:.6f} GB')
         return ds
 
-    def process(self,da,shortname,longname,units,radius=0,static=False):
+    def process(self,da,shortname,longname,units,radius=0,static=False,includeend=True):
         '''
         Purpose: Apply standardize(), subset(), and create_dataset() in sequence.
         Args:
@@ -157,11 +164,13 @@ class DataDownloader:
         - units (str): variable units
         - radius (int): grid cells beyond domain bounds (defaults to 0)
         - static (bool): if True, collapse time dimension via mean
+        - includeend (bool): passed to subset(); if True, also keep 00:00 on the first day after the last month
+            (defaults to True)
         Returns:
         - xr.Dataset: processed Dataset
         '''
         da = self.standardize(da)
-        da = self.subset(da,radius)
+        da = self.subset(da,radius,includeend)
         if static and 'time' in da.dims:
             da = da.mean(dim='time')
         ds = self.create_dataset(da,shortname,longname,units)

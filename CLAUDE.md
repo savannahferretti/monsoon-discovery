@@ -60,7 +60,7 @@ Claude Code works on a `claude` branch and cannot run experiments here (no NERSC
 
 ## Configuration
 
-`scripts/configs.json` holds all parameters; `scripts/utils.py:Config` exposes them as attributes. Key blocks: `filepaths` (NERSC CFS paths — update locally), `domain` (JJA 2000–2020, 5–25°N 60–90°E), `splits` (train 2000–2014, valid 2015–2017, test 2018–2020), `variables`, `experiments` (per-run configs for `nn`/`sr`). New run → add entry to `experiments.<type>.runs`.
+`scripts/configs.json` holds all parameters; `scripts/utils.py:Config` exposes them as attributes. Key blocks: `filepaths` (NERSC CFS paths — update locally), `domain` (JJA 2000–2020, 5–25°N 60–90°E; hourly ERA5 raw files also include Sep 1 00:00 of each year so the last 3-hourly window is complete), `splits` (train 2000–2014, valid 2015–2017, test 2018–2020), `variables`, `experiments` (per-run configs for `nn`/`sr`). New run → add entry to `experiments.<type>.runs`.
 
 ## Architecture
 
