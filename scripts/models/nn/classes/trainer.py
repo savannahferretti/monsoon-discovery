@@ -14,22 +14,23 @@ class Trainer:
 
     def __init__(self,model,trainloader,validloader,device,modeldir,project,seed,lr,patience,criterion,epochs,useamp,accumsteps,compile,criterionkwargs=None):
         '''
-        Purpose: Initialize Trainer with model, dataloaders, and training configuration.
+        Purpose: Initialize Trainer with a model, dataloaders, and training settings.
         Args:
-        - model (torch.nn.Module): initialized model instance
+        - model (torch.nn.Module): untrained model
         - trainloader (torch.utils.data.DataLoader): training dataloader
         - validloader (torch.utils.data.DataLoader): validation dataloader
-        - device (str): device to use (cuda or cpu)
-        - modeldir (str): output directory for checkpoints
-        - project (str): project name for Weights & Biases logging
-        - seed (int): random seed for reproducibility
+        - device (str): 'cuda' | 'cpu'
+        - modeldir (str): directory for checkpoints
+        - project (str): Weights & Biases project name
+        - seed (int): training seed (used in the checkpoint name)
         - lr (float): initial learning rate
-        - patience (int): early stopping patience
-        - criterion (str): loss function name
+        - patience (int): epochs without validation improvement before stopping
+        - criterion (str): loss function name (torch.nn or architectures)
         - epochs (int): maximum number of epochs
-        - useamp (bool): whether to use automatic mixed precision
-        - accumsteps (int): gradient accumulation steps for larger effective batch size
-        - compile (bool): whether to use torch.compile for faster training
+        - useamp (bool): use mixed precision on GPU
+        - accumsteps (int): batches per optimizer step
+        - compile (bool): use torch.compile
+        - criterionkwargs (dict | None): keyword arguments for the loss function
         '''
         self.model       = model
         self.trainloader = trainloader
@@ -57,10 +58,10 @@ class Trainer:
 
     def save_checkpoint(self,name,state):
         '''
-        Purpose: Save best model checkpoint and verify by reopening.
+        Purpose: Save a checkpoint as {name}_{seed}.pth and verify by reopening.
         Args:
-        - name (str): model name
-        - state (dict): model state_dict to save
+        - name (str): run name
+        - state (dict): model state_dict
         Returns:
         - bool: True if save successful, False otherwise
         '''
@@ -77,14 +78,14 @@ class Trainer:
             logger.exception('         Failed to save or verify')
             return False
 
-    def _forward(self,batch,haskernel):
+    def forward_batch(self,batch,haskernel):
         '''
-        Purpose: Run a forward pass on a batch, dispatching to baseline or kernel model interface.
+        Purpose: Predict one batch and return the predictions with their targets.
         Args:
-        - batch (dict): batch dictionary with keys 'fields', 'local', 'target', and optionally 'dsig'
-        - haskernel (bool): whether model has integration kernel
+        - batch (dict): batch with 'fields', 'local', 'target', and (for kernel models) 'dsig'
+        - haskernel (bool): whether the model has an integration kernel
         Returns:
-        - tuple[torch.Tensor, torch.Tensor]: (predictions, targets)
+        - tuple[torch.Tensor, torch.Tensor]: predictions and targets
         '''
         fields = batch['fields'].to(self.device,non_blocking=True)
         local  = batch['local'].to(self.device,non_blocking=True)
@@ -98,11 +99,11 @@ class Trainer:
 
     def train_epoch(self,haskernel):
         '''
-        Purpose: Execute one training epoch with gradient accumulation and mixed precision.
+        Purpose: Run one training epoch.
         Args:
-        - haskernel (bool): whether model has integration kernel
+        - haskernel (bool): whether the model has an integration kernel
         Returns:
-        - float: average training loss for the epoch
+        - float: mean training loss
         '''
         self.model.train()
         self.optimizer.zero_grad()
@@ -110,7 +111,7 @@ class Trainer:
         for idx,batch in enumerate(self.trainloader):
             if self.useamp:
                 with autocast('cuda',enabled=self.useamp):
-                    outputvalues,targetvalues = self._forward(batch,haskernel)
+                    outputvalues,targetvalues = self.forward_batch(batch,haskernel)
                     loss = self.criterion(outputvalues,targetvalues)
                     loss = loss/self.accumsteps
                 self.scaler.scale(loss).backward()
@@ -119,7 +120,7 @@ class Trainer:
                     self.scaler.update()
                     self.optimizer.zero_grad()
             else:
-                outputvalues,targetvalues = self._forward(batch,haskernel)
+                outputvalues,targetvalues = self.forward_batch(batch,haskernel)
                 loss = self.criterion(outputvalues,targetvalues)
                 loss = loss/self.accumsteps
                 loss.backward()
@@ -132,11 +133,11 @@ class Trainer:
 
     def validate_epoch(self,haskernel):
         '''
-        Purpose: Execute one validation epoch.
+        Purpose: Run one validation epoch.
         Args:
-        - haskernel (bool): whether model has integration kernel
+        - haskernel (bool): whether the model has an integration kernel
         Returns:
-        - float: average validation loss for the epoch
+        - float: mean validation loss
         '''
         totalloss = 0.0
         self.model.eval()
@@ -144,19 +145,19 @@ class Trainer:
             for batch in self.validloader:
                 if self.useamp:
                     with autocast('cuda',enabled=self.useamp):
-                        outputvalues,targetvalues = self._forward(batch,haskernel)
+                        outputvalues,targetvalues = self.forward_batch(batch,haskernel)
                         loss = self.criterion(outputvalues,targetvalues)
                 else:
-                    outputvalues,targetvalues = self._forward(batch,haskernel)
+                    outputvalues,targetvalues = self.forward_batch(batch,haskernel)
                     loss = self.criterion(outputvalues,targetvalues)
                 totalloss += loss.detach()*targetvalues.numel()
         return (totalloss/len(self.validloader.dataset)).item()
 
     def fit(self,name):
         '''
-        Purpose: Train model with early stopping and learning rate scheduling.
+        Purpose: Train with early stopping and learning-rate decay, log to Weights & Biases, and save the best checkpoint.
         Args:
-        - name (str): model name
+        - name (str): run name
         '''
         haskernel = hasattr(self.model,'kernel')
         wandb.init(

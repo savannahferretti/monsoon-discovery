@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 def setup(seed):
     '''
-    Purpose: Set random seeds for reproducibility and configure compute device.
+    Purpose: Seed NumPy and PyTorch and select the compute device.
     Args:
-    - seed (int): random seed for NumPy and PyTorch
+    - seed (int): random seed
     Returns:
-    - str: device to use
+    - str: 'cuda' | 'cpu'
     '''
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -36,9 +36,9 @@ def setup(seed):
 
 def parse():
     '''
-    Purpose: Parse command-line arguments for running the training script.
+    Purpose: Parse command-line arguments.
     Returns:
-    - set[str] | None: run names to train, or None if all runs should be trained
+    - set[str] | None: run names to train (None for all)
     '''
     parser = argparse.ArgumentParser(description='Train and validate NN models')
     parser.add_argument('--runs',type=str,default='all',help='Comma-separated list of run names to train, or `all`')
@@ -60,13 +60,11 @@ if __name__=='__main__':
             continue
         fieldvars  = runconfig['fieldvars']
         localvars  = runconfig.get('localvars',[])
-        subset     = runconfig.get('subset')
-        subsetkey  = tuple(sorted(subset.items())) if subset else None
-        cachekey   = (tuple(fieldvars),tuple(localvars),subsetkey)
+        cachekey   = (tuple(fieldvars),tuple(localvars))
         if cachekey!=cachedkey:
             logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}, targetvar={targetvar}...')
-            trainfields,trainlocal,trainpr,dsig,nlevs,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
-            validfields,validlocal,validpr,_,_,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
+            trainfields,trainlocal,trainpr,dsig,nlevs,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
+            validfields,validlocal,validpr,_,_,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar)
             cachedkey  = cachekey
             cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dsig,nlevs)
         else:
@@ -82,7 +80,7 @@ if __name__=='__main__':
                 continue
             logger.info(f'Training `{runid}`...')
             device = setup(seed)
-            model  = build_model(name,runconfig,nlevs).to(device)
+            model  = build_model(runconfig,nlevs).to(device)
             criterion       = runconfig.get('criterion',nn['criterion'])
             criterionkwargs = runconfig.get('criterionkwargs',nn.get('criterionkwargs',{}))
             trainer = Trainer(

@@ -8,7 +8,7 @@ import pandas as pd
 import xarray as xr
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
-from scripts.models.sr.train import load_data,load_stats
+from scripts.models.sr.train import load_features
 from scripts.models.sr.equations import evaluate,raw_to_precip
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 def parse():
     '''
-    Purpose: Parse command-line arguments for running the evaluation script.
+    Purpose: Parse command-line arguments.
     Returns:
-    - tuple[set[str] | None, str]: selected run names (or None for all), and split name to evaluate
+    - tuple[set[str] | None, str]: run names to evaluate (None for all) and split name
     '''
     parser = argparse.ArgumentParser(description='Evaluate PySR symbolic regression models.')
     parser.add_argument('--runs',type=str,default='all',help='Comma-separated run names to evaluate, or `all`')
@@ -27,19 +27,18 @@ def parse():
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
     return selectedruns,args.split
 
-def predict_pareto(equations,x,predictornames,writer,validmask,refda):
+def predict_frontier(equations,x,predictornames,writer,validmask,refda):
     '''
-    Purpose: Evaluate every equation on the Pareto frontier from a CSV and return
-        gridded predictions keyed by complexity.
+    Purpose: Predict precipitation with every equation on one seed's Pareto frontier.
     Args:
     - equations (pd.DataFrame): Pareto frontier with 'complexity' and 'equation' columns
-    - x (pd.DataFrame): valid predictor features
-    - predictornames (list[str]): predictor column names
-    - writer (PredictionWriter): handles unflattening and denormalization
-    - validmask (np.ndarray): boolean mask for valid samples
+    - x (pd.DataFrame): standardized predictors of the valid samples
+    - predictornames (list[str]): predictor names
+    - writer (PredictionWriter): prediction writer (target statistics and gridding)
+    - validmask (np.ndarray): boolean mask of valid samples over the full grid
     - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
     Returns:
-    - dict[int, np.ndarray]: mapping from complexity to gridded precipitation array
+    - dict[int, np.ndarray]: complexity → gridded precipitation (mm)
     '''
     preds = {}
     for _,row in equations.iterrows():
@@ -51,13 +50,12 @@ def predict_pareto(equations,x,predictornames,writer,validmask,refda):
 
 def assemble_predictions(seedpreds,seeds,writer,refda):
     '''
-    Purpose: Assemble per-seed Pareto frontier predictions into a single xr.Dataset.
-        Complexities missing for a given seed are filled with NaN.
+    Purpose: Combine the per-seed frontier predictions into one xr.Dataset, with NaN where a seed has no equation at
+    a complexity.
     Args:
-    - seedpreds (list[dict[int, np.ndarray]]): one dict per seed, mapping complexity → gridded array
-        with shape (time, lat, lon)
-    - seeds (list[int]): seed values corresponding to entries in seedpreds
-    - writer (PredictionWriter): supplies targetvar, longname, and units metadata
+    - seedpreds (list[dict[int, np.ndarray]]): one dict per seed from predict_frontier()
+    - seeds (list[int]): seed of each entry in seedpreds
+    - writer (PredictionWriter): prediction writer (target name and metadata)
     - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
     Returns:
     - xr.Dataset: predictions with dims (time, lat, lon, seed, complexity)
@@ -98,7 +96,7 @@ if __name__=='__main__':
         cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,runconfig.get('residualfrom'),split)
         if cachekey!=cachedkey:
             logger.info(f'   Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
-            x,y,refda,validmask = load_data(split,runconfig,config)
+            x,y,refda,validmask = load_features(split,runconfig,config)
             cachedkey  = cachekey
             cacheddata = (x,y,refda,validmask)
         else:
@@ -113,7 +111,7 @@ if __name__=='__main__':
                 break
             equations = pd.read_csv(csvpath)
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed}) ({validmask.sum()} valid samples, {len(equations)} Pareto equations)...')
-            seedpreds.append(predict_pareto(equations,xvalid,predictors,writer,validmask,refda))
+            seedpreds.append(predict_frontier(equations,xvalid,predictors,writer,validmask,refda))
         else:
             logger.info(f'   Saving predictions for `{name}`...')
             predds = assemble_predictions(seedpreds,seeds,writer,refda)

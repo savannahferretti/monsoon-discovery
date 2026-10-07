@@ -1,35 +1,18 @@
 #!/usr/bin/env python
 
-import os
-import json
 import torch
 import torch.nn.functional as F
-from scripts.utils import Config
-from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
-
-def _load_targetstats():
-    statsfile = os.path.join(Config().splitsdir,'stats.json')
-    with open(statsfile,'r',encoding='utf-8') as f:
-        flat = json.load(f)
-    stats = {}
-    for key,val in flat.items():
-        if key.endswith('_mean'):
-            stats.setdefault(key[:-5],{})['mean'] = val
-        elif key.endswith('_std'):
-            stats.setdefault(key[:-4],{})['std'] = val
-    return stats
-
-TARGETSTATS = _load_targetstats()
 
 class MainNN(torch.nn.Module):
 
     def __init__(self,nfeatures,mean,std):
         '''
-        Purpose: Initialize a feed-forward neural network that nonlinearly maps a feature vector to a scalar prediction.
+        Purpose: Initialize the feed-forward network shared by all models, which maps a feature vector to a standardized
+        log1p precipitation prediction.
         Args:
         - nfeatures (int): number of input features per sample
-        - mean (float): target variable log1p mean (from training stats)
-        - std (float): target variable log1p std (from training stats)
+        - mean (float): training mean of log1p(precipitation)
+        - std (float): training standard deviation of log1p(precipitation)
         '''
         super().__init__()
         nfeatures = int(nfeatures)
@@ -45,25 +28,25 @@ class MainNN(torch.nn.Module):
 
     def forward(self,X):
         '''
-        Purpose: Forward pass through MainNN.
+        Purpose: Predict zmin + ReLU(f(X)), so that precipitation is never negative.
         Args:
         - X (torch.Tensor): input features with shape (nbatch, nfeatures)
         Returns:
-        - torch.Tensor: predictions with shape (nbatch,) as zmin + ReLU(f(x))
+        - torch.Tensor: predictions with shape (nbatch,)
         '''
         return self.zmin + F.relu(self.layers(X).squeeze())
 
 class BaselineNN(torch.nn.Module):
 
-    def __init__(self,nfieldvars,nlevs,nlocalvars,mean=TARGETSTATS['tp']['mean'],std=TARGETSTATS['tp']['std']):
+    def __init__(self,nfieldvars,nlevs,nlocalvars,mean,std):
         '''
-        Purpose: Initialize a baseline neural network that flattens vertical profiles and concatenates local variables.
+        Purpose: Initialize a model that flattens the profiles and appends the local variables.
         Args:
-        - nfieldvars (int): number of predictor field variables
-        - nlevs (int): number of vertical levels (1 for scalar inputs like bl, cape, subsat)
-        - nlocalvars (int): number of local input variables (e.g. land fraction, heat fluxes)
-        - mean (float): target variable log1p mean (from training stats)
-        - std (float): target variable log1p std (from training stats)
+        - nfieldvars (int): number of profile variables
+        - nlevs (int): number of vertical levels (1 for scalar inputs such as bl)
+        - nlocalvars (int): number of local variables
+        - mean (float): training mean of log1p(precipitation)
+        - std (float): training standard deviation of log1p(precipitation)
         '''
         super().__init__()
         self.nfieldvars = int(nfieldvars)
@@ -72,29 +55,30 @@ class BaselineNN(torch.nn.Module):
         nfeatures = self.nfieldvars*self.nlevs+self.nlocalvars
         self.model = MainNN(nfeatures,mean,std)
 
-    def forward(self,fields,lf):
+    def forward(self,fields,local):
         '''
-        Purpose: Forward pass through BaselineNN.
+        Purpose: Predict from flattened profiles and local variables.
         Args:
-        - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
-        - lf (torch.Tensor): local input variables with shape (nbatch, nlocalvars)
+        - fields (torch.Tensor): profiles with shape (nbatch, nfieldvars, nlevs)
+        - local (torch.Tensor): local variables with shape (nbatch, nlocalvars)
         Returns:
         - torch.Tensor: predictions with shape (nbatch,)
         '''
-        X = torch.cat([fields.flatten(1),lf],dim=1)
+        X = torch.cat([fields.flatten(1),local],dim=1)
         return self.model(X)
 
 class KernelNN(torch.nn.Module):
 
-    def __init__(self,kernel,nfieldvars,nlocalvars,mean=TARGETSTATS['tp']['mean'],std=TARGETSTATS['tp']['std']):
+    def __init__(self,kernel,nfieldvars,nlocalvars,mean,std):
         '''
-        Purpose: Initialize a kernel-based neural network that integrates over the vertical dimension.
+        Purpose: Initialize a model that integrates each profile with a learned vertical kernel and appends the local
+        variables.
         Args:
-        - kernel (torch.nn.Module): instance of NonparametricKernelLayer or ParametricKernelLayer
-        - nfieldvars (int): number of predictor field variables
-        - nlocalvars (int): number of local input variables (e.g. land fraction, heat fluxes)
-        - mean (float): target variable log1p mean (from training stats)
-        - std (float): target variable log1p std (from training stats)
+        - kernel (torch.nn.Module): NonparametricKernelLayer or ParametricKernelLayer
+        - nfieldvars (int): number of profile variables
+        - nlocalvars (int): number of local variables
+        - mean (float): training mean of log1p(precipitation)
+        - std (float): training standard deviation of log1p(precipitation)
         '''
         super().__init__()
         self.kernel     = kernel
@@ -103,16 +87,16 @@ class KernelNN(torch.nn.Module):
         nfeatures = self.nfieldvars+self.nlocalvars
         self.model = MainNN(nfeatures,mean,std)
 
-    def forward(self,fields,dsig,lf):
+    def forward(self,fields,dsig,local):
         '''
-        Purpose: Forward pass through KernelNN.
+        Purpose: Predict from kernel-integrated profiles and local variables.
         Args:
-        - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
+        - fields (torch.Tensor): profiles with shape (nbatch, nfieldvars, nlevs)
         - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
-        - lf (torch.Tensor): local input variables with shape (nbatch, nlocalvars)
+        - local (torch.Tensor): local variables with shape (nbatch, nlocalvars)
         Returns:
         - torch.Tensor: predictions with shape (nbatch,)
         '''
         features = self.kernel(fields,dsig)
-        X = torch.cat([features,lf],dim=1)
+        X = torch.cat([features,local],dim=1)
         return self.model(X)

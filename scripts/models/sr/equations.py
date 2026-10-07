@@ -7,9 +7,9 @@ import json
 import numpy as np
 import pandas as pd
 
-def get_functions():
+def get_operators():
     '''
-    Purpose: NumPy implementations of the operators that appear in PySR equations and hand-specified forms.
+    Purpose: NumPy versions of the operators used in PySR equations and in the hand-specified forms.
     Returns:
     - dict[str,callable]: operator name → function
     '''
@@ -29,7 +29,7 @@ def get_functions():
 
 def prepare_form(form):
     '''
-    Purpose: Replace PySR's `a^b` with a safe power so equation strings evaluate in Python.
+    Purpose: Rewrite PySR's `a^b` as safepow(a,b) so equation strings evaluate in Python.
     Args:
     - form (str): equation string
     Returns:
@@ -39,7 +39,7 @@ def prepare_form(form):
 
 def extract_constants(form,predictornames):
     '''
-    Purpose: Names in a form that are neither predictors nor operators.
+    Purpose: List the constants in a form, i.e. names that are neither predictors nor operators.
     Args:
     - form (str): equation string
     - predictornames (list[str]): predictor names
@@ -47,19 +47,19 @@ def extract_constants(form,predictornames):
     - list[str]: sorted constant names
     '''
     names = {node.id for node in ast.walk(ast.parse(form,mode='eval')) if isinstance(node,ast.Name)}
-    return sorted(names-set(predictornames)-set(get_functions())-{'True','False','None'})
+    return sorted(names-set(predictornames)-set(get_operators())-{'True','False','None'})
 
 def evaluate(form,columns,constants):
     '''
-    Purpose: Evaluate an equation in standardized space (float64). This is the only equation evaluator.
+    Purpose: Evaluate an equation on standardized predictors in float64. Every script evaluates equations here.
     Args:
     - form (str): equation string
     - columns (dict[str,np.ndarray]): standardized predictors; 'timeidx' is ignored
     - constants (dict[str,float]): constant values
     Returns:
-    - np.ndarray: raw equation output
+    - np.ndarray: equation output z
     '''
-    namespace = dict(get_functions(),__builtins__={})
+    namespace = dict(get_operators(),__builtins__={})
     namespace.update({name:np.asarray(values,dtype=np.float64) for name,values in columns.items() if name!='timeidx'})
     namespace.update({name:float(value) for name,value in constants.items()})
     out = np.asarray(eval(prepare_form(form),namespace),dtype=np.float64)
@@ -69,10 +69,9 @@ def evaluate(form,columns,constants):
 
 def raw_to_precip(raw,std):
     '''
-    Purpose: Convert raw equation output to precipitation, P = exp(s_y·max(raw, 0)) − 1, equivalent to denormalizing
-        zmin + max(raw, 0).
+    Purpose: Convert equation output to precipitation, P = exp(s_y·max(z, 0)) − 1.
     Args:
-    - raw (np.ndarray): raw equation output
+    - raw (np.ndarray): equation output z
     - std (float): training standard deviation of log1p(precipitation)
     Returns:
     - np.ndarray: precipitation (mm)
@@ -121,8 +120,7 @@ def save_registry(registry,modelsdir):
 
 def calc_physical_constants(name,registry,stats):
     '''
-    Purpose: Physical-space constants of an optimized equation from its standardized constants and the training
-        statistics.
+    Purpose: Convert an optimized equation's standardized constants to its physical-space constants.
     Args:
     - name (str): equation name
     - registry (dict[str,dict]): optimized equations
@@ -156,7 +154,7 @@ def calc_physical_constants(name,registry,stats):
 
 def calc_physical_precip(name,physical,inputs,stats):
     '''
-    Purpose: Precipitation from the physical-space form of an optimized equation, P = max(exp(E) − 1, 0).
+    Purpose: Predict precipitation with the physical-space form of an optimized equation, P = max(exp(E) − 1, 0).
     Args:
     - name (str): equation name
     - physical (dict[str,float]): physical constants from calc_physical_constants()

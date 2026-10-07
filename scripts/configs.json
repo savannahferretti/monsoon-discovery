@@ -73,7 +73,8 @@
                 "batchsize":500,
                 "cyclesperiteration":50,
                 "weightoptimize":0.25,
-                "parsimony":0.0025},
+                "parsimony":0.0025,
+                "timeout":19800},
             "operators":{
                 "binary":["+","-","*","/","^","min","max"],
                 "unary":["neg","abs","square","cube","exp"],

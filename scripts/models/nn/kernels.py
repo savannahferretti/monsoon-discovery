@@ -7,9 +7,9 @@ class KernelModule:
     @staticmethod
     def normalize(kernel,dsig,epsilon=1e-6):
         '''
-        Purpose: Normalize a 1D vertical kernel so that sum(k * dsig) = 1 for each field over the full column.
+        Purpose: Scale each kernel so that sum(k·Δσ) = 1 over the column.
         Args:
-        - kernel (torch.Tensor): unnormalized kernel with shape (nfieldvars, nlevs)
+        - kernel (torch.Tensor): unnormalized kernels with shape (nfieldvars, nlevs)
         - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         - epsilon (float): stabilizer to avoid divide-by-zero (defaults to 1e-6)
         Returns:
@@ -24,9 +24,9 @@ class KernelModule:
     @staticmethod
     def integrate(fields,weights,dsig):
         '''
-        Purpose: Integrate predictor fields using normalized kernel weights over the vertical dimension.
+        Purpose: Integrate each profile over the column with its kernel, sum(k·φ·Δσ).
         Args:
-        - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
+        - fields (torch.Tensor): profiles with shape (nbatch, nfieldvars, nlevs)
         - weights (torch.Tensor): normalized kernel weights with shape (nfieldvars, nlevs)
         - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         Returns:
@@ -35,14 +35,13 @@ class KernelModule:
         weighted = fields*weights.unsqueeze(0)*dsig.unsqueeze(0).unsqueeze(0)
         return weighted.sum(dim=2)
 
-
 class NonparametricKernelLayer(torch.nn.Module):
 
     def __init__(self,nfieldvars,nlevs):
         '''
-        Purpose: Initialize free-form (non-parametric) vertical kernels.
+        Purpose: Initialize nonparametric kernels, with a free weight at each level.
         Args:
-        - nfieldvars (int): number of predictor fields
+        - nfieldvars (int): number of profile variables
         - nlevs (int): number of vertical levels
         '''
         super().__init__()
@@ -56,7 +55,7 @@ class NonparametricKernelLayer(torch.nn.Module):
 
     def get_weights(self,dsig,device):
         '''
-        Purpose: Obtain normalized non-parametric kernel weights.
+        Purpose: Return the normalized nonparametric kernel weights (also stored in self.norm).
         Args:
         - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         - device (str | torch.device): device to use
@@ -70,9 +69,9 @@ class NonparametricKernelLayer(torch.nn.Module):
 
     def forward(self,fields,dsig):
         '''
-        Purpose: Apply non-parametric kernels to a batch of vertical profiles.
+        Purpose: Integrate a batch of profiles with the nonparametric kernels.
         Args:
-        - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
+        - fields (torch.Tensor): profiles with shape (nbatch, nfieldvars, nlevs)
         - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)
@@ -82,16 +81,15 @@ class NonparametricKernelLayer(torch.nn.Module):
         self.features = feats
         return feats
 
-
 class ParametricKernelLayer(torch.nn.Module):
 
     class GaussianKernel(torch.nn.Module):
 
         def __init__(self,nfieldvars):
             '''
-            Purpose: Initialize parameters of a 1D Gaussian kernel.
+            Purpose: Initialize the center and log-width of a Gaussian kernel for each profile variable.
             Args:
-            - nfieldvars (int): number of predictor fields
+            - nfieldvars (int): number of profile variables
             '''
             super().__init__()
             self.mu     = torch.nn.Parameter(torch.zeros(int(nfieldvars)))
@@ -99,7 +97,7 @@ class ParametricKernelLayer(torch.nn.Module):
 
         def forward(self,nlevs,device):
             '''
-            Purpose: Evaluate the Gaussian kernel over vertical levels.
+            Purpose: Evaluate the Gaussian kernels on a coordinate running from -1 to 1 across the levels.
             Args:
             - nlevs (int): number of vertical levels
             - device (str | torch.device): device to use
@@ -115,10 +113,10 @@ class ParametricKernelLayer(torch.nn.Module):
 
     def __init__(self,nfieldvars,kernelspec):
         '''
-        Purpose: Initialize a parametric vertical kernel.
+        Purpose: Initialize parametric kernels of a given shape.
         Args:
-        - nfieldvars (int): number of predictor fields
-        - kernelspec (str): kernel type; valid type is 'gaussian'
+        - nfieldvars (int): number of profile variables
+        - kernelspec (str): kernel shape ('gaussian')
         '''
         super().__init__()
         self.nfieldvars = int(nfieldvars)
@@ -130,7 +128,7 @@ class ParametricKernelLayer(torch.nn.Module):
 
     def get_weights(self,dsig,device):
         '''
-        Purpose: Obtain normalized parametric kernel weights.
+        Purpose: Return the normalized parametric kernel weights (also stored in self.norm).
         Args:
         - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         - device (str | torch.device): device to use
@@ -145,9 +143,9 @@ class ParametricKernelLayer(torch.nn.Module):
 
     def forward(self,fields,dsig):
         '''
-        Purpose: Apply parametric kernel to a batch of vertical profiles.
+        Purpose: Integrate a batch of profiles with the parametric kernels.
         Args:
-        - fields (torch.Tensor): predictor fields with shape (nbatch, nfieldvars, nlevs)
+        - fields (torch.Tensor): profiles with shape (nbatch, nfieldvars, nlevs)
         - dsig (torch.Tensor): sigma thickness weights with shape (nlevs,)
         Returns:
         - torch.Tensor: kernel-integrated features with shape (nbatch, nfieldvars)

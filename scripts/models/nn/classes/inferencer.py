@@ -10,11 +10,11 @@ class Inferencer:
 
     def __init__(self,model,dataloader,device):
         '''
-        Purpose: Initialize Inferencer for model evaluation on test/validation data.
+        Purpose: Initialize Inferencer for running a trained model over a dataloader.
         Args:
-        - model (torch.nn.Module): trained model instance
-        - dataloader (torch.utils.data.DataLoader): dataloader for inference
-        - device (str): device to use (cuda or cpu)
+        - model (torch.nn.Module): trained model
+        - dataloader (torch.utils.data.DataLoader): dataloader of samples to predict
+        - device (str): 'cuda' | 'cpu'
         '''
         self.model      = model
         self.dataloader = dataloader
@@ -22,12 +22,12 @@ class Inferencer:
 
     def predict(self,haskernel):
         '''
-        Purpose: Generate predictions for all samples in the dataloader. When haskernel is True, also collects kernel-integrated features from the kernel layer.
+        Purpose: Predict every sample in the dataloader, and for kernel models also return the kernel-integrated features.
         Args:
-        - haskernel (bool): whether model has integration kernel
+        - haskernel (bool): whether the model has an integration kernel
         Returns:
-        - tuple[np.ndarray, np.ndarray | None]: predictions with shape (nsamples,) and
-            kernel-integrated features with shape (nsamples, nfieldvars) or None for baseline models
+        - tuple[np.ndarray, np.ndarray | None]: standardized predictions with shape (nsamples,), and kernel-integrated
+            features with shape (nsamples, nfieldvars) or None
         '''
         self.model.eval()
         predslist = []
@@ -43,6 +43,6 @@ class Inferencer:
                 else:
                     output = self.model(fields,local)
                 predslist.append(output.detach().cpu().numpy())
-        preds = np.concatenate(predslist,axis=0).astype(np.float32)
-        feats = np.concatenate(featslist,axis=0).astype(np.float32) if haskernel else None
+        preds = np.concatenate(predslist,axis=0)
+        feats = np.concatenate(featslist,axis=0) if haskernel else None
         return preds,feats

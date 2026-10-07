@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 def setup(seed):
     '''
-    Purpose: Set random seeds for reproducibility and configure compute device.
+    Purpose: Seed NumPy and PyTorch and select the compute device.
     Args:
-    - seed (int): random seed for NumPy and PyTorch
+    - seed (int): random seed
     Returns:
-    - str: device to use
+    - str: 'cuda' | 'cpu'
     '''
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -36,9 +36,9 @@ def setup(seed):
 
 def parse():
     '''
-    Purpose: Parse command-line arguments for running the evaluation script.
+    Purpose: Parse command-line arguments.
     Returns:
-    - tuple[set[str] | None, str]: run names to evaluate or None if all, and split name
+    - tuple[set[str] | None, str]: run names to evaluate (None for all) and split name
     '''
     parser = argparse.ArgumentParser(description='Evaluate NN models.')
     parser.add_argument('--runs',type=str,default='all',help='Comma-separated list of run names to evaluate, or `all`.')
@@ -47,26 +47,25 @@ def parse():
     selectedruns = None if args.runs=='all' else {name.strip() for name in args.runs.split(',') if name.strip()}
     return selectedruns,args.split
 
-def load(name,runconfig,nlevs,modeldir,seed,device):
+def load_model(name,runconfig,nlevs,modeldir,seed,device):
     '''
-    Purpose: Build a model and load weights from a saved checkpoint.
+    Purpose: Build a model and load its trained weights from {name}_{seed}.pth.
     Args:
     - name (str): run name
     - runconfig (dict): run configuration
     - nlevs (int): number of vertical levels
     - modeldir (str): directory containing checkpoints
-    - seed (int): random seed used during training
-    - device (str): device to use
+    - seed (int): training seed
+    - device (str): 'cuda' | 'cpu'
     Returns:
-    - torch.nn.Module: model with loaded state_dict on device, or None if checkpoint not found
+    - torch.nn.Module | None: trained model on device, or None if the checkpoint is missing
     '''
     filepath = os.path.join(modeldir,f'{name}_{seed}.pth')
     if not os.path.exists(filepath):
         logger.error(f'   Checkpoint not found: {filepath}')
         return None
-    model = build_model(name,runconfig,nlevs)
-    state = torch.load(filepath,map_location='cpu')
-    model.load_state_dict(state)
+    model = build_model(runconfig,nlevs)
+    model.load_state_dict(torch.load(filepath,map_location='cpu'))
     return model.to(device)
 
 if __name__=='__main__':
@@ -90,12 +89,10 @@ if __name__=='__main__':
         haskernel = runconfig['kind'] != 'baseline'
         fieldvars = runconfig['fieldvars']
         localvars = runconfig.get('localvars',[])
-        subset    = runconfig.get('subset')
-        subsetkey = tuple(sorted(subset.items())) if subset else None
-        fieldkey  = (tuple(fieldvars),tuple(localvars),subsetkey)
+        fieldkey  = (tuple(fieldvars),tuple(localvars))
         if fieldkey!=cachedvars:
             logger.info(f'Loading normalized {split} split for {fieldvars}, targetvar={targetvar}...')
-            fields,local,pr,dsig,nlevs,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
+            fields,local,pr,dsig,nlevs,valid,refda = load_split(split,fieldvars,localvars,config.splitsdir,targetvar=targetvar)
             cachedvars = fieldkey
             cacheddata = (fields,local,pr,dsig,nlevs,valid,refda)
         else:
@@ -106,7 +103,7 @@ if __name__=='__main__':
         allfeats = [] if haskernel else None
         for seedidx,seed in enumerate(seeds):
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed})...')
-            model = load(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
+            model = load_model(name,runconfig,nlevs,os.path.join(config.modelsdir,'nn'),seed,device)
             if model is None:
                 logger.error(f'   Failed to load model for seed {seed}, skipping...')
                 break

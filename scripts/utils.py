@@ -46,6 +46,47 @@ def save(ds,filepath,timechunksize=736):
         raise TypeError(f'{filepath} has non-float32 variables: {wrong}')
     logger.info('      File write successful')
 
+def load_stats(splitsdir):
+    '''
+    Purpose: Load training statistics (mean and standard deviation of each variable) from stats.json.
+    Args:
+    - splitsdir (str): directory containing stats.json
+    Returns:
+    - dict[str,float]: statistics keyed by '{var}_mean' and '{var}_std'
+    '''
+    with open(os.path.join(splitsdir,'stats.json'),'r',encoding='utf-8') as f:
+        return json.load(f)
+
+def standardize(values,var,stats):
+    '''
+    Purpose: Standardize a variable with training statistics. Precipitation is log1p-transformed first and land
+    fraction is returned unchanged.
+    Args:
+    - values (np.ndarray): values in physical units
+    - var (str): variable name
+    - stats (dict[str,float]): training statistics
+    Returns:
+    - np.ndarray: standardized values
+    '''
+    if var=='lf':
+        return values
+    if var in ('pr','tp'):
+        values = np.log1p(values)
+    return (values-stats[f'{var}_mean'])/stats[f'{var}_std']
+
+def flatten(da,ntime):
+    '''
+    Purpose: Flatten a (time, lat, lon) field, or a static (lat, lon) field repeated in time, to samples.
+    Args:
+    - da (xr.DataArray): field
+    - ntime (int): number of timesteps
+    Returns:
+    - np.ndarray: values with shape (ntime*nlat*nlon,)
+    '''
+    if 'time' in da.dims:
+        return da.transpose('time','lat','lon').values.reshape(-1)
+    return np.tile(da.transpose('lat','lon').values,(ntime,1,1)).reshape(-1)
+
 class Config:
 
     def __init__(self,path=None):
