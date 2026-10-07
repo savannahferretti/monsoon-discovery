@@ -118,6 +118,6 @@ if __name__=='__main__':
             del model,inferencer
         else:
             logger.info(f'   Saving predictions for `{name}`...')
-            ds = writer.predictions_to_dataset(allpreds,valid,refda)
+            ds = writer.predictions_to_dataset(allpreds,valid,refda,seeds)
             writer.save(ds,name,'predictions',split,config.predsdir)
             del ds

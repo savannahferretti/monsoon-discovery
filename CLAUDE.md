@@ -42,7 +42,7 @@ NERSC: `sbatch train_sr.sh [run_name]`, `sbatch optimize_sr.sh`.
 No test suite; `configs.json` points to NERSC CFS paths, so most scripts can't run end-to-end off Perlmutter. Minimum checks:
 
 - `python -m py_compile <changed files>` — syntax
-- `python -c 'import scripts.models.nn.train'` (etc.) — imports, circular imports, module-level failures. Also confirms `data/splits/stats.json` resolves (read at import time by `architectures.py` and other scripts).
+- `python -c 'import scripts.models.nn.train'` (etc.) — imports, circular imports, module-level failures. Also confirms `stats.json` resolves (read at import time from `filepaths.splits` by `architectures.py`; SR scripts still use the repo-relative `data/splits/stats.json` until ported).
 - New `configs.json` keys are actually read by consuming code; `python -c 'from scripts.utils import Config; Config()'` still parses.
 - If data is available: run the affected script at smallest scale (`--runs <one_run>`, `--iterations 5`, `--subsetfrac 0.001`).
 

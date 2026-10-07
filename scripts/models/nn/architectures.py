@@ -4,10 +4,11 @@ import os
 import json
 import torch
 import torch.nn.functional as F
+from scripts.utils import Config
 from scripts.models.nn.kernels import NonparametricKernelLayer,ParametricKernelLayer
 
 def _load_targetstats():
-    statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
+    statsfile = os.path.join(Config().splitsdir,'stats.json')
     with open(statsfile,'r',encoding='utf-8') as f:
         flat = json.load(f)
     stats = {}

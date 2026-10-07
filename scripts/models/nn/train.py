@@ -5,8 +5,7 @@ import torch
 import logging
 import argparse
 import numpy as np
-import xarray as xr
-from scripts.utils import Config
+from scripts.utils import Config,load,save
 from scripts.data.classes import PredictionWriter
 from scripts.models.nn.classes.factory import build_model
 from scripts.models.nn.classes.dataset import FieldDataset,load_split
@@ -109,13 +108,8 @@ if __name__=='__main__':
                 model.eval()
                 with torch.no_grad():
                     model.kernel.get_weights(dsig.to(device),device)
-                weights = model.kernel.norm.detach().cpu().numpy().astype(np.float32)
-                refds = xr.open_dataset(os.path.join(config.splitsdir,'norm_train.h5'),engine='h5netcdf')
-                ds = PredictionWriter.weights_to_dataset(
-                    weights,fieldvars,refds)
-                refds.close()
-                os.makedirs(config.weightsdir,exist_ok=True)
-                wpath = os.path.join(config.weightsdir,f'{runid}_weights.nc')
-                ds.to_netcdf(wpath,engine='h5netcdf')
-                logger.info(f'      Saved to {wpath}')
+                weights = model.kernel.norm.detach().cpu().numpy()
+                refds   = load(os.path.join(config.interimdir,'dsig.nc'))
+                ds = PredictionWriter.weights_to_dataset(weights,fieldvars,refds)
+                save(ds,os.path.join(config.weightsdir,f'{runid}_weights.nc'))
             del model,trainer

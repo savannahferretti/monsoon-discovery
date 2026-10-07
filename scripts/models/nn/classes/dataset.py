@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import os
+import json
 import torch
 import numpy as np
-import xarray as xr
+from scripts.utils import load
 
 class FieldDataset(torch.utils.data.Dataset):
 
@@ -35,15 +36,17 @@ class FieldDataset(torch.utils.data.Dataset):
 
 def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr',subset=None):
     '''
-    Purpose: Load a normalized data split and return tensors shaped for NN training/inference.
-        Each sample corresponds to a single (lat, lon, time) grid cell and timestep.
+    Purpose: Load a data split, standardize it with training statistics, and return tensors shaped for NN
+        training/inference. Each sample corresponds to a single (lat, lon, time) grid cell and timestep.
         For profile variables (with a sig dimension), the full vertical column at that grid cell
         is included. For scalar variables (without sig), each field is a single value per sample.
+        Predictors are standardized as (x-mean)/std, the target as (log1p(x)-mean)/std, and land fraction
+        is left unchanged. Arrays are float64 until converted to float32 tensors.
     Args:
     - splitname (str): 'train' | 'valid' | 'test'
     - fieldvars (list[str]): predictor field variable names from run config
     - localvars (list[str]): local input variable names (e.g. ['lf','shf','lhf'])
-    - splitsdir (str): directory containing normalized split HDF5 files
+    - splitsdir (str): directory containing split HDF5 files and stats.json
     - targetvar (str): target variable name ('pr' or 'tp') — must match run config
     - subset (dict | None): optional data subset filter with keys 'var', 'op', 'val'
         (e.g. {'var':'lf','op':'>=','val':0.5} for land-only samples)
@@ -58,23 +61,30 @@ def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr',subset=Non
         - valid: (nlat*nlon*ntime,) boolean array indicating which flattened samples were kept
         - refda: reference DataArray with (lat, lon, time) coordinates for reconstructing the grid
     '''
-    filepath = os.path.join(splitsdir,f'norm_{splitname}.h5')
-    ds = xr.open_dataset(filepath,engine='h5netcdf')
+    with open(os.path.join(splitsdir,'stats.json'),'r',encoding='utf-8') as f:
+        stats = json.load(f)
+    ds = load(os.path.join(splitsdir,f'{splitname}.h5'))
     ntime = ds.sizes['time']
     nlat  = ds.sizes['lat']
     nlon  = ds.sizes['lon']
     ntotal = ntime*nlat*nlon
-    pr = ds[targetvar].transpose('time','lat','lon').values.reshape(-1)
+    def standardize(arr,var):
+        if var in ('dsig','lf'):
+            return arr
+        if var in ('pr','tp'):
+            arr = np.log1p(arr)
+        return (arr-stats[f'{var}_mean'])/stats[f'{var}_std']
+    pr = standardize(ds[targetvar].transpose('time','lat','lon').values.reshape(-1),targetvar)
     if not fieldvars:
         nlevs  = 1
-        fields = np.empty((ntotal,0,1),dtype=np.float32)
+        fields = np.empty((ntotal,0,1),dtype=np.float64)
         dsig   = torch.tensor([1.0],dtype=torch.float32)
     elif 'sig' in ds[fieldvars[0]].dims:
         nlevs = ds.sizes['sig']
         fieldarrays = []
         for v in fieldvars:
             da  = ds[v].transpose('time','lat','lon','sig')
-            arr = da.values.reshape(-1,nlevs)
+            arr = standardize(da.values.reshape(-1,nlevs),v)
             fieldarrays.append(arr)
         fields = np.stack(fieldarrays,axis=1)
         dsig = torch.from_numpy(ds['dsig'].values.astype(np.float32))
@@ -83,7 +93,7 @@ def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr',subset=Non
         fieldarrays = []
         for v in fieldvars:
             da  = ds[v].transpose('time','lat','lon')
-            arr = da.values.reshape(-1,1)
+            arr = standardize(da.values.reshape(-1,1),v)
             fieldarrays.append(arr)
         fields = np.stack(fieldarrays,axis=1)
         dsig = torch.tensor([1.0],dtype=torch.float32)
@@ -94,10 +104,10 @@ def load_split(splitname,fieldvars,localvars,splitsdir,targetvar='pr',subset=Non
                 arr = ds[v].transpose('time','lat','lon').values.reshape(-1)
             else:
                 arr = np.tile(ds[v].values,(ntime,1,1)).reshape(-1)
-            localarrays.append(arr)
+            localarrays.append(standardize(arr,v))
         local = np.stack(localarrays,axis=1)
     else:
-        local = np.empty((ntotal,0),dtype=np.float32)
+        local = np.empty((ntotal,0),dtype=np.float64)
     valid = np.isfinite(fields).all(axis=(1,2))&np.isfinite(local).all(axis=1)&np.isfinite(pr)
     if subset:
         subvar = ds[subset['var']]

@@ -5,6 +5,7 @@ import json
 import logging
 import numpy as np
 import xarray as xr
+from scripts.utils import save
 
 logger = logging.getLogger(__name__)
 
@@ -41,17 +42,18 @@ class PredictionWriter:
         Returns:
         - np.ndarray: gridded array with shape (time, lat, lon)
         '''
-        arr = np.full(valid.shape,np.nan,dtype=np.float32)
+        arr = np.full(valid.shape,np.nan,dtype=np.float64)
         arr[valid] = flat
         return arr.reshape(refda.shape)
 
-    def predictions_to_dataset(self,predslist,valid,refda,denormalize=True):
+    def predictions_to_dataset(self,predslist,valid,refda,seeds=None,denormalize=True):
         '''
         Purpose: Unflatten, optionally denormalize, and wrap a list of per-seed predictions into an xr.Dataset.
         Args:
         - predslist (list[np.ndarray]): per-seed flat predictions, each with shape (nsamples,)
         - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
+        - seeds (list[int] | None): training seed of each entry in predslist (defaults to 0, 1, ...)
         - denormalize (bool): if True, apply expm1(pred*std+mean) to convert from z-score log1p to native
             units; if False, predictions are already in native units and are only clipped to zero
         Returns:
@@ -62,7 +64,7 @@ class PredictionWriter:
         else:
             predstack = np.stack([np.clip(self.unflatten(preds,valid,refda),0,None) for preds in predslist],axis=-1)
         coords = {dim:refda.coords[dim] for dim in refda.dims}
-        coords['seed'] = xr.DataArray(np.arange(len(predslist)),dims=['seed'],attrs=dict(long_name='Training seed'))
+        coords['seed'] = xr.DataArray(np.arange(len(predslist)) if seeds is None else list(seeds),dims=['seed'],attrs=dict(long_name='Training seed'))
         da = xr.DataArray(predstack,dims=('time','lat','lon','seed'),coords=coords)
         da.attrs = dict(long_name=self.longname,units=self.units)
         return da.to_dataset(name=self.targetvar)
@@ -95,25 +97,5 @@ class PredictionWriter:
         - split (str): 'train' | 'valid' | 'test'
         - savedir (str): output directory
         - timechunksize (int): chunk size for time dimension (defaults to 736 for 3-month chunks on 3-hourly data)
-        Returns:
-        - bool: True if save successful, False otherwise
         '''
-        os.makedirs(savedir,exist_ok=True)
-        filename = f'{name}_{split}_{kind}.nc'
-        filepath = os.path.join(savedir,filename)
-        logger.info(f'   Attempting to save {filename}...')
-        ds.load()
-        encoding = {}
-        for varname,da in ds.data_vars.items():
-            chunks = []
-            for dim,size in zip(da.dims,da.shape):
-                chunks.append(min(timechunksize,size) if dim=='time' else size)
-            encoding[varname] = {'chunksizes':tuple(chunks)}
-        try:
-            ds.to_netcdf(filepath,engine='h5netcdf',encoding=encoding)
-            xr.open_dataset(filepath,engine='h5netcdf').close()
-            logger.info('      File write successful')
-            return True
-        except Exception:
-            logger.exception('      Failed to save or verify')
-            return False
+        save(ds,os.path.join(savedir,f'{name}_{split}_{kind}.nc'),timechunksize)
