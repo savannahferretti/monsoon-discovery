@@ -36,9 +36,7 @@ SIGS = np.round(np.arange(0.5,1.05,0.05),2)
 
 def get_windows(timewindow):
     '''
-    Purpose: Hourly offsets and weights of a window [T, T+timewindow]. State variables use the trapezoidal mean of the
-        hourly values at T, ..., T+timewindow. ERA5 accumulations and mean rates stamped t cover (t-1h, t], so fluxes
-        (mean) and precipitation (sum) use the stamps T+1, ..., T+timewindow.
+    Purpose: Define hourly offsets and weights for averaging state variables, fluxes, and accumulations over a time window.
     Args:
     - timewindow (int): window length (hours)
     Returns:

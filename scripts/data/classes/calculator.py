@@ -268,7 +268,7 @@ class DataCalculator:
         '''
         Purpose: Interpolate an xr.DataArray from pressure levels onto a uniform sigma (σ = p/pₛ) grid
         via piecewise-linear interpolation in pressure space. Targets outside the pressure-level range take the value
-        at the nearest level instead of being extrapolated. Columns with invalid surface pressures are masked.
+        at the nearest level. Columns with invalid surface pressures are masked.
         Args:
         - da (xr.DataArray): input DataArray containing 'lev'
         - ps (xr.DataArray): surface pressure DataArray (hPa)
