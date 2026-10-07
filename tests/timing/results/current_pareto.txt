@@ -1,0 +1,172 @@
+## sr_bl_42
+ complexity     loss                                            equation
+          1 0.739522                                                  bl
+          3 0.552681                                      bl * 1.8767003
+          5 0.502494                              cube(bl - -0.33914208)
+          7 0.495900                   cube(bl - -0.298459) + 0.13681741
+         10 0.495696 cube(max(bl, -0.754441) - -0.29880992) + 0.13325849
+
+## sr_bl_72
+ complexity     loss                                           equation
+          1 0.718238                                                 bl
+          3 0.544447                                     bl * 1.8622954
+          5 0.500328                              cube(bl + 0.33623663)
+          7 0.492624                   cube(bl + 0.29321024) + 0.144626
+         10 0.492404 max(0.039681576, cube(bl + 0.29321024) + 0.144626)
+
+## sr_bl_102
+ complexity     loss                                             equation
+          1 0.741397                                                   bl
+          3 0.556204                                       bl * 1.8814178
+          5 0.509859                                 cube(bl + 0.3392554)
+          7 0.502157                   cube(bl + 0.29592127) + 0.14504439
+         10 0.501956 max(cube(bl - -0.29686967), -0.104673065) + 0.143499
+
+## sr_atm_42
+ complexity     loss                                                                                  equation
+          1 0.998213                                                                                  0.640893
+          2 0.847917                                                                                        rh
+          4 0.673570                                                                             rh * 1.949295
+          6 0.638032                                                                      exp(rh) - 0.65334773
+          8 0.616065                                                          exp((rh * 1.525578) - 0.8439684)
+          9 0.562823                                                   cube((thetae * 0.8627701) - thetaestar)
+         11 0.493613                                     cube((thetae - (thetaestar * 1.454325)) - 0.18724935)
+         13 0.484514                      cube((((thetae * 0.6861789) - 0.26538795) - thetaestar) * 1.7731135)
+         14 0.475257                             cube(((rh * 0.28053215) + (thetae * 0.7348558)) - thetaestar)
+         15 0.466654                              cube(max(rh, (thetae * 0.7110708) - thetaestar)) * 1.6521711
+         16 0.458837               cube((rh * 0.1624521) + ((thetae - (thetaestar * 1.4821371)) - 0.28108364))
+         17 0.440124                cube(max(rh, (thetae - 0.36875376) - (thetaestar * 1.4769912))) * 1.566091
+         18 0.440116              cube(max(rh, (thetae - 0.36878827) - (thetaestar / 0.67709655))) * 1.5699189
+         19 0.439002 cube(max(rh, (((thetae - 0.42712626) * 0.6834877) - thetaestar) * 1.5870711)) * 1.5120422
+
+## sr_atm_72
+ complexity     loss                                                                      equation
+          1 0.971446                                                                    0.61909896
+          2 0.816216                                                                            rh
+          4 0.648708                                                                rh * 1.9497336
+          6 0.615335                                                          exp(rh) + -0.6528623
+          8 0.592784                                              exp((rh - 0.565788) * 1.5812905)
+          9 0.555192                                       cube((thetae * 0.8584139) - thetaestar)
+         11 0.493922                       cube((thetae + -0.18664525) - (thetaestar * 1.4474149))
+         13 0.485888           cube(((thetae * 1.228992) + -0.4879932) - (thetaestar * 1.7867609))
+         14 0.469163                             cube((thetae * 0.774119) - thetaestar) + cube(rh)
+         16 0.452389             cube(thetae - ((thetaestar - -0.20448583) * 1.484978)) + cube(rh)
+         17 0.450917 cube(max(thetae - ((thetaestar * 1.4674053) - -0.22039457), rh + 0.17831568))
+         18 0.444323 cube(thetae - ((thetaestar - -0.17913897) * 1.483948)) + cube(rh * 0.8955297)
+
+## sr_atm_102
+ complexity     loss                                                                                  equation
+          1 0.996699                                                                                0.63528526
+          2 0.839539                                                                                        rh
+          4 0.660222                                                                            rh * 1.9694464
+          6 0.624122                                                                       exp(rh) - 0.6472476
+          8 0.601776                                                        exp((rh - 0.56682897) * 1.5921465)
+          9 0.569779                                                  cube((thetae * 0.86081916) - thetaestar)
+         11 0.517119                             ((thetae + -0.93484056) * 4.1842575) - (thetaestar * 5.93664)
+         13 0.506519                        exp(((thetae + -1.2174405) * 3.1319056) - (thetaestar * 4.560318))
+         14 0.497135                     (((thetae + -0.9779692) * 2.9162803) - (thetaestar * 4.3763785)) + rh
+         15 0.493204                    max(((thetae + -1.0004761) * 4.874508) - (thetaestar * 7.0540214), rh)
+         16 0.468093                  ((thetae * 2.491126) - (2.163512 - cube(rh))) - (thetaestar * 3.6931818)
+         18 0.463927   (((thetae * 3.6879811) - (thetaestar * 5.3337407)) - (3.2544184 - cube(rh))) * 0.769323
+         19 0.461578 max(((thetae * 2.837542) - (2.6137767 - cube(rh))) - (thetaestar * 4.161929), 0.12629902)
+
+## sr_sfc_42
+ complexity     loss                                                                                    equation
+          1 0.440146                                                                                   sr_atm_eq
+          3 0.440084                                                                      sr_atm_eq - 0.01144891
+          4 0.439303                                                                 max(sr_atm_eq, 0.064586855)
+          5 0.436079                                                              sr_atm_eq + (lf * -0.15749584)
+          6 0.424766                                                              sr_atm_eq + (lhf * 0.14427367)
+          8 0.408105                                                       sr_atm_eq - (shf * (lf + -0.9628527))
+         10 0.394045                                         sr_atm_eq * (0.9885615 - (shf * (lf + -0.9659257)))
+         12 0.389179                                  sr_atm_eq - (((lf + -0.8934547) * (lf + shf)) * sr_atm_eq)
+         14 0.381368                               sr_atm_eq * (1.0464444 - (shf * (lf + min(-0.8693805, lhf))))
+         16 0.379895                  sr_atm_eq - ((shf * sr_atm_eq) * ((lf * 1.132614) + min(-1.0230668, lhf)))
+         17 0.377139                  sr_atm_eq - (min(shf * 2.18573, sr_atm_eq) * (lf + min(-0.80129564, lhf)))
+         19 0.367414 (sr_atm_eq - (min(shf * 2.1545086, sr_atm_eq) * (lf + min(-0.74337435, lhf)))) + 0.13645378
+
+## sr_sfc_72
+ complexity     loss                                                                                                  equation
+          1 0.441504                                                                                                 sr_atm_eq
+          3 0.441458                                                                                   sr_atm_eq - 0.010333072
+          4 0.440426                                                                                max(0.07061616, sr_atm_eq)
+          5 0.436622                                                                            sr_atm_eq + (lf * -0.17845443)
+          6 0.423697                                                                             sr_atm_eq + (lhf * 0.1546561)
+          8 0.408479                                                                      sr_atm_eq + ((0.9690937 - lf) * shf)
+         10 0.395308                                                       sr_atm_eq + ((0.94573975 - lf) * (sr_atm_eq * shf))
+         12 0.388903                                                 sr_atm_eq + (((0.8923444 - lf) * sr_atm_eq) * (lf + shf))
+         13 0.388474                                               (sr_atm_eq + (lhf * 0.21017148)) + (shf * (0.7556408 - lf))
+         14 0.385817                                 sr_atm_eq + (((0.88926494 - lf) * (lf + shf)) * (sr_atm_eq - -0.4190639))
+         15 0.381752                                 (sr_atm_eq + (lhf * 0.14381582)) + (((0.8805534 - lf) * shf) * sr_atm_eq)
+         17 0.377430                         (sr_atm_eq + (lhf * 0.12855653)) + (((0.88960546 - lf) * (lf + shf)) * sr_atm_eq)
+         18 0.371843                 sr_atm_eq + (min(lhf, ((shf * (0.7948719 - lf)) * 2.2753685) + -0.89431965) - -1.0714867)
+         20 0.366290 (sr_atm_eq - -1.0997332) + min(lhf, ((shf * (0.82712513 - lf)) * (sr_atm_eq - -0.85939056)) + -0.9466876)
+
+## sr_sfc_102
+ complexity     loss                                                                                            equation
+          1 0.443069                                                                                           sr_atm_eq
+          3 0.443034                                                                             sr_atm_eq - 0.008384083
+          4 0.442216                                                                         max(0.064789794, sr_atm_eq)
+          5 0.440130                                                                       sr_atm_eq - (lf * 0.13283218)
+          6 0.427424                                                                      (lhf * 0.14716072) + sr_atm_eq
+          8 0.411963                                                               ((0.95376605 - lf) * shf) + sr_atm_eq
+         10 0.399502                                                 (sr_atm_eq * (shf * (0.93809164 - lf))) + sr_atm_eq
+         12 0.394658                                           ((0.9096697 - lf) * (sr_atm_eq * (shf + lf))) + sr_atm_eq
+         13 0.391934                                         ((shf * (0.7224154 - lf)) + sr_atm_eq) - (lhf * -0.2118274)
+         15 0.387034                          (shf * (sr_atm_eq * (0.9003333 - lf))) + (sr_atm_eq - (lhf * -0.13523063))
+         16 0.384695                              min((shf * (0.8461349 - lf)) * sr_atm_eq, lhf + 1.1442637) + sr_atm_eq
+         17 0.383090               ((min((lf + shf) * 2.3939757, sr_atm_eq) + 0.19717944) * (0.815702 - lf)) + sr_atm_eq
+         18 0.378042                min(((shf * (0.8336486 - lf)) + 0.07292696) * 2.285236, lhf + 1.0954965) + sr_atm_eq
+         20 0.372791 min(((shf * (sr_atm_eq + 0.927475)) * (0.80569756 - lf)) + 0.13580348, lhf + 1.1094538) + sr_atm_eq
+
+## sr_all_42
+ complexity     loss                                                                                      equation
+          1 0.440146                                                                                     sr_atm_eq
+          3 0.440084                                                                       sr_atm_eq - 0.011081871
+          4 0.439303                                                                    max(0.06458936, sr_atm_eq)
+          5 0.436079                                                                sr_atm_eq + (lf * -0.15786622)
+          6 0.424766                                                                (lhf * 0.14361367) + sr_atm_eq
+          8 0.408105                                                         sr_atm_eq - (shf * (lf + -0.9633838))
+         10 0.394275                                          sr_atm_eq - (((lf + -0.95535153) * shf) * sr_atm_eq)
+         12 0.389179                                    sr_atm_eq - (((lf + -0.8938329) * sr_atm_eq) * (shf + lf))
+         14 0.383303                                 sr_atm_eq - (shf * ((lf + min(-0.8755354, lhf)) * sr_atm_eq))
+         15 0.382934                    (lhf * 0.12917784) + (sr_atm_eq - ((shf * sr_atm_eq) * (lf + -0.8810418)))
+         16 0.380524                   (sr_atm_eq - ((shf * (lf + min(-0.87376815, lhf))) * sr_atm_eq)) * 1.054369
+         17 0.377484                ((min(shf, sr_atm_eq) * -2.060087) * (lf + min(-0.80554044, lhf))) + sr_atm_eq
+         18 0.377481               (min(shf, sr_atm_eq) * ((lf + min(-0.8108466, lhf)) / -0.48561043)) + sr_atm_eq
+         19 0.367057  ((min(shf, sr_atm_eq) * -2.21411) * (lf + min(-0.79319876, lhf))) + (sr_atm_eq + 0.14164433)
+         20 0.366883 ((min(shf, sr_atm_eq) / -0.44202757) * (lf + min(-0.7758296, lhf))) + (sr_atm_eq + 0.1570777)
+
+## sr_all_72
+ complexity     loss                                                                                       equation
+          1 0.441504                                                                                      sr_atm_eq
+          3 0.441458                                                                       sr_atm_eq + -0.010040925
+          4 0.440426                                                                    max(sr_atm_eq, 0.070408605)
+          5 0.436622                                                                  sr_atm_eq - (lf * 0.17850359)
+          6 0.423697                                                                 (lhf * 0.15445982) + sr_atm_eq
+          8 0.408479                                                           sr_atm_eq + ((0.9690958 - lf) * shf)
+         10 0.395308                                            sr_atm_eq + ((0.94580233 - lf) * (sr_atm_eq * shf))
+         12 0.388903                                      sr_atm_eq + ((0.8922554 - lf) * (sr_atm_eq * (shf + lf)))
+         13 0.388465                                     ((0.752323 - lf) * shf) + ((lhf * 0.21710248) + sr_atm_eq)
+         14 0.385795                       sr_atm_eq + (((0.8927621 - lf) * (sr_atm_eq + 0.38914502)) * (shf + lf))
+         15 0.381758                      (sr_atm_eq + (((0.8819423 - lf) * sr_atm_eq) * shf)) + (lhf * 0.14020321)
+         17 0.377416             (sr_atm_eq + (((0.8894059 - lf) * sr_atm_eq) * (shf + lf))) - (lhf * -0.122002855)
+         19 0.374658 sr_atm_eq + ((((0.8893504 - lf) * (sr_atm_eq + 0.3727577)) * (shf + lf)) + (lhf * 0.13821542))
+         20 0.374060         (sr_atm_eq + ((rh + lhf) * 0.1373854)) + (((0.8787354 - lf) * sr_atm_eq) * (shf + lf))
+
+## sr_all_102
+ complexity     loss                                                                                 equation
+          1 0.443069                                                                                sr_atm_eq
+          3 0.443034                                                                 sr_atm_eq + -0.008697738
+          4 0.442216                                                              max(sr_atm_eq, 0.065013275)
+          5 0.440130                                                            sr_atm_eq - (lf * 0.13248323)
+          6 0.427424                                                            sr_atm_eq + (lhf * 0.1470323)
+          8 0.411963                                                    sr_atm_eq + (shf * (0.95340383 - lf))
+         10 0.399250                                       sr_atm_eq * ((shf * (0.9264647 - lf)) + 0.9804427)
+         12 0.392374                      sr_atm_eq * (((shf + 0.19069435) * (0.91832316 - lf)) + 0.89266104)
+         13 0.391925                             sr_atm_eq + ((lhf * 0.21408746) - (shf * (lf + -0.7194929)))
+         14 0.390484                         sr_atm_eq + ((shf - -0.08833005) * cube(square(1.1091791 - lf)))
+         15 0.384076                       sr_atm_eq + ((thetae - (shf * -5.6251073)) * cube(0.6989902 - lf))
+         17 0.378507       (sr_atm_eq + ((thetae - (shf * -5.243847)) * cube(0.7261934 - lf))) + -0.123223685
+         19 0.375873 (sr_atm_eq * 0.9045838) + ((shf + (thetae * 0.19646363)) * square(cube(1.1292378 - lf)))
+
