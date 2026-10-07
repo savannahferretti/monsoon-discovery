@@ -82,7 +82,8 @@ class DataCalculator:
 
     def resample(self,da,method,timewindow,label='start'):
         '''
-        Purpose: Coarsen an xr.DataArray to windows [T, T+timewindow] starting at 00 UTC, keeping only complete windows.
+        Purpose: Aggregate hourly data into fixed-length windows starting at 00 UTC, using the specified method and 
+        keeping only complete windows.
         Args:
         - da (xr.DataArray): input DataArray
         - method (str): 'trapezoid' (for instantaneous variables) | 'mean' (for rates/fluxes) | 'sum' (for accumulations)
@@ -244,8 +245,8 @@ class DataCalculator:
 
     def calc_weights(self,ps,pbltop,lfttop):
         '''
-        Purpose: Calculate weights for the boundary layer (PBL) and lower free troposphere (LFT) using Eqs. 5a and 5b from Adames AF,
-        Ahmed F, and Neelin JD. 2021. J. Atmos. Sci.
+        Purpose: Calculate weights for the boundary layer (PBL) and lower free troposphere (LFT) using Eqs. 5a and 5b from 
+        Adames AF, Ahmed F, and Neelin JD. 2021. J. Atmos. Sci.
         Args:
         - ps (xr.DataArray): surface pressure DataArray (hPa)
         - pbltop (xr.DataArray): DataArray of pressures at the top of the PBL (hPa)
