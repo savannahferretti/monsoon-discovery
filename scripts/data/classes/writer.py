@@ -13,7 +13,6 @@ TARGETMETA = {
     'pr':{'longname':'Predicted precipitation rate','units':'mm/hr'},
     'tp':{'longname':'Predicted total precipitation','units':'mm'}}
 
-
 class PredictionWriter:
 
     def __init__(self,statsdir,targetvar='pr'):
@@ -54,8 +53,7 @@ class PredictionWriter:
         - valid (np.ndarray): boolean array with shape (nsamples,) indicating kept samples
         - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
         - seeds (list[int] | None): training seed of each entry in predslist (defaults to 0, 1, ...)
-        - denormalize (bool): if True, apply expm1(pred*std+mean) to convert from z-score log1p to native
-            units; if False, predictions are already in native units and are only clipped to zero
+        - denormalize (bool): convert normalized predictions to native units (defaults to True)
         Returns:
         - xr.Dataset: Dataset with predictions in native units on a (time, lat, lon, seed) grid
         '''

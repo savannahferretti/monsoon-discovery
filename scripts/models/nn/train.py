@@ -66,7 +66,7 @@ if __name__=='__main__':
         if cachekey!=cachedkey:
             logger.info(f'Loading normalized splits for fieldvars={fieldvars}, localvars={localvars}, targetvar={targetvar}...')
             trainfields,trainlocal,trainpr,dsig,nlevs,_,_  = load_split('train',fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
-            validfields,validlocal,validpr,_,_,_,_          = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
+            validfields,validlocal,validpr,_,_,_,_         = load_split('valid',fieldvars,localvars,config.splitsdir,targetvar=targetvar,subset=subset)
             cachedkey  = cachekey
             cacheddata = (trainfields,trainlocal,trainpr,validfields,validlocal,validpr,dsig,nlevs)
         else:
