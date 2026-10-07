@@ -102,8 +102,7 @@ class DataDownloader:
         Args:
         - da (xr.DataArray): input DataArray
         - radius (int): grid cells beyond domain bounds for regridding (defaults to 0)
-        - includeend (bool): if True, also keep 00:00 on the first day after the last month of each year (e.g., Sep 1
-            00:00 for JJA), which the last 3-hourly window of hourly ERA5 data needs (defaults to True)
+        - includeend (bool): if True, include 00:00 on the day after each year's final month (defaults to True)
         Returns:
         - xr.DataArray: subsetted DataArray
         '''
@@ -164,8 +163,7 @@ class DataDownloader:
         - units (str): variable units
         - radius (int): grid cells beyond domain bounds (defaults to 0)
         - static (bool): if True, collapse time dimension via mean
-        - includeend (bool): passed to subset(); if True, also keep 00:00 on the first day after the last month
-            (defaults to True)
+        - includeend (bool): if True, include 00:00 on the day after each year's final month (defaults to True)
         Returns:
         - xr.Dataset: processed Dataset
         '''
