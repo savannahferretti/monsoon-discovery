@@ -42,7 +42,7 @@ NERSC: `sbatch train_sr.sh [run_name]`, `sbatch optimize_sr.sh`.
 No test suite; `configs.json` points to NERSC CFS paths, so most scripts can't run end-to-end off Perlmutter. Minimum checks:
 
 - `python -m py_compile <changed files>` — syntax
-- `python -c 'import scripts.models.nn.train'` (etc.) — imports, circular imports, module-level failures. Also confirms `stats.json` resolves (read at import time from `filepaths.splits` by `architectures.py`; SR scripts still use the repo-relative `data/splits/stats.json` until ported).
+- `python -c 'import scripts.models.nn.train'` (etc.) — imports, circular imports, module-level failures. Also confirms `stats.json` resolves (read from `filepaths.splits`; at import time by `architectures.py`).
 - New `configs.json` keys are actually read by consuming code; `python -c 'from scripts.utils import Config; Config()'` still parses.
 - If data is available: run the affected script at smallest scale (`--runs <one_run>`, `--iterations 5`, `--subsetfrac 0.001`).
 
@@ -70,7 +70,7 @@ Claude Code works on a `claude` branch and cannot run experiments here (no NERSC
 
 **NN** (`scripts/models/nn/`): three `kind` variants — `baseline` (flattened profiles + local vars), `nonparametric` (free-form learned vertical kernel), `parametric` (Gaussian kernel, learnable mu/sigma). Shared 4-layer GELU backbone; output `zmin + ReLU(f(x))` (non-negative precip). Target: z-scored `log1p(tp)`. Kernel models save integration weights to `data/weights/`, reused by SR. Checkpoints: `{run}_{seed}.pth`. Logged to W&B.
 
-**SR** (`scripts/models/sr/`): `train.py` runs PySR search (Julia backend) → equation tables (`.csv`). `optimize.py` fits constants of hand-specified forms (`sr.optimizedeqs` in configs) via L-BFGS-B multistart → `optimized_equations.csv` registry. `evaluate.py` generates full Pareto frontier predictions from CSVs. Can use NN kernel-integrated features (`weightsfrom`) or target residuals from a prior SR equation (`baselinefrom`). `--predict-only` flag on `optimize.py` skips optimization and predicts from existing constants.
+**SR** (`scripts/models/sr/`): `train.py` runs PySR search (Julia backend) → equation tables (`.csv`). Kernel-integrated features (`weightsfrom`): NN kernels renormalized in float64 (sum(k·Δσ)=1), averaged over seeds, applied to physical profiles, then standardized. `residualfrom` adds a prior optimized SR equation as a predictor. Per-run `complexityofvariables` overrides `sr.complexity.ofvariables`. `optimize.py` fits constants of hand-specified forms (`sr.optimizedeqs`) via L-BFGS-B multistart: one start from the run's own PySR constants (structural match at `refcomplexity`, averaged over `seeds`) or from the optimized constants of `initfrom`, plus random starts (`sr.nrestarts` total, uniform ±`sr.initscale`); constants rounded to `sr.constantsigfigs` significant figures → `optimized_equations.csv` registry; physical-space predictions are checked against standardized ones and both constant sets saved to `models/sr/{eq}_{split}_constants.json`. `evaluate.py` generates full Pareto frontier predictions from CSVs. `equations.py` is the only place equations are evaluated and physical constants derived. `--predict-only` flag on `optimize.py` skips optimization and predicts from existing constants.
 
 **Predictions:** `data/predictions/{run}_{split}_predictions.nc`. NN → `seed` dim; SR → `seed` + `complexity` dims (full Pareto frontier). Native mm units, post-denormalization.
 

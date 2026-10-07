@@ -61,6 +61,9 @@
         "sr":{
             "seeds":[42,72,102],
             "subsetfrac":0.025,
+            "nrestarts":50,
+            "initscale":5.0,
+            "constantsigfigs":4,
             "searchparams":{
                 "iterations":200,
                 "populations":20,
@@ -107,7 +110,8 @@
                     "fieldvars":["rh","thetae","thetaestar"],
                     "localvars":["lf","shf","lhf"],
                     "weightsfrom":"nn_gauss",
-                    "residualfrom":"sr_atm_eq"}},
+                    "residualfrom":"sr_atm_eq",
+                    "complexityofvariables":{"rh":1,"thetae":1,"thetaestar":1}}},
             "optimizedeqs":{
                 "sr_bl_eq":{
                     "runfrom":"sr_bl",
@@ -129,18 +133,16 @@
                     "description":"SR-SFC"},
                 "sr_all_eq":{
                     "runfrom":"sr_all",
-                    "refcomplexity":15,
-                    "form":"sr_atm_eq+(thetae+c9*shf)*cube(c10-lf)",
+                    "refcomplexity":null,
+                    "form":"sr_atm_eq+c14*(thetae+c15*shf)*cube(c16-lf)",
                     "color":"#B91B23",
-                    "seeds":[102],
                     "description":"SR-ALL"},
                 "sr_all_pc_eq":{
                     "runfrom":"sr_all",
                     "refcomplexity":null,
                     "complexity":24,
-                    "form":"sr_atm_eq+(thetae+c12*shf)*cube(c13-lf)+cube(1-c13)*thetae",
-                    "init":{"c12":5.63,"c13":0.70},
-                    "seeds":[102],
+                    "form":"sr_atm_eq+c14*(thetae+c15*shf)*cube(c16-lf)+c14*cube(1-c16)*thetae",
+                    "initfrom":"sr_all_eq",
                     "color":"#821216",
                     "description":"SR-ALL-PC"}
             }

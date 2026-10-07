@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import json
 import logging
 import argparse
 import numpy as np
@@ -9,7 +8,8 @@ import pandas as pd
 import xarray as xr
 from scripts.utils import Config
 from scripts.data.classes import PredictionWriter
-from scripts.models.sr.train import load_data,eval_baseline
+from scripts.models.sr.train import load_data,load_stats
+from scripts.models.sr.equations import evaluate,raw_to_precip
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ def parse():
     selectedruns = None if args.runs=='all' else {n.strip() for n in args.runs.split(',')}
     return selectedruns,args.split
 
-def predict_pareto(equations,x,predictornames,zmin,writer,validmask,refda):
+def predict_pareto(equations,x,predictornames,writer,validmask,refda):
     '''
     Purpose: Evaluate every equation on the Pareto frontier from a CSV and return
         gridded predictions keyed by complexity.
@@ -35,7 +35,6 @@ def predict_pareto(equations,x,predictornames,zmin,writer,validmask,refda):
     - equations (pd.DataFrame): Pareto frontier with 'complexity' and 'equation' columns
     - x (pd.DataFrame): valid predictor features
     - predictornames (list[str]): predictor column names
-    - zmin (float): minimum z-score value for non-negative predictions
     - writer (PredictionWriter): handles unflattening and denormalization
     - validmask (np.ndarray): boolean mask for valid samples
     - refda (xr.DataArray): reference DataArray with (time, lat, lon) coordinates
@@ -46,10 +45,8 @@ def predict_pareto(equations,x,predictornames,zmin,writer,validmask,refda):
     for _,row in equations.iterrows():
         eqstr = str(row['equation'])
         columns = {p:x[p].values for p in predictornames}
-        raw  = eval_baseline(eqstr,columns,{})
-        flat = zmin+np.maximum(raw,0.0)
-        gridded = np.clip(np.expm1(writer.unflatten(flat,validmask,refda)*writer.std+writer.mean),0.0,None).astype(np.float32)
-        preds[int(row['complexity'])] = gridded
+        raw  = evaluate(eqstr,columns,{})
+        preds[int(row['complexity'])] = writer.unflatten(raw_to_precip(raw,writer.std),validmask,refda)
     return preds
 
 def assemble_predictions(seedpreds,seeds,writer,refda):
@@ -66,7 +63,7 @@ def assemble_predictions(seedpreds,seeds,writer,refda):
     - xr.Dataset: predictions with dims (time, lat, lon, seed, complexity)
     '''
     allcomplexities = sorted(set().union(*[set(p.keys()) for p in seedpreds]))
-    nanarray        = np.full(refda.shape,np.nan,dtype=np.float32)
+    nanarray        = np.full(refda.shape,np.nan,dtype=np.float64)
     stacked         = np.stack(
         [np.stack([seeddict.get(c,nanarray) for c in allcomplexities],axis=-1) for seeddict in seedpreds],
         axis=-2)
@@ -86,10 +83,6 @@ if __name__=='__main__':
     logger.info('Spinning up...')
     selectedruns,split = parse()
     writer    = PredictionWriter(config.splitsdir,targetvar=targetvar)
-    statsfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','data','splits','stats.json'))
-    with open(statsfile,'r',encoding='utf-8') as f:
-        stats = json.load(f)
-    zmin    = (0.0-stats[f'{targetvar}_mean'])/stats[f'{targetvar}_std']
     cachedkey  = None
     cacheddata = None
     for name,runconfig in runs.items():
@@ -102,7 +95,7 @@ if __name__=='__main__':
         fieldvars   = runconfig['fieldvars']
         localvars   = runconfig.get('localvars',[])
         weightsfrom = runconfig.get('weightsfrom')
-        cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,split)
+        cachekey    = (tuple(fieldvars),tuple(localvars),weightsfrom,runconfig.get('residualfrom'),split)
         if cachekey!=cachedkey:
             logger.info(f'   Loading normalized {split} split for fieldvars={fieldvars}, localvars={localvars}...')
             x,y,refda,validmask = load_data(split,runconfig,config)
@@ -120,7 +113,7 @@ if __name__=='__main__':
                 break
             equations = pd.read_csv(csvpath)
             logger.info(f'   Evaluating `{name}` seed {seedidx+1}/{len(seeds)} ({seed}) ({validmask.sum()} valid samples, {len(equations)} Pareto equations)...')
-            seedpreds.append(predict_pareto(equations,xvalid,predictors,zmin,writer,validmask,refda))
+            seedpreds.append(predict_pareto(equations,xvalid,predictors,writer,validmask,refda))
         else:
             logger.info(f'   Saving predictions for `{name}`...')
             predds = assemble_predictions(seedpreds,seeds,writer,refda)
