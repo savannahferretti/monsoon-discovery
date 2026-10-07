@@ -14,13 +14,12 @@ from scripts.models.sr.equations import evaluate,load_registry
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
-warnings.filterwarnings('ignore', category=FutureWarning)
-warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore',category=FutureWarning)
+warnings.filterwarnings('ignore',category=UserWarning)
 
 def select_pareto_elbow(equations,mincomplexity=3):
     '''
-    Purpose: Select the equation at the elbow of the Pareto frontier, where marginal loss
-        reduction per unit complexity is largest.
+    Purpose: Select the equation at the elbow of the Pareto frontier.
     Args:
     - equations (pd.DataFrame): model.equations_ with 'complexity' and 'loss' columns
     - mincomplexity (int): ignore equations simpler than this (avoids trivial picks)
