@@ -4,9 +4,10 @@ import os
 import xesmf
 import logging
 import numpy as np
+import pandas as pd
 import xarray as xr
 from datetime import datetime
-from scripts.utils import save
+from scripts.utils import load,save
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class DataCalculator:
 
     def retrieve(self,longname):
         '''
-        Purpose: Lazily import in a NetCDF file as an xr.DataArray with ascending pressure levels, if applicable
+        Purpose: Lazily import in a NetCDF file as a float64 xr.DataArray with ascending pressure levels, if applicable
         (e.g., [500,550,600,...] hPa).
         Args:
         - longname (str): variable description
@@ -42,7 +43,8 @@ class DataCalculator:
         '''
         filename = f'{longname}.nc'
         filepath = os.path.join(self.filedir,filename)
-        da = xr.open_dataarray(filepath,engine='h5netcdf')
+        ds = load(filepath,lazy=True)
+        da = ds[list(ds.data_vars)[0]]
         if 'lev' in da.dims:
             if not np.all(np.diff(da.lev.values)>0):
                 da = da.sortby('lev')
@@ -77,6 +79,33 @@ class DataCalculator:
             self.regridders[key] = xesmf.Regridder(da,targetgrid,method=method)
         da = self.regridders[key](da,keep_attrs=True)
         return da
+
+    def resample(self,da,method,timewindow,label='start'):
+        '''
+        Purpose: Coarsen an xr.DataArray to windows [T, T+timewindow] starting at 00 UTC, keeping only complete windows.
+        Args:
+        - da (xr.DataArray): input DataArray
+        - method (str): 'trapezoid' (for instantaneous variables) | 'mean' (for rates/fluxes) | 'sum' (for accumulations)
+        - timewindow (int): window length (hours)
+        - label (str): 'start' if the value at t covers [t, t+Δt) | 'end' if it covers (t-Δt, t] (defaults to 'start')
+        Returns:
+        - xr.DataArray: coarsened DataArray
+        '''
+        times = pd.DatetimeIndex(da.time.values)
+        step  = pd.Series(times).diff().min()
+        if method=='trapezoid':
+            left  = da.isel(time=slice(0,-1))
+            right = da.isel(time=slice(1,None)).assign_coords(time=left.time.values)
+            da    = (0.5*(left+right)).isel(time=np.where((times[1:]-times[:-1])==step)[0])
+            times = pd.DatetimeIndex(da.time.values)
+        elif label=='end':
+            times = times-step
+        windows = times.floor(f'{timewindow}h')
+        counts  = pd.Series(windows).value_counts()
+        complete = np.sort(counts.index[counts==pd.Timedelta(hours=timewindow)/step].values)
+        da = da.assign_coords(window=('time',windows))
+        result = da.groupby('window').sum() if method=='sum' else da.groupby('window').mean()
+        return result.sel(window=complete).rename({'window':'time'})
 
     def calc_es(self,t):
         '''

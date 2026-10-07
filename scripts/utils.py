@@ -8,16 +8,20 @@ import xarray as xr
 
 logger = logging.getLogger(__name__)
 
-def load(filepath):
+def load(filepath,lazy=False):
     '''
-    Purpose: Read a NetCDF/HDF5 file into memory and convert floating-point data variables to float64.
+    Purpose: Read a NetCDF/HDF5 file and convert floating-point data variables to float64.
     Args:
     - filepath (str): file path
+    - lazy (bool): if True, open with dask and defer reading (for files too large to hold in memory at once)
     Returns:
     - xr.Dataset: Dataset with float64 data variables
     '''
-    with xr.open_dataset(filepath,engine='h5netcdf') as ds:
-        ds = ds.load()
+    if lazy:
+        ds = xr.open_dataset(filepath,engine='h5netcdf',chunks={})
+    else:
+        with xr.open_dataset(filepath,engine='h5netcdf') as ds:
+            ds = ds.load()
     return ds.assign({name:da.astype(np.float64) for name,da in ds.data_vars.items() if da.dtype.kind=='f'})
 
 def save(ds,filepath,timechunksize=736):
