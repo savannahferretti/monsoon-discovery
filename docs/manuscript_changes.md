@@ -20,9 +20,8 @@ SR-SFC and SR-ALL forms are updated in `configs.json` and `equations.py`. If SR-
 
 `equations.ipynb` (Table S2) now reads the registry and `equations.py` directly and lists only optimized equations. The notebooks below still retype the equations with the old constant names (c6–c13) instead of importing `scripts/models/sr/equations.py`, so they must be updated to the final forms (ideally by importing `equations.py`):
 
-- `srsfc.ipynb` (Figure 5), `srall.ipynb` (Figure 6), `constraints.ipynb` (Table 1, Table S3, Figure S2): old forms and constants.
-- `constraints.ipynb` also still reads `norm_*.h5`; switch to `{split}.h5` + `stats.json`.
-- `diurnal.ipynb` (diurnal table): reads `sr_all_eq`/`sr_all_pc_eq` predictions by name; fine once those exist.
+- `srsfc.ipynb` (Figure 5), `srall.ipynb` (Figure 6): old forms and constants.
+- `diurnal.ipynb` and `constraints.ipynb` now loop over whatever equations are in the registry (`constraints` uses `load_features` and finite-difference gradients through `equations.evaluate`).
 
 ## Key Points, Abstract, PLS
 - Key points need to be "verified" that they still apply given the new results.
