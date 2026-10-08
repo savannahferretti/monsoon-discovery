@@ -33,7 +33,7 @@ Running list of edits the rerun requires. At the end, send the updated figures/t
 
 - SR-ALL form is now `sr_atm_eq + c14·(θe + c15·SHF)·cube(c16 − LF)` (free scale c14 on the correction); SR-ALL-PC adds `c14·cube(1 − c16)·θe`. Update the equations, the SR-ALL-PC definition, and the derivatives in Section 3.7.
 - The final optimized forms depend on the new SR searches and may differ; update all equations and physical constants once they are fixed.
-- **Table S2:** physical constants from `models/sr/{eq}_test_constants.json` (4 significant figures; enough digits to reproduce predictions).
+- **Table S2:** physical constants from `equations.calc_physical_constants` (registry + stats.json) (4 significant figures; enough digits to reproduce predictions).
 - All skill numbers, Pareto figures, diurnal and constraint results: update and flag any qualitative change.
 
 ## SI additions

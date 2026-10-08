@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import json
 import logging
 import argparse
 import numpy as np
@@ -170,9 +169,8 @@ def get_initial_constants(eqspec,constantnames,predictornames,config,registry):
 
 def check_physical_form(name,registry,stats,config,split,x,validmask):
     '''
-    Purpose: Check that the physical-space form with physical constants reproduces the standardized-form predictions
-    (warning if they differ by more than float32 rounding), and save both sets of constants to
-    {name}_{split}_constants.json.
+    Purpose: Check that the physical-space form with physical constants reproduces the standardized-form predictions,
+    and warn if they differ by more than float32 rounding.
     Args:
     - name (str): equation name
     - registry (dict[str,dict]): optimized equations
@@ -200,11 +198,6 @@ def check_physical_form(name,registry,stats,config,split,x,validmask):
     float32step = float(np.spacing(np.float32(np.max(stdprecip))))
     if maxdiff>float32step:
         logger.warning(f'   Physical-space form of `{name}` differs from the standardized form by more than float32 rounding')
-    filepath = os.path.join(config.modelsdir,'sr',f'{name}_{split}_constants.json')
-    with open(filepath,'w',encoding='utf-8') as f:
-        json.dump({'standardized':registry[name]['constants'],'physical':physical,'maxdiff':maxdiff,'float32step':float32step},f,indent=2)
-    with open(filepath,'r',encoding='utf-8') as f:
-        json.load(f)
 
 def save_predictions(name,form,constants,runconfig,config,writer,split,stats):
     '''
