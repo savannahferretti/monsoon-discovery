@@ -125,7 +125,6 @@
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
                     "form":"c3*cube(max(rh,thetae-c4*thetaestar-c5))",
-                    "seeds":[42,102],
                     "color":"#FB992F",
                     "description":"SR-ATM"},
                 "sr_sfc_eq":{
