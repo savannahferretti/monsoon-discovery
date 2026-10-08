@@ -154,7 +154,7 @@ def calc_physical_constants(name,registry,stats):
 
 def get_physical_form(name):
     '''
-    Purpose: LaTeX physical-space form of an optimized equation, matching calc_physical_precip(). E_ATM is the SR-ATM exponent.
+    Purpose: LaTeX physical-space form of an optimized equation's s_y·z, matching calc_physical_precip(). E_ATM is SR-ATM's s_y·z.
     Args:
     - name (str): equation name
     Returns:
@@ -170,7 +170,7 @@ def get_physical_form(name):
         'sr_all_pc_eq':srall+r'+\lambda_{\theta_e}(1-\mathrm{LF}_c)^3(\theta_e-\mu_{\theta_e})'}
     if name not in exponents:
         raise ValueError(f'No physical form for `{name}`')
-    return rf'$P=\exp\left[{exponents[name]}\right]-1$'
+    return f'${exponents[name]}$'
 
 def calc_physical_precip(name,physical,inputs,stats):
     '''
