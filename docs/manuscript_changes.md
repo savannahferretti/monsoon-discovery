@@ -14,7 +14,8 @@ Running list of edits the rerun requires. At the end, send the updated figures/t
 - SR-ALL-PC initialization: "from the SR-ALL constants found by PySR" → "from the optimized SR-ALL constants".
 - Add after the variable-complexity sentence: "The exception is the SR-ALL search, in which the kernel-integrated features contribute 1 unit each, so that reusing them in the correction is not penalized relative to the surface variables."
 - Optional: "its predictions enter with weight 1" → "its output enters with weight 1".
-- Update after rerun: dry fraction ("approximately 19%"); seeds that found each structure (SR-BL, SR-ATM, SR-SFC, SR-ALL).
+- Dry fraction checked: 19.3% of combined training+validation samples (text's "approximately 19%" stands).
+- Update after the SR searches: seeds that found each structure (SR-BL, SR-ATM, SR-SFC, SR-ALL) in the Constant Optimization paragraph (placeholders provided).
 - Unchanged (checked against `configs.json`): operators and complexities, max size 20 (10 for SR-BL), depth 10, 20 × 150 populations, 200 iterations, parsimony 0.0025, constant-optimization weight 0.25, ~8.6M combined samples, ~215,000 at 2.5%, 50 initializations, [−5, 5].
 
 ## Text S2 (Gaussian Kernel Parameterization), Table S1, Figure S1
