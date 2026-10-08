@@ -145,9 +145,9 @@ def calc_physical_constants(name,registry,stats):
         return physical
     c = registry[name]['constants']
     if name=='sr_sfc_eq':
-        physical.update(lamshf=sy*c['c6']/std('shf'),lfc=c['c7'],lamlhf=sy*c['c8']/std('lhf'))
-    elif name in ('sr_all_eq','sr_all_pc_eq'):
-        physical.update(lamthetae=sy*c['c14']/std('thetae'),lamshf=sy*c['c14']*c['c15']/std('shf'),lfc=c['c16'])
+        physical.update(lamshf=sy/std('shf'),lfc=c['c6'],lamlhf=sy*c['c7']/std('lhf'))
+    elif name=='sr_all_eq':
+        physical.update(lamthetae=sy*c['c8']/std('thetae'),lamshf=sy/std('shf'),lfc=c['c9'])
     else:
         raise ValueError(f'No physical form for `{name}`')
     return physical
@@ -161,13 +161,11 @@ def get_physical_form(name):
     - str: LaTeX equation
     '''
     atm   = r'\lambda\max\left(\kappa(\mathrm{RH}-\mu_\mathrm{RH}),\,\theta_e-\gamma\theta_e^*-\Theta_c\right)^3'
-    srall = r'E_\mathrm{ATM}+(\mathrm{LF}_c-\mathrm{LF})^3\left[\lambda_{\theta_e}(\theta_e-\mu_{\theta_e})+\lambda_\mathrm{SHF}(\mathrm{SHF}-\mu_\mathrm{SHF})\right]'
     exponents = {
         'sr_bl_eq':r'\lambda(B_L-B_c)^3+\beta',
         'sr_atm_eq':atm,
         'sr_sfc_eq':r'E_\mathrm{ATM}+\lambda_\mathrm{SHF}(\mathrm{LF}_c-\mathrm{LF})(\mathrm{SHF}-\mu_\mathrm{SHF})+\lambda_\mathrm{LHF}(\mathrm{LHF}-\mu_\mathrm{LHF})',
-        'sr_all_eq':srall,
-        'sr_all_pc_eq':srall+r'+\lambda_{\theta_e}(1-\mathrm{LF}_c)^3(\theta_e-\mu_{\theta_e})'}
+        'sr_all_eq':r'E_\mathrm{ATM}+(\mathrm{LF}_c-\mathrm{LF})^3\left[\lambda_\mathrm{SHF}(\mathrm{SHF}-\mu_\mathrm{SHF})+\lambda_{\theta_e}(\theta_e-\mu_{\theta_e})\right]'}
     if name not in exponents:
         raise ValueError(f'No physical form for `{name}`')
     return f'${exponents[name]}$'
@@ -193,8 +191,6 @@ def calc_physical_precip(name,physical,inputs,stats):
         exponent    = p['lam']*np.maximum(moisture,instability)**3
         if name=='sr_sfc_eq':
             exponent = exponent+p['lamshf']*(p['lfc']-inputs['lf'])*(inputs['shf']-mean('shf'))+p['lamlhf']*(inputs['lhf']-mean('lhf'))
-        elif name in ('sr_all_eq','sr_all_pc_eq'):
-            exponent = exponent+(p['lfc']-inputs['lf'])**3*(p['lamthetae']*(inputs['thetae']-mean('thetae'))+p['lamshf']*(inputs['shf']-mean('shf')))
-            if name=='sr_all_pc_eq':
-                exponent = exponent+p['lamthetae']*(1-p['lfc'])**3*(inputs['thetae']-mean('thetae'))
+        elif name=='sr_all_eq':
+            exponent = exponent+(p['lfc']-inputs['lf'])**3*(p['lamshf']*(inputs['shf']-mean('shf'))+p['lamthetae']*(inputs['thetae']-mean('thetae')))
     return np.maximum(np.expm1(exponent),0.0)

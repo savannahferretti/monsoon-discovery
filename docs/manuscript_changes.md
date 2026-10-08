@@ -10,11 +10,11 @@ Every results section needs two checks: (1) the text against its regenerated fig
 |---|---|---|
 | SR-BL | `cube(bl+c1)+c2` | Fixed (complexity 7, seeds 42/72/102). |
 | SR-ATM | `c3*cube(max(rh,thetae-c4*thetaestar-c5))` | Fixed (complexity 17, seeds 42/102). |
-| SR-SFC | uses `sr_atm_eq` as an input | Searches being rerun; pick from the new tables (additive in `sr_atm_eq`, used once). |
-| SR-ALL | uses `sr_atm_eq` as an input | Searches being rerun; pick from the new tables (additive in `sr_atm_eq`, used once, ≥1 kernel-integrated feature). |
-| SR-ALL-PC | modification of SR-ALL | Old fix (`+cube(1−c)·θe`) no longer applies; define once SR-ALL and its constraint results are known. |
+| SR-SFC | `sr_atm_eq+shf*(c6-lf)+c7*lhf` | Chosen (complexity 14, seed 72; same structure in SR-ALL seeds 72 and 102). Old form without the SHF scale constant. |
+| SR-ALL | `sr_atm_eq+(shf+c8*thetae)*cube(c9-lf)` | Chosen (complexity 15, seed 72; starts from `init`, no structural match). |
+| SR-ALL-PC | — | Removed from `configs.json`; with c9 > 1 SR-ALL may already satisfy PC₂. Decide after the constraint results. |
 
-Once SR-SFC, SR-ALL, and SR-ALL-PC are fixed, update in code: their forms, `refcomplexity`, and `seeds` in `configs.json` (and SR-ALL-PC's `complexity`, used for Figure 1), and their physical forms in `equations.py` (`calc_physical_constants`, `calc_physical_precip`).
+SR-SFC and SR-ALL forms are updated in `configs.json` and `equations.py`. If SR-ALL-PC returns, add it to both (and its `complexity`, used for Figure 1).
 
 ## Notebooks to update before regenerating figures/tables
 
@@ -36,7 +36,7 @@ Once SR-SFC, SR-ALL, and SR-ALL-PC are fixed, update in code: their forms, `refc
 
 - **2.3 Experimental Design:** SR-ALL-PC paragraph: check once SR-ALL-PC is defined.
 - **Text S3** (kept here with the SR methods):
-  - Seeds that found each structure (Constant Optimization paragraph): SR-BL 42, 72, and 102 (complexity 7); SR-ATM 42 and 102 (complexity 17); SR-SFC and SR-ALL still to come.
+  - Seeds that found each structure (Constant Optimization paragraph): SR-BL 42, 72, and 102 (complexity 7); SR-ATM 42 and 102 (complexity 17); SR-SFC 72 (complexity 14); SR-ALL 72 (complexity 15).
   - Search settings changed for the rerun of all four searches: "its predictions enter with weight 1, since that equation has already been optimized and adds no degrees of freedom" → the existing equation's output has complexity 2, like the other time-varying predictors; add that denominators are limited to complexity 1 (a constant or LF), alongside the existing limits on exponents and nested compositions.
   - Unchanged (checked against `configs.json`): operators and complexities, max size 20 (10 for SR-BL), depth 10, 20 × 150 populations, 200 iterations, parsimony 0.0025, constant-optimization weight 0.25, ~8.6M combined samples, ~215,000 at 2.5%, 50 initializations, [−5, 5].
 
