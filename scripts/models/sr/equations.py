@@ -152,6 +152,26 @@ def calc_physical_constants(name,registry,stats):
         raise ValueError(f'No physical form for `{name}`')
     return physical
 
+def get_physical_form(name):
+    '''
+    Purpose: LaTeX physical-space form of an optimized equation, matching calc_physical_precip(). E_ATM is the SR-ATM exponent.
+    Args:
+    - name (str): equation name
+    Returns:
+    - str: LaTeX equation
+    '''
+    atm   = r'\lambda\max\left(\kappa(\mathrm{RH}-\mu_\mathrm{RH}),\,\theta_e-\gamma\theta_e^*-\Theta_c\right)^3'
+    srall = r'E_\mathrm{ATM}+(\mathrm{LF}_c-\mathrm{LF})^3\left[\lambda_{\theta_e}(\theta_e-\mu_{\theta_e})+\lambda_\mathrm{SHF}(\mathrm{SHF}-\mu_\mathrm{SHF})\right]'
+    exponents = {
+        'sr_bl_eq':r'\lambda(B_L-B_c)^3+\beta',
+        'sr_atm_eq':atm,
+        'sr_sfc_eq':r'E_\mathrm{ATM}+\lambda_\mathrm{SHF}(\mathrm{LF}_c-\mathrm{LF})(\mathrm{SHF}-\mu_\mathrm{SHF})+\lambda_\mathrm{LHF}(\mathrm{LHF}-\mu_\mathrm{LHF})',
+        'sr_all_eq':srall,
+        'sr_all_pc_eq':srall+r'+\lambda_{\theta_e}(1-\mathrm{LF}_c)^3(\theta_e-\mu_{\theta_e})'}
+    if name not in exponents:
+        raise ValueError(f'No physical form for `{name}`')
+    return rf'$P=\exp\left[{exponents[name]}\right]-1$'
+
 def calc_physical_precip(name,physical,inputs,stats):
     '''
     Purpose: Predict precipitation with the physical-space form of an optimized equation, P = max(exp(E) − 1, 0).
