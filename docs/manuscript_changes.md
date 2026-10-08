@@ -19,8 +19,9 @@ Running list of edits the rerun requires. At the end, send the updated figures/t
 
 ## Text S2 (Gaussian Kernel Parameterization), Table S1, Figure S1
 
-- Update validation R² for NN-GAUSS and NN-NONPARAM (0.529 / 0.533).
-- Re-check kernel-shape descriptions (bimodal RH, near-surface θe, two-lobed θe*) against the new Figure S1, and the peak/spread values in Table S1.
+- Done: R² (0.512 / 0.509), Table S1 values, θe and θe* descriptions checked against the new Figure S1.
+- RH sentence: nonparametric RH now peaks near the surface and near the top of the column (σ ≈ 0.5–0.6), not the lower free troposphere; replacement sentence provided.
+- Confirm inter-seed kernel variability is still negligible before keeping that statement in the Table S1 and Figure S1 captions.
 
 ## Text S4 (Physical Constraint Evaluation), Table S3, Figure S2
 
