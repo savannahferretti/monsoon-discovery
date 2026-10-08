@@ -198,7 +198,6 @@ def check_physical_form(name,registry,stats,config,split,x,validmask):
     stdprecip  = raw_to_precip(evaluate(registry[name]['form'],columns,registry[name]['constants']),stats[f'{config.targetvar}_std'])[validmask]
     maxdiff    = float(np.max(np.abs(physprecip-stdprecip)))
     float32step = float(np.spacing(np.float32(np.max(stdprecip))))
-    logger.info(f'   {split} physical vs standardized: max |diff| = {maxdiff:.2e} mm (float32 step at max = {float32step:.2e} mm)')
     if maxdiff>float32step:
         logger.warning(f'   Physical-space form of `{name}` differs from the standardized form by more than float32 rounding')
     filepath = os.path.join(config.modelsdir,'sr',f'{name}_{split}_constants.json')
