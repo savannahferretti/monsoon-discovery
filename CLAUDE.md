@@ -29,7 +29,6 @@ python -m scripts.models.nn.train --runs all # or comma-separated nn_bl,nn_full
 
 # Evaluation
 python -m scripts.models.nn.evaluate --runs all --split test
-python -m scripts.models.sr.evaluate --runs all --split test
 
 # SR constant optimization
 python -m scripts.models.sr.optimize --equations all --splits test
@@ -70,9 +69,9 @@ Claude Code works on a `claude` branch and cannot run experiments here (no NERSC
 
 **NN** (`scripts/models/nn/`): three `kind` variants — `baseline` (flattened profiles + local vars), `nonparametric` (free-form learned vertical kernel), `parametric` (Gaussian kernel, learnable mu/sigma). Shared 4-layer GELU backbone; output `zmin + ReLU(f(x))` (non-negative precip). Target: z-scored `log1p(tp)`. Kernel models save integration weights to `data/weights/`, reused by SR. Checkpoints: `{run}_{seed}.pth`. Logged to W&B.
 
-**SR** (`scripts/models/sr/`): `train.py` runs PySR search (Julia backend) → equation tables (`.csv`). Kernel-integrated features (`weightsfrom`): NN kernels renormalized in float64 (sum(k·Δσ)=1), averaged over seeds, applied to physical profiles, then standardized. `residualfrom` adds a prior optimized SR equation as a predictor. Per-run `complexityofvariables` overrides `sr.complexity.ofvariables`. `optimize.py` fits constants of hand-specified forms (`sr.optimizedeqs`) via L-BFGS-B multistart: one start from the run's own PySR results (the optimized constants of `initfrom`; else a structural match at `refcomplexity`, averaged over `seeds`; else constants copied by hand from the PySR table into `init`), plus random starts (`sr.nrestarts` total, uniform ±`sr.initscale`); constants rounded to `sr.constantsigfigs` significant figures → `optimized_equations.csv` registry; physical-space predictions are checked against standardized ones and both constant sets saved to `models/sr/{eq}_{split}_constants.json`. `evaluate.py` generates full Pareto frontier predictions from CSVs. `equations.py` is the only place equations are evaluated and physical constants derived. `--predict-only` flag on `optimize.py` skips optimization and predicts from existing constants.
+**SR** (`scripts/models/sr/`): `train.py` runs PySR search (Julia backend) → equation tables (`.csv`). Kernel-integrated features (`weightsfrom`): NN kernels renormalized in float64 (sum(k·Δσ)=1), averaged over seeds, applied to physical profiles, then standardized. `residualfrom` adds a prior optimized SR equation as a predictor. Per-run `complexityofvariables` overrides `sr.complexity.ofvariables`. `optimize.py` fits constants of hand-specified forms (`sr.optimizedeqs`) via L-BFGS-B multistart: one start from the run's own PySR results (the optimized constants of `initfrom`; else a structural match at `refcomplexity`, averaged over `seeds`; else constants copied by hand from the PySR table into `init`), plus random starts (`sr.nrestarts` total, uniform ±`sr.initscale`); constants rounded to `sr.constantsigfigs` significant figures → `optimized_equations.csv` registry; physical-space predictions are checked against standardized ones and both constant sets saved to `models/sr/{eq}_{split}_constants.json`. `equations.py` is the only place equations are evaluated and physical constants derived. `--predict-only` flag on `optimize.py` skips optimization and predicts from existing constants.
 
-**Predictions:** `data/predictions/{run}_{split}_predictions.nc`. NN → `seed` dim; SR → `seed` + `complexity` dims (full Pareto frontier). Native mm units, post-denormalization.
+**Predictions:** `data/predictions/{name}_{split}_predictions.nc`. NN runs → `seed` dim; optimized SR equations (written by `optimize.py`) → single prediction. Native mm units, post-denormalization.
 
 ## Code Style
 
