@@ -71,7 +71,7 @@ def multistart_optimize(form,columns,y,zmin,inits,nworkers):
         logger.debug(f'     restart {i+1}/{len(inits)}: loss={res.fun:.6f} converged={res.success}')
     return min(results,key=lambda result:result[1].fun)
 
-def get_pysr_constants(form,predictornames,refcomplexity,runname,seeds,modelsdir):
+def get_pysr_constants(form,predictornames,refcomplexity,runname,seeds,modelsdir,base=None):
     '''
     Purpose: Read the constants of a form from the PySR equations at refcomplexity, by matching the form's structure
     to each seed's equation, and average them across the seeds that match.
@@ -82,6 +82,7 @@ def get_pysr_constants(form,predictornames,refcomplexity,runname,seeds,modelsdir
     - runname (str): SR run whose equation tables are searched
     - seeds (list[int]): seeds to search
     - modelsdir (str): models directory
+    - base (str | None): base equation added to each table equation, for additive searches (defaults to None)
     Returns:
     - dict[str,float]: averaged constants (empty if no seed matches)
     '''
@@ -109,6 +110,8 @@ def get_pysr_constants(form,predictornames,refcomplexity,runname,seeds,modelsdir
         if row.empty:
             continue
         pysreq = str(row.iloc[0]['equation']).replace('^','**')
+        if base:
+            pysreq = f'{base}+({pysreq})'
         try:
             match = sp.sympify(pysreq,locals=dict(sympyfunctions,**predictorsyms)).match(formexpr)
         except Exception:
@@ -153,7 +156,8 @@ def get_initial_constants(eqspec,constantnames,predictornames,config,registry):
     if initfrom:
         first,source = registry.get(initfrom,{}).get('constants',{}),f'optimized `{initfrom}`'
     else:
-        first,source = get_pysr_constants(eqspec['form'],predictornames,eqspec.get('refcomplexity'),eqspec['runfrom'],eqspec.get('seeds',sr['seeds']),config.modelsdir),'PySR match (averaged across seeds)'
+        first,source = get_pysr_constants(eqspec['form'],predictornames,eqspec.get('refcomplexity'),eqspec['runfrom'],eqspec.get('seeds',sr['seeds']),config.modelsdir,
+            sr['runs'][eqspec['runfrom']]['residualfrom'] if sr['runs'][eqspec['runfrom']].get('additive') else None),'PySR match (averaged across seeds)'
         if not first:
             first,source = eqspec.get('init',{}),'configured PySR constants (`init`)'
     if first and set(constantnames)<=set(first):

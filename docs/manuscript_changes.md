@@ -15,7 +15,7 @@ Running list of edits the rerun requires. At the end, send the updated figures/t
 - Rounding: "two decimal places" → "four significant figures".
 - SR-ALL-PC initialization: "from the SR-ALL constants found by PySR" → "from the optimized SR-ALL constants".
 - Add after the variable-complexity sentence: "The exception is the SR-ALL search, in which the kernel-integrated features contribute 1 unit each, so that reusing them in the correction is not penalized relative to the surface variables."
-- Optional: "its predictions enter with weight 1" → "its output enters with weight 1".
+- SR-SFC and SR-ALL now search only for additive corrections to SR-ATM: replace "In searches that build on an existing equation, its predictions enter with weight 1, since that equation has already been optimized and adds no degrees of freedom." with a sentence saying the existing equation's output is added to every candidate, so complexity counts only the correction.
 - Dry fraction checked: 19.3% of combined training+validation samples (text's "approximately 19%" stands).
 - Seeds that found each structure (Constant Optimization paragraph): SR-BL 42, 72, and 102 (complexity 7); SR-ATM 42 and 102 (complexity 17); SR-SFC and SR-ALL still to come.
 - Unchanged (checked against `configs.json`): operators and complexities, max size 20 (10 for SR-BL), depth 10, 20 × 150 populations, 200 iterations, parsimony 0.0025, constant-optimization weight 0.25, ~8.6M combined samples, ~215,000 at 2.5%, 50 initializations, [−5, 5].
