@@ -290,6 +290,7 @@ if __name__=='__main__':
         validloss = calc_loss(form,validcols,yval,zmin,constants)
         logger.info(f'   Rounded constants ({sr["constantsigfigs"]} significant figures): {", ".join(f"{k}={v}" for k,v in constants.items())}')
         logger.info(f'   Rounded Training Loss: {trainloss:.6f} | Rounded Validation Loss: {validloss:.6f}')
+        registry = {**load_registry(config.modelsdir),**registry}
         registry[name] = dict(form=form,constants=constants,train_loss=trainloss,valid_loss=validloss)
         save_registry(registry,config.modelsdir)
         logger.info(f'   Registry saved ({len(registry)} equation(s))')
