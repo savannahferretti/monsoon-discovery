@@ -251,6 +251,8 @@ if __name__=='__main__':
             sr['searchparams'].pop('targettotal',None)
         searchparams = {**sr['searchparams'],**runconfig.get('searchparams',{})}
         complexity   = {**sr['complexity'],'ofvariables':{**sr['complexity']['ofvariables'],**runconfig.get('complexityofvariables',{})}}
+        if runconfig.get('residualfrom'):
+            complexity['ofvariables'][runconfig['residualfrom']] = 2
         srrun        = {**sr,'searchparams':searchparams,'complexity':complexity}
         populations  = searchparams.get('populations',3*procs)
         niterations  = searchparams.get('targettotal',searchparams['iterations']*populations)//populations
