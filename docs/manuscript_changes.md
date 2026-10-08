@@ -18,9 +18,8 @@ Once SR-SFC, SR-ALL, and SR-ALL-PC are fixed, update in code: their forms, `refc
 
 ## Notebooks to update before regenerating figures/tables
 
-These retype the equations with the old constant names (c6–c13) instead of importing `scripts/models/sr/equations.py`, so they must be updated to the final forms (ideally by importing `equations.py`):
+`equations.ipynb` (Table S2) now reads the registry and `equations.py` directly and lists only optimized equations. The notebooks below still retype the equations with the old constant names (c6–c13) instead of importing `scripts/models/sr/equations.py`, so they must be updated to the final forms (ideally by importing `equations.py`):
 
-- `equations.ipynb` (Table S2): old SR-SFC/SR-ALL/SR-ALL-PC forms; its last saved run already shows the SR-ALL physical form failing against the standardized form.
 - `srsfc.ipynb` (Figure 5), `srall.ipynb` (Figure 6), `constraints.ipynb` (Table 1, Table S3, Figure S2): old forms and constants.
 - `constraints.ipynb` also still reads `norm_*.h5`; switch to `{split}.h5` + `stats.json`.
 - `diurnal.ipynb` (diurnal table): reads `sr_all_eq`/`sr_all_pc_eq` predictions by name; fine once those exist.
