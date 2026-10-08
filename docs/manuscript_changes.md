@@ -1,5 +1,7 @@
 # Manuscript changes for the concurrent-timing rerun
 
+Scope: only changes needed for the manuscript to be correct at its level of detail; implementation details (precision, quadrature, regridding method) are left to the released code.
+
 Running list of edits the rerun requires. At the end, send the updated figures/tables and the relevant sections; each item below gets checked against them.
 
 ## Already drafted (confirm applied)
@@ -42,6 +44,4 @@ Running list of edits the rerun requires. At the end, send the updated figures/t
 
 ## Open / optional
 
-- NN training uses TF32 and float16 mixed precision; disclose in methods/Appendix B or disable before final runs.
-- Regridding is bilinear for all variables, including land fraction (the conservative option in the code is not actually applied). If land fraction is switched to conservative regridding, Section 2.1 must say so.
 - If IMERG is described anywhere, its window is the half-hourly values from T to T+2:30.
