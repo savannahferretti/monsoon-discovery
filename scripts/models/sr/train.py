@@ -140,28 +140,9 @@ def subsample_timesteps(features,target,subsetfrac,seed,stats,logmin=-4,logmax=2
     rng.shuffle(subsetindices)
     return features.iloc[subsetindices].drop(columns=['timeidx']).reset_index(drop=True),np.asarray(target)[subsetindices]
 
-def get_additive_loss(baseidx,zmin):
+def run_search(xsub,ysub,predictors,srconfig,seed,procs,tmpdir,zmin):
     '''
-    Purpose: Julia loss for searching an additive correction f to a fixed base equation: each candidate is scored as
-    zmin + max(base + f, 0) against the standardized target.
-    Args:
-    - baseidx (int): 0-based column of the base equation's output among the predictors
-    - zmin (float): standardized value of zero precipitation
-    Returns:
-    - str: Julia function for PySR's `loss_function`
-    '''
-    return f'''function additive_loss(tree, dataset::Dataset{{T,L}}, options)::L where {{T,L}}
-    prediction, complete = eval_tree_array(tree, dataset.X, options)
-    !complete && return L(Inf)
-    base = dataset.X[{baseidx+1}, :]
-    return sum((({zmin:.8f}) .+ max.(prediction .+ base, zero(T)) .- dataset.y) .^ 2) / length(dataset.y)
-end'''
-
-def run_search(xsub,ysub,predictors,srconfig,seed,procs,tmpdir,zmin,base=None):
-    '''
-    Purpose: Run one PySR search. With `base`, the search finds an additive correction to that equation's output: the
-    base column is added to every candidate in the loss, and its complexity is set above maxsize so candidates cannot
-    use it.
+    Purpose: Run one PySR search.
     Args:
     - xsub (pd.DataFrame): subsampled predictors
     - ysub (np.ndarray): subsampled standardized target
@@ -171,7 +152,6 @@ def run_search(xsub,ysub,predictors,srconfig,seed,procs,tmpdir,zmin,base=None):
     - procs (int): number of Julia workers
     - tmpdir (str): temporary directory for PySR files
     - zmin (float): standardized value of zero precipitation
-    - base (str | None): predictor holding the base equation's output, for additive searches (defaults to None)
     Returns:
     - PySRRegressor: fitted model
     '''
@@ -180,12 +160,7 @@ def run_search(xsub,ysub,predictors,srconfig,seed,procs,tmpdir,zmin,base=None):
     complexityparams = srconfig['complexity']
     populations      = searchparams.get('populations',3*procs)
     niterations      = searchparams.get('targettotal',searchparams['iterations']*populations)//populations
-    varcomplexities  = [complexityparams['ofvariables'].get(p,2) for p in predictors]
-    if base:
-        varcomplexities[predictors.index(base)] = searchparams['maxsize']+1
-        lossargs = {'loss_function':get_additive_loss(predictors.index(base),zmin)}
-    else:
-        lossargs = {'elementwise_loss':'loss(x, y) = (x - y)^2' if searchparams.get('loss')=='plainmse' else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'}
+    loss = 'loss(x, y) = (x - y)^2' if searchparams.get('loss')=='plainmse' else f'loss(x, y) = (({zmin:.8f}) + max(x, 0.0) - y)^2'
     os.environ.setdefault('JULIA_NUM_THREADS',str(os.cpu_count() or 1))
     from pysr import PySRRegressor
     model = PySRRegressor(
@@ -198,14 +173,15 @@ def run_search(xsub,ysub,predictors,srconfig,seed,procs,tmpdir,zmin,base=None):
         binary_operators=operators['binary'],
         unary_operators=operators['unary'],
         complexity_of_operators=operators['complexity'],
-        complexity_of_variables=varcomplexities,
+        complexity_of_variables=[complexityparams['ofvariables'].get(p,2) for p in predictors]
+            if isinstance(complexityparams['ofvariables'],dict) else complexityparams['ofvariables'],
         complexity_of_constants=complexityparams['ofconstants'],
         maxsize=searchparams['maxsize'],
         maxdepth=searchparams['maxdepth'],
         constraints={k:tuple(v) for k,v in srconfig.get('constraints',{}).items()},
         nested_constraints=srconfig.get('nestedconstraints',{}),
         extra_sympy_mappings={'square':lambda x:x**2},
-        **lossargs,
+        elementwise_loss=loss,
         model_selection='best',
         batch_size=searchparams['batchsize'],
         random_state=seed,
@@ -282,11 +258,8 @@ if __name__=='__main__':
         xtrain,ytrain,reftrain,trainmask = load_features('train',runconfig,config,timeoffset=0)
         xvalid,yvalid,_,validmask        = load_features('valid',runconfig,config,timeoffset=int(reftrain.sizes['time']))
         predictors = [c for c in xtrain.columns if c!='timeidx']
-        base = runconfig['residualfrom'] if runconfig.get('additive') else None
-        varcomplexities = {p:complexity['ofvariables'].get(p,2) for p in predictors if p!=base}
+        varcomplexities = {p:complexity['ofvariables'].get(p,2) for p in predictors}
         logger.info(f'   Variable complexities: {varcomplexities}')
-        if base:
-            logger.info(f'   Searching for an additive correction to `{base}`')
         xfit = pd.concat([xtrain[trainmask],xvalid[validmask]]).reset_index(drop=True)
         yfit = np.concatenate([ytrain[trainmask],yvalid[validmask]])
         del xtrain,xvalid,ytrain,yvalid,reftrain
@@ -301,7 +274,7 @@ if __name__=='__main__':
             logger.info(f'   Starting PySR search with {niterations} iterations, {populations} populations, and {procs} workers...')
             tempdirpath = tempfile.mkdtemp(prefix='pysr_')
             try:
-                model = run_search(xsub,ysub,predictors,srrun,seed,procs,tempdirpath,zmin,base)
+                model = run_search(xsub,ysub,predictors,srrun,seed,procs,tempdirpath,zmin)
             finally:
                 shutil.rmtree(tempdirpath,ignore_errors=True)
             save_equations(model,name,seed,config)

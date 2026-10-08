@@ -10,8 +10,8 @@ Every results section needs two checks: (1) the text against its regenerated fig
 |---|---|---|
 | SR-BL | `cube(bl+c1)+c2` | Fixed (complexity 7, seeds 42/72/102). |
 | SR-ATM | `c3*cube(max(rh,thetae-c4*thetaestar-c5))` | Fixed (complexity 17, seeds 42/102). |
-| SR-SFC | `sr_atm_eq + f` | Rerunning as an additive-correction search; pick f from the new tables. |
-| SR-ALL | `sr_atm_eq + f` | Rerunning as an additive-correction search; pick f from the new tables. |
+| SR-SFC | uses `sr_atm_eq` as an input | Searches being rerun; pick from the new tables (additive in `sr_atm_eq`, used once). |
+| SR-ALL | uses `sr_atm_eq` as an input | Searches being rerun; pick from the new tables (additive in `sr_atm_eq`, used once, ≥1 kernel-integrated feature). |
 | SR-ALL-PC | modification of SR-ALL | Old fix (`+cube(1−c)·θe`) no longer applies; define once SR-ALL and its constraint results are known. |
 
 Once SR-SFC, SR-ALL, and SR-ALL-PC are fixed, update in code: their forms, `refcomplexity`, and `seeds` in `configs.json` (and SR-ALL-PC's `complexity`, used for Figure 1), and their physical forms in `equations.py` (`calc_physical_constants`, `calc_physical_precip`).
@@ -35,22 +35,20 @@ These retype the equations with the old constant names (c6–c13) instead of imp
 
 ## Methods
 
-- **2.2.4 Symbolic Regression:** SR-SFC and SR-ALL now search only for an additive correction to SR-ATM. "In the second, it receives the output of an existing equation as an additional input, so that it can search for a new equation that incorporates or extends the existing one" should say the search finds a correction that is added to the existing equation.
-- **2.3 Experimental Design:** "SR-SFC and SR-ALL build on SR-ATM, receiving its output as an input and adding a learned correction" → the existing equation is fixed and only the additive correction is searched. SR-ALL-PC paragraph: check once SR-ALL-PC is defined.
+- **2.3 Experimental Design:** SR-ALL-PC paragraph: check once SR-ALL-PC is defined.
 - **Text S3** (kept here with the SR methods):
   - Seeds that found each structure (Constant Optimization paragraph): SR-BL 42, 72, and 102 (complexity 7); SR-ATM 42 and 102 (complexity 17); SR-SFC and SR-ALL still to come.
   - Unchanged (checked against `configs.json`): operators and complexities, max size 20 (10 for SR-BL), depth 10, 20 × 150 populations, 200 iterations, parsimony 0.0025, constant-optimization weight 0.25, ~8.6M combined samples, ~215,000 at 2.5%, 50 initializations, [−5, 5].
-  - Max size for SR-SFC/SR-ALL now applies to the correction alone (20); check the wording if the text implies it includes SR-ATM.
 
 ## Results
 
 For each item: update numbers and descriptions from the regenerated figure/table, do the physical-form check, and flag any qualitative change from the old version.
 
-- **Section 3.1 (model hierarchy) — Figure 1 (`pareto.ipynb`):** all R² and MSE values; complexity markers (SR complexity + SR-ATM's for SR-SFC/SR-ALL/SR-ALL-PC; the additive corrections no longer count the `sr_atm_eq` term); dashed line now connects only the plotted models.
+- **Section 3.1 (model hierarchy) — Figure 1 (`pareto.ipynb`):** all R² and MSE values; complexity markers (SR complexity + SR-ATM's for SR-SFC/SR-ALL/SR-ALL-PC); dashed line now connects only the plotted models.
 - **SR-BL — Figure 2 (`srbl.ipynb`):** equation and physical constants (λ, B_c, β); physical-form check.
 - **Kernels — Figure 3 (`weights.ipynb`):** kernel descriptions (new nonparametric RH peaks near the surface and the column top).
 - **SR-ATM — Figure 4 (`sratm.ipynb`):** equation and physical constants (λ, κ, γ, θ_c); confirm λ, κ, γ > 0 (Section 3.5 and Text S4 rely on this); physical-form check.
-- **SR-SFC — Figure 5 (`srsfc.ipynb`):** new correction and its interpretation (old form had LHF; new may not); physical constants; physical-form check.
+- **SR-SFC — Figure 5 (`srsfc.ipynb`):** new equation and its interpretation (old form had LHF; new may not); physical constants; physical-form check.
 - **Section 3.4 (physical constraints) — Table 1 (`constraints.ipynb`):** all satisfaction rates; ERA5 reference choices (land for PC₁) still justified.
 - **Section 3.7 (SR-ALL, SR-ALL-PC) — Figure 6 (`srall.ipynb`):** new forms and physical constants; derivatives with respect to each feature and which constraints hold; motivation and construction of SR-ALL-PC; physical-form check for both.
 - **Diurnal results — diurnal table (`diurnal.ipynb`):** all values; flag changes in the diurnal cycle (windows are now concurrent, so phases may shift).
