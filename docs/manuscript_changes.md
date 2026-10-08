@@ -28,7 +28,6 @@ SR-SFC and SR-ALL forms are updated in `configs.json` and `equations.py`. If SR-
 - Abstract and PLS both need to be written.
 
 ## Introduction
-- Need to add citations to possible reviewers where relevant. Possible reviewers are: Rajat Masiwal, Akshay Deoras, Hao Xu, Dion Hafner, Antonios Mamalakis.
 - Otherwise checked against the code; no changes.
 
 ## Methods

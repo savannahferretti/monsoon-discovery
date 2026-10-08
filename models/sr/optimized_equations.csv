@@ -1,4 +1,0 @@
-name,form,train_loss,valid_loss,constants
-sr_bl_eq,cube(bl+c1)+c2,0.5050502759362906,0.5110586962078209,"{""c1"": 0.3025, ""c2"": 0.1283}"
-sr_atm_eq,"c3*cube(max(rh,thetae-c4*thetaestar-c5))",0.4503213034772668,0.4608289977427975,"{""c3"": 1.58, ""c4"": 1.452, ""c5"": 0.3409}"
-sr_all_eq,sr_atm_eq+(shf+c8*thetae)*cube(c9-lf),0.3909999544533749,0.4042003455159235,"{""c8"": 0.1443, ""c9"": 1.209}"
