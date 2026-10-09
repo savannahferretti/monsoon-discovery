@@ -19,6 +19,7 @@ export JULIA_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export JULIA_DEPOT_PATH=$JULIA_DEPOT_CFS
 export PYTHON_JULIAPKG_PROJECT=$JULIA_DEPOT_CFS/environments/pyjuliapkg
 export UCX_ERROR_SIGNALS=""
+export TMPDIR=/tmp
 
 module load python conda
 source "$(conda info --base)/etc/profile.d/conda.sh"
