@@ -11,8 +11,8 @@ Every results section needs two checks: (1) the text against its regenerated fig
 | SR-BL | `cube(bl+c1)+c2` | Fixed (complexity 7, seeds 42/72/102). |
 | SR-ATM | `c3*cube(max(rh,thetae-c4*thetaestar-c5))` | Fixed (complexity 17, seeds 42/72 after the rerun). |
 | SR-SFC | `sr_atm_eq+shf*(c6-lf)+c7*lhf` | Fixed (complexity 14, seeds 42/72 after the rerun). |
-| SR-ALL | `sr_atm_eq+(shf+c8*thetae)*cube(c9-lf)` | Chosen (complexity 15, seed 72; starts from `init`, no structural match). |
-| SR-ALL-PC | — | Removed from `configs.json`; with c9 > 1 SR-ALL may already satisfy PC₂. Decide after the constraint results. |
+| SR-ALL | `sr_atm_eq+(thetae+c8*shf)*cube(c9-lf)` | Fixed (complexity 15, all three seeds after the rerun; LF_c ≈ 0.71 < 1, so PC₂ can fail where LF > LF_c). |
+| SR-ALL-PC | — | Not in `configs.json`. With LF_c < 1 again, revisit after the constraint results. |
 
 SR-SFC and SR-ALL forms are updated in `configs.json` and `equations.py`. If SR-ALL-PC returns, add it to both (and its `complexity`, used for Figure 1).
 
@@ -34,7 +34,7 @@ SR-SFC and SR-ALL forms are updated in `configs.json` and `equations.py`. If SR-
 
 - **2.3 Experimental Design:** SR-ALL-PC paragraph: check once SR-ALL-PC is defined.
 - **Text S3** (kept here with the SR methods):
-  - Seeds that found each structure (Constant Optimization paragraph): SR-BL 42, 72, and 102 (complexity 7); SR-ATM 42 and 72 (complexity 17); SR-SFC 42 and 72 (complexity 14); SR-ALL 72 (complexity 15).
+  - Seeds that found each structure (Constant Optimization paragraph): SR-BL 42, 72, and 102 (complexity 7); SR-ATM 42 and 72 (complexity 17); SR-SFC 42 and 72 (complexity 14); SR-ALL 42, 72, and 102 (complexity 15).
   - Search settings changed for the rerun of all four searches: "its predictions enter with weight 1, since that equation has already been optimized and adds no degrees of freedom" → the existing equation's output has complexity 2, like the other time-varying predictors; add that denominators are limited to complexity 1 (a constant or LF), alongside the existing limits on exponents and nested compositions.
   - Unchanged (checked against `configs.json`): operators and complexities, max size 20 (10 for SR-BL), depth 10, 20 × 150 populations, 200 iterations, parsimony 0.0025, constant-optimization weight 0.25, ~8.6M combined samples, ~215,000 at 2.5%, 50 initializations, [−5, 5].
 

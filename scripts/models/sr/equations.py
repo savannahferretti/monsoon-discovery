@@ -147,7 +147,7 @@ def calc_physical_constants(name,registry,stats):
     if name=='sr_sfc_eq':
         physical.update(lamshf=sy/std('shf'),lfc=c['c6'],lamlhf=sy*c['c7']/std('lhf'))
     elif name=='sr_all_eq':
-        physical.update(lamthetae=sy*c['c8']/std('thetae'),lamshf=sy/std('shf'),lfc=c['c9'])
+        physical.update(lamthetae=sy/std('thetae'),lamshf=sy*c['c8']/std('shf'),lfc=c['c9'])
     else:
         raise ValueError(f'No physical form for `{name}`')
     return physical
