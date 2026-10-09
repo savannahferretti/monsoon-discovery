@@ -17,7 +17,9 @@ JULIA_DEPOT_CFS=/global/cfs/cdirs/m4334/sferrett/.julia
 export OMP_NUM_THREADS=1
 export JULIA_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export JULIA_DEPOT_PATH=$JULIA_DEPOT_CFS
-export PYTHON_JULIAPKG_PROJECT=$JULIA_DEPOT_CFS/environments/pyjuliapkg
+export PYTHON_JULIAPKG_PROJECT=/tmp/pyjuliapkg_${SLURM_JOB_ID}
+mkdir -p $PYTHON_JULIAPKG_PROJECT
+rsync -a --exclude lock.pid $JULIA_DEPOT_CFS/environments/pyjuliapkg/ $PYTHON_JULIAPKG_PROJECT/
 export UCX_ERROR_SIGNALS=""
 
 module load python conda
@@ -36,9 +38,10 @@ python -m scripts.models.sr.train --runs ${RUN} "$@"
 # salloc --account=m4334 --constraint=cpu --qos=interactive --nodes=1 --cpus-per-task=52 --time=04:00:00
 # cd /global/cfs/cdirs/m4334/sferrett/monsoon-discovery
 # export OMP_NUM_THREADS=1
-# export JULIA_NUM_THREADS=1
+# export JULIA_NUM_THREADS=52
 # export JULIA_DEPOT_PATH=/global/cfs/cdirs/m4334/sferrett/.julia
-# export PYTHON_JULIAPKG_PROJECT=/global/cfs/cdirs/m4334/sferrett/.julia/environments/pyjuliapkg
+# export PYTHON_JULIAPKG_PROJECT=/tmp/pyjuliapkg && mkdir -p $PYTHON_JULIAPKG_PROJECT
+# rsync -a --exclude lock.pid /global/cfs/cdirs/m4334/sferrett/.julia/environments/pyjuliapkg/ $PYTHON_JULIAPKG_PROJECT/
 # export UCX_ERROR_SIGNALS=""
 # module load python conda
 # source "$(conda info --base)/etc/profile.d/conda.sh"
