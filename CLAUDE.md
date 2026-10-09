@@ -12,7 +12,7 @@ Research code for data-driven discovery of thermodynamic controls on South Asian
 conda env create -f environment.yml && conda activate monsoon-discovery
 ```
 
-Julia is required for PySR. On NERSC, Julia packages live at `/global/cfs/cdirs/m4334/sferrett/.julia`, synced to `$SCRATCH/.julia` before SR jobs.
+Julia is required for PySR. On NERSC, Julia packages live at `/global/cfs/cdirs/m4334/sferrett/.julia`; SR jobs use that depot directly (not `$SCRATCH`, which can hang during scratch outages).
 
 ## Running Scripts
 
