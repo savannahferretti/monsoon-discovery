@@ -23,6 +23,7 @@ rsync -a --exclude lock.pid $JULIA_DEPOT_CFS/environments/pyjuliapkg/ $PYTHON_JU
 export UCX_ERROR_SIGNALS=""
 export TMPDIR=/tmp
 export PYTHONUNBUFFERED=1
+export PYTHON_JULIAPKG_OFFLINE=yes
 
 module load python conda
 source "$(conda info --base)/etc/profile.d/conda.sh"
