@@ -124,6 +124,7 @@
                 "sr_atm_eq":{
                     "runfrom":"sr_atm",
                     "refcomplexity":17,
+                    "seeds":[42,72],
                     "form":"c3*cube(max(rh,thetae-c4*thetaestar-c5))",
                     "color":"#FB992F",
                     "description":"SR-ATM"},
