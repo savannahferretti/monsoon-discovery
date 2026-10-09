@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --account=m4334
 #SBATCH --constraint=cpu
+#SBATCH -L cfs
 #SBATCH --qos=shared
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
