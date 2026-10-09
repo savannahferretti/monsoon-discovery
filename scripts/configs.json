@@ -131,7 +131,7 @@
                 "sr_sfc_eq":{
                     "runfrom":"sr_sfc",
                     "refcomplexity":14,
-                    "seeds":[72],
+                    "seeds":[42,72],
                     "form":"sr_atm_eq+shf*(c6-lf)+c7*lhf",
                     "color":"#ED592A",
                     "description":"SR-SFC"},
