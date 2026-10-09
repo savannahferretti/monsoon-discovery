@@ -146,7 +146,7 @@ def calc_physical_constants(name,registry,stats):
     c = registry[name]['constants']
     if name=='sr_sfc_eq':
         physical.update(lamshf=sy/std('shf'),lfc=c['c6'],lamlhf=sy*c['c7']/std('lhf'))
-    elif name=='sr_all_eq':
+    elif name in ('sr_all_eq','sr_all_pc_eq'):
         physical.update(lamthetae=sy/std('thetae'),lamshf=sy*c['c8']/std('shf'),lfc=c['c9'])
     else:
         raise ValueError(f'No physical form for `{name}`')
@@ -165,7 +165,8 @@ def get_physical_form(name):
         'sr_bl_eq':r'\lambda(B_L-B_c)^3+\beta',
         'sr_atm_eq':atm,
         'sr_sfc_eq':r'f_\mathrm{ATM}+\lambda_\mathrm{SHF}(\mathrm{LF}_c-\mathrm{LF})(\mathrm{SHF}-\mu_\mathrm{SHF})+\lambda_\mathrm{LHF}(\mathrm{LHF}-\mu_\mathrm{LHF})',
-        'sr_all_eq':r'f_\mathrm{ATM}+(\mathrm{LF}_c-\mathrm{LF})^3\left[\lambda_\mathrm{SHF}(\mathrm{SHF}-\mu_\mathrm{SHF})+\lambda_{\theta_e}(\theta_e-\mu_{\theta_e})\right]'}
+        'sr_all_eq':r'f_\mathrm{ATM}+(\mathrm{LF}_c-\mathrm{LF})^3\left[\lambda_\mathrm{SHF}(\mathrm{SHF}-\mu_\mathrm{SHF})+\lambda_{\theta_e}(\theta_e-\mu_{\theta_e})\right]',
+        'sr_all_pc_eq':r'f_\mathrm{ATM}+(\mathrm{LF}_c-\mathrm{LF})^3\left[\lambda_\mathrm{SHF}(\mathrm{SHF}-\mu_\mathrm{SHF})+\lambda_{\theta_e}(\theta_e-\mu_{\theta_e})\right]+\lambda_{\theta_e}(1-\mathrm{LF}_c)^3(\theta_e-\mu_{\theta_e})'}
     if name not in exponents:
         raise ValueError(f'No physical form for `{name}`')
     return f'${exponents[name]}$'
@@ -191,6 +192,8 @@ def calc_physical_precip(name,physical,inputs,stats):
         exponent    = p['lam']*np.maximum(moisture,instability)**3
         if name=='sr_sfc_eq':
             exponent = exponent+p['lamshf']*(p['lfc']-inputs['lf'])*(inputs['shf']-mean('shf'))+p['lamlhf']*(inputs['lhf']-mean('lhf'))
-        elif name=='sr_all_eq':
+        elif name in ('sr_all_eq','sr_all_pc_eq'):
             exponent = exponent+(p['lfc']-inputs['lf'])**3*(p['lamshf']*(inputs['shf']-mean('shf'))+p['lamthetae']*(inputs['thetae']-mean('thetae')))
+            if name=='sr_all_pc_eq':
+                exponent = exponent+p['lamthetae']*(1-p['lfc'])**3*(inputs['thetae']-mean('thetae'))
     return np.maximum(np.expm1(exponent),0.0)

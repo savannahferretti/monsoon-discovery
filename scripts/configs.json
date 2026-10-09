@@ -141,7 +141,14 @@
                     "seeds":[42,72,102],
                     "form":"sr_atm_eq+(thetae+c8*shf)*cube(c9-lf)",
                     "color":"#B91B23",
-                    "description":"SR-ALL"}
+                    "description":"SR-ALL"},
+                "sr_all_pc_eq":{
+                    "runfrom":"sr_all",
+                    "complexity":23,
+                    "form":"sr_atm_eq+(thetae+c8*shf)*cube(c9-lf)+cube(1-c9)*thetae",
+                    "initfrom":"sr_all_eq",
+                    "color":"#821216",
+                    "description":"SR-ALL-PC"}
             }
         }
     }
