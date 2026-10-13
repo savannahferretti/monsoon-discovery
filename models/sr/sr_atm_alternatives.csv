@@ -1,0 +1,4 @@
+name,form,compact,complexity,beststart,train_loss,valid_loss,c3,c4,c5,c6
+sr_atm_add_eq,c3*cube(c6*rh+thetae-c4*thetaestar-c5),c3*cube(c6*rh+thetae-c4*thetaestar-c5),18,random,0.46709199426607934,0.4753091899990954,0.929,1.464,0.2267,0.171
+sr_atm_sumcube_eq,c3*(cube(c6*rh)+cube(thetae-c4*thetaestar-c5)),c3*(cube(c6*rh)+cube(thetae-c4*thetaestar-c5)),20,random,0.4557065347249331,0.4662831045888076,1.285,1.461,0.3123,0.7873
+sr_atm_smoothmax_eq,"c3*cube(max(rh,thetae-c4*thetaestar-c5)+abs(c6)*log(1+exp(-abs(rh-(thetae-c4*thetaestar-c5))/(abs(c6)+1e-12))))",c3*cube(c6*log(exp(rh/c6)+exp((thetae-c4*thetaestar-c5)/c6))),30,random,0.44663365096583646,0.4575471141452324,1.483,1.455,0.3366,0.1148
