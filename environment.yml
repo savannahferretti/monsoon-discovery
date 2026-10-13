@@ -13,7 +13,7 @@ dependencies:
   - h5py
   - h5netcdf
   - ipykernel
-  - julia
+  - julia=1.12.1
   - matplotlib
   - netcdf4
   - numba
@@ -21,6 +21,7 @@ dependencies:
   - pandas
   - planetary-computer
   - proplot
+  - pyjuliacall=0.9.28
   - pysr=2.1.0
   - pystac-client
   - pytorch
