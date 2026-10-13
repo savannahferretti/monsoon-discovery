@@ -21,7 +21,7 @@ dependencies:
   - pandas
   - planetary-computer
   - proplot
-  - pysr
+  - pysr=2.1.0
   - pystac-client
   - pytorch
   - scikit-learn
