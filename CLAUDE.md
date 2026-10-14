@@ -49,7 +49,7 @@ State exactly what was/wasn't verified — never describe untested code as worki
 
 ## Guardrails
 
-- `data/{raw,interim,splits,predictions,features,weights}/`, `*.nc`, `*.h5`, `*.pkl`, `*.pth`, `*.npz`, and `*.sh` (except `train_sr.sh`/`optimize_sr.sh`) are gitignored — `git add` won't pick them up; don't add new `.sh` files without updating `.gitignore` too.
+- `data/{raw,interim,splits,predictions,features,weights}/`, `*.nc`, `*.h5`, `*.pkl`, `*.pth`, `*.npz`, and `*.sh` are gitignored — `git add` won't pick them up. SLURM scripts (`train_sr.sh`, `optimize_sr.sh`) live only on the user's local/NERSC checkout.
 - `filepaths` in `configs.json` is NERSC-specific — update locally for testing, never commit personal path overrides.
 - Scripts skip runs whose outputs already exist — don't delete existing checkpoints/predictions to force a rerun without asking first.
 
