@@ -22,36 +22,37 @@ cd monsoon-discovery
 Create the Conda environment and activate it:
 ```
 conda env create -f environment.yml
-conda activate monsoon-disocvery
+conda activate monsoon-discovery
 ```
 
-Before running any code, edit `scripts/configs.json` to set valid local paths for `filepaths` (`raw`, `interim`, `splits`, `predictions`, `weights`, and `models`). All outputs will be written to these locations. Users should also update `metadata` (author and email for output files), and can optionally customize the spatial/temporal domain in `domain`, the year ranges in `splits`, the chosen predictors and target in `variables`, training hyperparameters and seeds in `training`, and the set of model variants in `models`. Model names passed via `--models` must match the `name` fields in the configuration.
+Before running any code, edit `scripts/configs.json` to set valid local paths for `filepaths` (`raw`, `interim`, `splits`, `predictions`, `features`, `weights`, and `models`). All outputs will be written to these locations. Users should also update `metadata` (author and email for output files), and can optionally customize the spatial/temporal domain in `domain`, the year ranges in `splits`, and the neural network and symbolic regression settings in `experiments`. Names passed via `--runs` or `--equations` must match the keys in `experiments.nn.runs`, `experiments.sr.runs`, or `experiments.sr.optimizedeqs`.
 
-Before running any code, edit `scripts/configs.json`:
-- `filepaths`: set valid local paths for `raw`, `interim`, `splits`, `predictions`, `weights`, and `models`. All outputs are written to these locations (the defaults point to our NERSC directories).
-- `metadata`: set the `author` and `email` written to the output files.
-
-
-Now, download the ERA5 and IMERG V06 datasets into `data/raw/`, compute derived predictor and target variables stored in `data/interim/`, and generate the training, validation, and test splits written to `data/splits/`:
+Now, download the ERA5 and IMERG V06 datasets into `raw`, compute derived predictor and target variables stored in `interim`, and generate the training, validation, and test splits written to `splits`:
 ```
 python -m scripts.data.download
 python -m scripts.data.calculate
 python -m scripts.data.split
 ```
-Train and evaluate all models specified in the configuration file:
+First, train and evaluate all neural networks. Evaluating the kernel neural networks saves the learned kernel weights used by the symbolic regression runs:
 ```
-python -m scripts.models.train
-python -m scripts.models.evaluate --split test # or --split valid, for tuning
+python -m scripts.models.nn.train --runs all
+python -m scripts.models.nn.evaluate --runs all --split test # or --split valid, for tuning
 ```
-To train and evaluate a single model:
+Next, run the symbolic regression searches for SR-BL and SR-ATM:
 ```
-python -m scripts.models.train --models baseline_local
-python -m scripts.models.evaluate --models baseline_local --split test
+python -m scripts.models.sr.train --runs sr_bl,sr_atm
 ```
-Or train and evaluate multiple models at once:
+From the resulting equation tables (`<run>_<seed>_equations.csv` in `models`), choose the equation form to optimize for each run. Add each form to `experiments.sr.optimizedeqs` in `scripts/configs.json`, with `runfrom` set to the symbolic regression run it came from and `refcomplexity` set to its PySR complexity. Then optimize the constants of both equations:
 ```
-python -m scripts.models.train --models baseline_local,baseline_nonlocal
-python -m scripts.models.evaluate --models baseline_local,baseline_nonlocal --split test
+python -m scripts.models.sr.optimize --equations sr_bl_eq,sr_atm_eq
+```
+Then, run the symbolic regression searches for SR-SFC and SR-ALL, which use the optimized SR-ATM equation as a predictor:
+```
+python -m scripts.models.sr.train --runs sr_sfc,sr_all
+```
+As before, choose the SR-SFC and SR-ALL forms and add them to `optimizedeqs`. SR-ALL-PC is a hand-specified variant of the SR-ALL form, so it has no search of its own: add it with `runfrom` set to `sr_all` and `initfrom` set to `sr_all_eq`. Then optimize all three:
+```
+python -m scripts.models.sr.optimize --equations sr_sfc_eq,sr_all_eq,sr_all_pc_eq
 ```
 To visualize your results, run the Jupyter Notebooks in `notebooks/` to replicate the figures used in the manuscript.
 
