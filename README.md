@@ -25,7 +25,7 @@ conda env create -f environment.yml
 conda activate monsoon-discovery
 ```
 
-Before running any code, edit `scripts/configs.json` to set valid local paths for `filepaths` (`raw`, `interim`, `splits`, `predictions`, `features`, `weights`, and `models`). All outputs will be written to these locations. Users should also update `metadata` (author and email for output files), and can optionally customize the spatial/temporal domain in `domain`, the year ranges in `splits`, and the neural network and symbolic regression settings in `experiments`. Names passed via `--runs` or `--equations` must match the keys in `experiments.nn.runs`, `experiments.sr.runs`, or `experiments.sr.optimizedeqs`.
+Before running any code, edit `scripts/configs.json` to set valid local paths for `filepaths` (`raw`, `interim`, `splits`, `predictions`, `features`, `weights`, and `models`). All outputs will be written to these locations. Users should also update `metadata` (author and email for output files), and can optionally customize the spatial/temporal domain in `domain`, the year ranges in `splits`, and the neural network and symbolic regression settings in `experiments`. This includes adding, removing, or renaming runs and changing their input variables. The run and equation names used below are the ones from our configuration; if you change them, pass your own names via `--runs` or `--equations`, matching the keys in `experiments.nn.runs`, `experiments.sr.runs`, or `experiments.sr.optimizedeqs`.
 
 Now, download the ERA5 and IMERG V06 datasets into `raw`, compute derived predictor and target variables stored in `interim`, and generate the training, validation, and test splits written to `splits`:
 ```
@@ -42,15 +42,15 @@ Next, run the symbolic regression searches for SR-BL and SR-ATM:
 ```
 python -m scripts.models.sr.train --runs sr_bl,sr_atm
 ```
-From the resulting equation tables (`<run>_<seed>_equations.csv` in `models`), choose the equation form to optimize for each run. Add each form to `experiments.sr.optimizedeqs` in `scripts/configs.json`, with `runfrom` set to the symbolic regression run it came from and `refcomplexity` set to its PySR complexity. Then optimize the constants of both equations:
+Then choose the equation form to optimize for each run from the resulting equation tables (`<run>_<seed>_equations.csv` in `models`). PySR's search is stochastic, so your equations may differ from ours. The forms already in `experiments.sr.optimizedeqs` are the ones from our runs; replace them with forms chosen from your own results. For each equation, set `runfrom` to the symbolic regression run it came from and `refcomplexity` to its PySR complexity. Then optimize the constants of both equations:
 ```
 python -m scripts.models.sr.optimize --equations sr_bl_eq,sr_atm_eq
 ```
-Then, run the symbolic regression searches for SR-SFC and SR-ALL, which use the optimized SR-ATM equation as a predictor:
+Then, run the symbolic regression searches for SR-SFC and SR-ALL, which use the optimized SR-ATM equation as a predictor (set by `residualfrom`):
 ```
 python -m scripts.models.sr.train --runs sr_sfc,sr_all
 ```
-As before, choose the SR-SFC and SR-ALL forms and add them to `optimizedeqs`. SR-ALL-PC is a hand-specified variant of the SR-ALL form, so it has no search of its own: add it with `runfrom` set to `sr_all` and `initfrom` set to `sr_all_eq`. Then optimize all three:
+As before, choose the SR-SFC and SR-ALL forms from your results and add them to `optimizedeqs`. SR-ALL-PC is a hand-specified variant of the SR-ALL form, so it has no search of its own: add it with `runfrom` set to `sr_all` and `initfrom` set to `sr_all_eq`. Then optimize all three:
 ```
 python -m scripts.models.sr.optimize --equations sr_sfc_eq,sr_all_eq,sr_all_pc_eq
 ```
