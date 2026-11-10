@@ -1,7 +1,7 @@
 Discovering Equations for the Thermodynamics of South Asian Monsoon Precipitation
 ------------
 
-This repository contains the code used to reproduce the analyses in Ferretti et al. (submitted to *Journal of Advances in Modeling Earth Systems*). The final version is archived on Zenodo. For questions or feedback, contact Savannah Ferretti (savannah.ferretti@asu.edu).
+This repository contains the code used to reproduce the analyses in Ferretti et al. (submitted to *Journal of Advances in Modeling Earth Systems*). The final version is [archived on Zenodo](https://doi.org/10.5281/zenodo.24094998). For questions or feedback, contact Savannah Ferretti (savannah.ferretti@asu.edu).
 
 **Authors & Affiliations:**  
 Savannah Ferretti<sup>1</sup>, Jane Baldwin<sup>1</sup>, Mike Pritchard<sup>2</sup>, & Tom Beucler<sup>3</sup>  
